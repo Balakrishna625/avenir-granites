@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { AppLayout } from "@/components/AppLayout";
 import { AddExpenseForm } from "@/components/AddExpenseForm";
+import { CategoryManagement } from "@/components/CategoryManagement";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -80,17 +80,19 @@ export default function ExpensesPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showCategoryManagement, setShowCategoryManagement] = useState(false);
   
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedVendor, setSelectedVendor] = useState("");
+  const [selectedAccount, setSelectedAccount] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     loadData();
-  }, [selectedCategory, selectedVendor, dateFrom, dateTo]);
+  }, [selectedCategory, selectedAccount, dateFrom, dateTo]);
 
   async function loadData() {
     try {
@@ -98,27 +100,24 @@ export default function ExpensesPage() {
       
       const params = new URLSearchParams();
       if (selectedCategory) params.set("category_id", selectedCategory);
-      if (selectedVendor) params.set("vendor_id", selectedVendor);
+      if (selectedAccount) params.set("account_id", selectedAccount);
       if (dateFrom) params.set("from", dateFrom);
       if (dateTo) params.set("to", dateTo);
 
-      const [expensesRes, categoriesRes, vendorsRes, accountsRes] = await Promise.all([
+      const [expensesRes, categoriesRes, accountsRes] = await Promise.all([
         fetch(`/api/expenses?${params.toString()}`),
         fetch("/api/expense-categories"),
-        fetch("/api/vendors"),
         fetch("/api/expense-accounts")
       ]);
 
-      const [expensesData, categoriesData, vendorsData, accountsData] = await Promise.all([
+      const [expensesData, categoriesData, accountsData] = await Promise.all([
         expensesRes.json(),
         categoriesRes.json(),
-        vendorsRes.json(),
         accountsRes.json()
       ]);
 
       setExpenses(expensesData);
       setCategories(categoriesData);
-      setVendors(vendorsData);
       setAccounts(accountsData);
     } catch (error) {
       console.error("Failed to load data:", error);
@@ -140,13 +139,21 @@ export default function ExpensesPage() {
     .reduce((sum, expense) => sum + expense.total_amount, 0);
 
   return (
-    <AppLayout>
+    <>
       {showAddForm && (
         <AddExpenseForm
           onClose={() => setShowAddForm(false)}
           onSuccess={() => loadData()}
         />
       )}
+      
+      {showCategoryManagement && (
+        <CategoryManagement
+          onClose={() => setShowCategoryManagement(false)}
+          onSuccess={() => loadData()}
+        />
+      )}
+      
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -154,13 +161,29 @@ export default function ExpensesPage() {
             <h1 className="text-2xl font-bold text-gray-900">Expense Management</h1>
             <p className="text-gray-600">Track and manage all your business expenses</p>
           </div>
-          <Button 
-            onClick={() => setShowAddForm(true)}
-            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Expense</span>
-          </Button>
+          <div className="flex items-center space-x-3">
+            <Input
+              type="date"
+              placeholder="From Date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-auto"
+            />
+            <Input
+              type="date"
+              placeholder="To Date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-auto"
+            />
+            <Button 
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Expense</span>
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -207,12 +230,13 @@ export default function ExpensesPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowCategoryManagement(true)}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Categories</p>
                   <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
+                  <p className="text-xs text-blue-600 mt-1">Click to manage</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                   <Package className="w-6 h-6 text-purple-600" />
@@ -225,7 +249,7 @@ export default function ExpensesPage() {
         {/* Filters */}
         <Card>
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -248,29 +272,17 @@ export default function ExpensesPage() {
               </select>
 
               <select
-                value={selectedVendor}
-                onChange={(e) => setSelectedVendor(e.target.value)}
+                value={selectedAccount}
+                onChange={(e) => setSelectedAccount(e.target.value)}
                 className="border rounded-lg px-3 py-2 text-sm"
               >
-                <option value="">All Vendors</option>
-                {vendors.map(vendor => (
-                  <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+                <option value="">All Payment Accounts</option>
+                {accounts.map(account => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({account.account_type})
+                  </option>
                 ))}
               </select>
-
-              <Input
-                type="date"
-                placeholder="From Date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-
-              <Input
-                type="date"
-                placeholder="To Date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
             </div>
           </CardContent>
         </Card>
@@ -289,10 +301,7 @@ export default function ExpensesPage() {
                       Category
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Vendor
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Payment
+                      Payment Account
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Amount
@@ -311,7 +320,7 @@ export default function ExpensesPage() {
                     </tr>
                   ) : filteredExpenses.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                         No expenses found. Add your first expense to get started.
                       </td>
                     </tr>
@@ -339,16 +348,8 @@ export default function ExpensesPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900">
-                            {expense.vendors?.name || 'Direct Purchase'}
-                          </div>
-                          {expense.vendors?.vendor_code && (
-                            <div className="text-xs text-gray-500">{expense.vendors.vendor_code}</div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900">{expense.payment_method}</div>
-                          <div className="text-xs text-gray-500">{expense.expense_accounts.name}</div>
+                          <div className="text-sm text-gray-900">{expense.expense_accounts.name}</div>
+                          <div className="text-xs text-gray-500">{expense.payment_method} • {expense.expense_accounts.account_type}</div>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="text-sm font-medium text-gray-900">
@@ -382,6 +383,6 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </>
   );
 }
