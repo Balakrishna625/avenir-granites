@@ -261,6 +261,72 @@ export default function Page() {
     e.currentTarget.reset();
   }
 
+  async function editConsignment(consignmentId: string, updatedData: any) {
+    const rtgs = updatedData.rtgs_expected || 0;
+    const cash = updatedData.cash_expected || 0;
+    const total = updatedData.total || 0;
+
+    // Validation: Total should equal RTGS + Cash
+    if (Math.abs(total - (rtgs + cash)) > 0.01) {
+      alert(`Validation Error: Total (₹${total.toLocaleString()}) must equal RTGS Expected (₹${rtgs.toLocaleString()}) + Cash Expected (₹${cash.toLocaleString()}) = ₹${(rtgs + cash).toLocaleString()}`);
+      return;
+    }
+
+    const payload = {
+      total: total,
+      rtgs_expected: rtgs,
+      cash_expected: cash,
+      remarks: updatedData.remarks || '',
+    };
+
+    const res = await fetch(`/api/consignments/${consignmentId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Update failed");
+    
+    setConsignments((s) => s.map(c => c.id === consignmentId ? { ...c, ...payload } : c));
+  }
+
+  async function deleteConsignment(consignmentId: string) {
+    if (!confirm("Are you sure you want to delete this consignment?")) return;
+
+    const res = await fetch(`/api/consignments/${consignmentId}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Delete failed");
+    
+    setConsignments((s) => s.filter(c => c.id !== consignmentId));
+    alert("Consignment deleted successfully!");
+  }
+
+  async function editTransaction(transactionId: string, updatedData: any) {
+    const payload = {
+      amount: updatedData.amount || 0,
+      note: updatedData.note || '',
+    };
+
+    const res = await fetch(`/api/transactions/${transactionId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Update failed");
+    
+    setTxns((s) => s.map(t => t.id === transactionId ? { ...t, ...payload } : t));
+  }
+
+  async function deleteTransaction(transactionId: string) {
+    if (!confirm("Are you sure you want to delete this transaction?")) return;
+
+    const res = await fetch(`/api/transactions/${transactionId}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Delete failed");
+    
+    setTxns((s) => s.filter(t => t.id !== transactionId));
+    alert("Transaction deleted successfully!");
+  }
+
   return (
     <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
       <div className="space-y-4">
@@ -358,6 +424,8 @@ export default function Page() {
       <ConsignmentsTable 
         consignments={consignments}
         onAddConsignment={addConsignment}
+        onEditConsignment={editConsignment}
+        onDeleteConsignment={deleteConsignment}
         customerId={customerId}
         customers={customers}
       />
@@ -368,6 +436,8 @@ export default function Page() {
         accounts={accounts}
         customers={customers}
         onAddTransaction={addTxn}
+        onEditTransaction={editTransaction}
+        onDeleteTransaction={deleteTransaction}
       />
 
       <p className="text-xs text-gray-500 text-center">

@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar, PlusCircle } from "lucide-react";
+import { Calendar, PlusCircle, Edit, Trash2, Save, X } from "lucide-react";
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
@@ -22,9 +22,42 @@ interface TransactionsTableProps {
   accounts: any[];
   customers: any[];
   onAddTransaction: (e: React.FormEvent<HTMLFormElement>) => void;
+  onEditTransaction: (id: string, data: Partial<Transaction>) => void;
+  onDeleteTransaction: (id: string) => void;
 }
 
-export function TransactionsTable({ transactions, accounts, customers, onAddTransaction }: TransactionsTableProps) {
+export function TransactionsTable({ transactions, accounts, customers, onAddTransaction, onEditTransaction, onDeleteTransaction }: TransactionsTableProps) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<Partial<Transaction>>({});
+
+  const handleEdit = (transaction: Transaction) => {
+    setEditingId(transaction.id);
+    setEditValues({
+      amount: transaction.amount,
+      note: transaction.note
+    });
+  };
+
+  const handleSave = () => {
+    if (editingId) {
+      // Validation: Amount should be positive
+      const amount = editValues.amount || 0;
+      if (amount <= 0) {
+        alert('Amount must be greater than 0');
+        return;
+      }
+      
+      onEditTransaction(editingId, editValues);
+      setEditingId(null);
+      setEditValues({});
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingId(null);
+    setEditValues({});
+  };
+
   const rtgsTransactions = transactions.filter(t => t.mode === 'RTGS');
   const cashTransactions = transactions.filter(t => t.mode === 'CASH');
 
@@ -114,12 +147,13 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Account</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Amount (₹)</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Note</th>
+                    <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {rtgsTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500 text-sm">
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500 text-sm">
                         No RTGS transactions found
                       </td>
                     </tr>
@@ -127,13 +161,89 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                     rtgsTransactions.map((t) => {
                       const customer = customers.find(c => c.id === t.customer_id);
                       const account = accounts.find(a => a.id === t.account_id);
+                      const isEditing = editingId === t.id;
+                      
                       return (
                         <tr key={t.id} className="hover:bg-blue-25 transition-colors">
                           <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{t.date}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{customer?.name || 'Unknown'}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{account?.name || 'Unknown'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">{fmt(t.amount)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{t.note || "-"}</td>
+                          
+                          {/* Amount */}
+                          <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">
+                            {isEditing ? (
+                              <Input
+                                type="number"
+                                value={editValues.amount || 0}
+                                onChange={(e) => setEditValues({ ...editValues, amount: parseFloat(e.target.value) || 0 })}
+                                className="w-20 text-right p-1 text-sm"
+                                step="0.01"
+                                min="0"
+                              />
+                            ) : (
+                              fmt(t.amount)
+                            )}
+                          </td>
+                          
+                          {/* Note */}
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {isEditing ? (
+                              <Input
+                                type="text"
+                                value={editValues.note || ''}
+                                onChange={(e) => setEditValues({ ...editValues, note: e.target.value })}
+                                className="w-24 p-1 text-sm"
+                                placeholder="Note"
+                              />
+                            ) : (
+                              t.note || "-"
+                            )}
+                          </td>
+                          
+                          {/* Actions */}
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center space-x-1">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={handleSave}
+                                    className="text-green-600 hover:text-green-800 p-1 rounded"
+                                    title="Save changes"
+                                  >
+                                    <Save className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={handleCancel}
+                                    className="text-gray-600 hover:text-gray-800 p-1 rounded"
+                                    title="Cancel editing"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleEdit(t)}
+                                    className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                                    title="Edit transaction"
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (confirm('Are you sure you want to delete this transaction?')) {
+                                        onDeleteTransaction(t.id);
+                                      }
+                                    }}
+                                    className="text-red-600 hover:text-red-800 p-1 rounded"
+                                    title="Delete transaction"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })
@@ -161,12 +271,13 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Account</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Amount (₹)</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Note</th>
+                    <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {cashTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500 text-sm">
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500 text-sm">
                         No cash transactions found
                       </td>
                     </tr>
@@ -174,13 +285,89 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                     cashTransactions.map((t) => {
                       const customer = customers.find(c => c.id === t.customer_id);
                       const account = accounts.find(a => a.id === t.account_id);
+                      const isEditing = editingId === t.id;
+                      
                       return (
                         <tr key={t.id} className="hover:bg-green-25 transition-colors">
                           <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{t.date}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{customer?.name || 'Unknown'}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{account?.name || 'Unknown'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">{fmt(t.amount)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{t.note || "-"}</td>
+                          
+                          {/* Amount */}
+                          <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">
+                            {isEditing ? (
+                              <Input
+                                type="number"
+                                value={editValues.amount || 0}
+                                onChange={(e) => setEditValues({ ...editValues, amount: parseFloat(e.target.value) || 0 })}
+                                className="w-20 text-right p-1 text-sm"
+                                step="0.01"
+                                min="0"
+                              />
+                            ) : (
+                              fmt(t.amount)
+                            )}
+                          </td>
+                          
+                          {/* Note */}
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {isEditing ? (
+                              <Input
+                                type="text"
+                                value={editValues.note || ''}
+                                onChange={(e) => setEditValues({ ...editValues, note: e.target.value })}
+                                className="w-24 p-1 text-sm"
+                                placeholder="Note"
+                              />
+                            ) : (
+                              t.note || "-"
+                            )}
+                          </td>
+                          
+                          {/* Actions */}
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center space-x-1">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={handleSave}
+                                    className="text-green-600 hover:text-green-800 p-1 rounded"
+                                    title="Save changes"
+                                  >
+                                    <Save className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={handleCancel}
+                                    className="text-gray-600 hover:text-gray-800 p-1 rounded"
+                                    title="Cancel editing"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleEdit(t)}
+                                    className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                                    title="Edit transaction"
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (confirm('Are you sure you want to delete this transaction?')) {
+                                        onDeleteTransaction(t.id);
+                                      }
+                                    }}
+                                    className="text-red-600 hover:text-red-800 p-1 rounded"
+                                    title="Delete transaction"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })
