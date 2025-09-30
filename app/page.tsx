@@ -199,9 +199,17 @@ export default function Page() {
   return (
     <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
       <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">Granite Customer Dashboard</h1>
-          <p className="text-gray-600">Consignments (expected) vs Payments (actual) with date range & customer filter</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-semibold">Granite Customer Dashboard</h1>
+            <p className="text-gray-600">Consignments (expected) vs Payments (actual) with date range & customer filter</p>
+          </div>
+          <a 
+            href="/admin" 
+            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors"
+          >
+            Admin Panel
+          </a>
         </div>
 
         <div className="w-full space-y-3">
