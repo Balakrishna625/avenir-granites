@@ -21,7 +21,12 @@ import {
   Truck,
   Wrench,
   Factory,
-  UserCog
+  UserCog,
+  Mountain,
+  Scissors,
+  DollarSign,
+  ShoppingBag,
+  Boxes
 } from 'lucide-react';
 
 interface MenuItem {
@@ -37,6 +42,37 @@ const menuItems: MenuItem[] = [
     title: 'Dashboard',
     href: '/dashboard',
     icon: <LayoutDashboard className="w-5 h-5" />,
+  },
+  {
+    title: 'Granite Processing',
+    icon: <Mountain className="w-5 h-5" />,
+    children: [
+      {
+        title: 'Raw Block Entry',
+        href: '/granite/consignments',
+        icon: <Boxes className="w-4 h-4" />
+      },
+      {
+        title: 'Block Cutting',
+        href: '/granite/cutting',
+        icon: <Scissors className="w-4 h-4" />
+      },
+      {
+        title: 'Costing & Expenditure',
+        href: '/granite/costing',
+        icon: <DollarSign className="w-4 h-4" />
+      },
+      {
+        title: 'Slab Sales',
+        href: '/granite/sales',
+        icon: <ShoppingBag className="w-4 h-4" />
+      },
+      {
+        title: 'Inventory Overview',
+        href: '/granite/inventory',
+        icon: <Package className="w-4 h-4" />
+      }
+    ]
   },
   {
     title: 'Customer Management',
@@ -141,7 +177,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Granite Processing', 'Customer Management']);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems(prev => 
