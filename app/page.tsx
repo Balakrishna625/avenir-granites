@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from "react";
+import { AppLayout } from "@/components/AppLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar, Download, PlusCircle, BarChart3, Settings } from "lucide-react";
@@ -328,7 +329,8 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
+    <AppLayout>
+      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
       <div className="space-y-4">
         <div className="flex justify-between items-start">
           <div>
@@ -443,7 +445,8 @@ export default function Page() {
       <p className="text-xs text-gray-500 text-center">
         Granite Ledger - Comprehensive consignment and payment management system
       </p>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
 

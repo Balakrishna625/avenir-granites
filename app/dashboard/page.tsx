@@ -26,45 +26,66 @@ const fmt = (n: number) => INR.format(n || 0);
 
 export default function GraniteDashboard() {
   const [dashboardData, setDashboardData] = useState({
-    totalConsignments: 12,
-    totalProfit: 477740.27,
-    avgProfitMargin: 29.25,
-    totalSqftProduced: 16331.88,
-    avgCostPerSqft: 115.30,
-    avgSellingRate: 144.55,
-    totalInventory: 2450.5, // Remaining sqft
-    activeBlocks: 24,
-    totalExpenditure: 1229836,
-    netMeasurement: 33.797,
-    grossMeasurement: 52.273,
-    topBuyers: [
-      { name: 'SAIKRUPA', totalPurchases: 6542.35, totalProfit: 182456.78, avgRate: 154.2 },
-      { name: 'CHAMUDE', totalPurchases: 4231.89, totalProfit: 124568.34, avgRate: 148.5 },
-      { name: 'LOCAL GANDHI', totalPurchases: 2847.12, totalProfit: 79234.56, avgRate: 146.8 }
-    ],
-    recentSales: [
-      { buyer: 'CHAMUDE', blockPart: 'AVG36A', sqft: 775.745, rate: 145, profit: 22943.18, date: '2023-11-04' },
-      { buyer: 'SAIKRUPA', blockPart: 'AVG33B', sqft: 1433.74, rate: 143, profit: 39936.31, date: '2023-11-18' },
-      { buyer: 'SAIKRUPA', blockPart: 'AVG33A', sqft: 765.927, rate: 143, profit: 21331.50, date: '2023-11-21' },
-      { buyer: 'LOCAL GANDHI', blockPart: 'AVG34B', sqft: 385.0, rate: 145, profit: 11318.75, date: '2023-11-18' }
-    ],
-    consignmentAnalytics: [
-      { 
-        consignment: 'RISING SUN-29.09.23', 
-        supplier: 'Rising Sun Exports',
-        totalBlocks: 6,
-        netMeasurement: 33.797,
-        totalSqft: 16331.88,
-        totalCost: 1229836,
-        costPerSqft: 75.30,
-        profit: 477740.27,
-        profitMargin: 38.8
-      }
-    ]
+    totalConsignments: 0,
+    totalProfit: 0,
+    avgMargin: 0,
+    totalProduction: 0,
+    totalBlocks: 0,
+    avgCostPerSqft: 0,
+    avgSellingRate: 0,
+    totalInventory: 0,
+    activeBlocks: 0,
+    consignmentAnalytics: [],
+    topBuyers: [],
+    recentSales: []
   });
+  const [loading, setLoading] = useState(true);
 
-  const profitMargin = dashboardData.totalProfit > 0 ? 
-    (dashboardData.totalProfit / (dashboardData.totalExpenditure + dashboardData.totalProfit) * 100) : 0;
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        const response = await fetch('/api/analytics');
+        const data = await response.json();
+        if (response.ok) {
+          setDashboardData({
+            totalConsignments: data.overview.total_consignments,
+            totalProfit: data.overview.total_profit,
+            avgMargin: data.overview.profit_margin,
+            totalProduction: data.overview.total_sqft_produced,
+            totalBlocks: data.overview.total_blocks,
+            avgCostPerSqft: data.overview.avg_cost_per_sqft,
+            avgSellingRate: data.overview.total_sales / (data.overview.total_sqft_sold || 1),
+            totalInventory: Object.values(data.parts).reduce((sum: number, part: any) => sum + part.remaining_sqft, 0),
+            activeBlocks: data.blocks.by_status?.RAW || 0,
+            consignmentAnalytics: [],
+            topBuyers: data.buyers.top_buyers,
+            recentSales: data.recent_sales
+          });
+        } else {
+          console.error('Dashboard API Error:', data.error);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="min-h-screen w-full bg-gray-50 p-6 flex items-center justify-center">
+          <div className="text-center">
+            <Clock className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+            <p className="mt-2 text-gray-600">Loading dashboard data...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -97,7 +118,7 @@ export default function GraniteDashboard() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Profit</p>
                   <p className="text-2xl font-bold text-green-600">₹{dashboardData.totalProfit.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">Avg Margin: {dashboardData.avgProfitMargin.toFixed(2)}%</p>
+                  <p className="text-xs text-gray-500">Avg Margin: {dashboardData.avgMargin.toFixed(2)}%</p>
                 </div>
                 <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
                   <TrendingUp className="h-6 w-6 text-green-600" />
@@ -111,7 +132,7 @@ export default function GraniteDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Production</p>
-                  <p className="text-2xl font-bold text-blue-600">{dashboardData.totalSqftProduced.toLocaleString()} Sqft</p>
+                  <p className="text-2xl font-bold text-blue-600">{dashboardData.totalProduction.toLocaleString()} Sqft</p>
                   <p className="text-xs text-gray-500">From {dashboardData.totalConsignments} consignments</p>
                 </div>
                 <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -170,19 +191,19 @@ export default function GraniteDashboard() {
                         <p className="text-sm text-gray-600">{consignment.supplier}</p>
                       </div>
                       <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                        {consignment.profitMargin.toFixed(1)}% margin
+                        {consignment.margin.toFixed(1)}% margin
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-gray-600">Blocks: <span className="font-medium">{consignment.totalBlocks}</span></p>
+                        <p className="text-gray-600">Blocks: <span className="font-medium">{consignment.blocks}</span></p>
                         <p className="text-gray-600">Net Measurement: <span className="font-medium">{consignment.netMeasurement}m</span></p>
-                        <p className="text-gray-600">Total SqFt: <span className="font-medium">{consignment.totalSqft.toLocaleString()}</span></p>
+                        <p className="text-gray-600">Total Cost: <span className="font-medium">₹{consignment.totalCost.toLocaleString()}</span></p>
                       </div>
                       <div>
-                        <p className="text-gray-600">Total Cost: <span className="font-medium">₹{consignment.totalCost.toLocaleString()}</span></p>
                         <p className="text-gray-600">Cost/SqFt: <span className="font-medium">₹{consignment.costPerSqft.toFixed(2)}</span></p>
                         <p className="text-green-600">Profit: <span className="font-bold">₹{consignment.profit.toLocaleString()}</span></p>
+                        <p className="text-blue-600">Margin: <span className="font-bold">{consignment.margin.toFixed(1)}%</span></p>
                       </div>
                     </div>
                   </div>
@@ -203,7 +224,7 @@ export default function GraniteDashboard() {
                   <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                     <div>
                       <h4 className="font-medium text-gray-900">{buyer.name}</h4>
-                      <p className="text-sm text-gray-600">{buyer.totalPurchases.toLocaleString()} sqft purchased</p>
+                      <p className="text-sm text-gray-600">{buyer.sqftPurchased.toLocaleString()} sqft purchased</p>
                       <p className="text-xs text-green-600">Avg rate: ₹{buyer.avgRate}/sqft</p>
                     </div>
                     <div className="text-right">
@@ -264,10 +285,10 @@ export default function GraniteDashboard() {
                   <span className="text-sm">New Consignment</span>
                 </Button>
               </Link>
-              <Link href="/granite/cutting">
+              <Link href="/granite/manufacturing">
                 <Button variant="outline" className="flex flex-col items-center space-y-2 h-20 w-full">
                   <Scissors className="h-6 w-6" />
-                  <span className="text-sm">Record Cutting</span>
+                  <span className="text-sm">Slab Manufacturing</span>
                 </Button>
               </Link>
               <Link href="/granite/sales">
