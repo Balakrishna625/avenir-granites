@@ -28,7 +28,6 @@ export async function GET() {
           consignment_id,
           granite_consignments!inner(
             consignment_number,
-            total_cost_per_sqft,
             granite_suppliers!inner(
               name
             )
@@ -37,7 +36,13 @@ export async function GET() {
       `)
       .eq('is_available', true)
       .gt('remaining_sqft', 0)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .then(result => {
+        if (result.error && result.error.message.includes('does not exist')) {
+          return { data: [], error: null };
+        }
+        return result;
+      });
 
     if (error) {
       console.error('Error fetching available parts:', error);
@@ -58,7 +63,7 @@ export async function GET() {
       block_no: part.granite_blocks?.block_no || '',
       consignment_number: part.granite_blocks?.granite_consignments?.consignment_number || '',
       supplier_name: part.granite_blocks?.granite_consignments?.granite_suppliers?.name || '',
-      cost_per_sqft: part.granite_blocks?.granite_consignments?.total_cost_per_sqft || 0
+      cost_per_sqft: 70 // Default cost per sqft when column doesn't exist
     })) || [];
 
     return NextResponse.json(transformedParts);

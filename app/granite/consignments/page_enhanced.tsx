@@ -304,10 +304,10 @@ export default function GraniteConsignments() {
                       <thead>
                         <tr className="bg-gray-50">
                           <th className="border border-gray-300 p-2 text-left">Block No</th>
-                          <th className="border border-gray-300 p-2 text-left">Grade</th>
-                          <th className="border border-gray-300 p-2 text-right">Gross (m)</th>
-                          <th className="border border-gray-300 p-2 text-right">Net (m)</th>
-                          <th className="border border-gray-300 p-2 text-right">Elavance (m)</th>
+                          <th className="border border-gray-300 p-2 text-left">Block Part (A/B/C)</th>
+                          <th className="border border-gray-300 p-2 text-right w-24">Gross (m)</th>
+                          <th className="border border-gray-300 p-2 text-right w-24">Net (m)</th>
+                          <th className="border border-gray-300 p-2 text-right w-24">Elavance (m)</th>
                           <th className="border border-gray-300 p-2 text-center">Action</th>
                         </tr>
                       </thead>
@@ -324,13 +324,14 @@ export default function GraniteConsignments() {
                             </td>
                             <td className="border border-gray-300 p-2">
                               <select
+                                className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                 value={block.grade}
                                 onChange={(e) => updateBlock(index, 'grade', e.target.value)}
-                                className="w-full p-1 border rounded"
                               >
-                                <option value="A">A</option>
-                                <option value="B">B</option>
-                                <option value="C">C</option>
+                                <option value="">Select Part</option>
+                                <option value="A">Part A</option>
+                                <option value="B">Part B</option>
+                                <option value="C">Part C</option>
                               </select>
                             </td>
                             <td className="border border-gray-300 p-2">
@@ -351,7 +352,7 @@ export default function GraniteConsignments() {
                                 className="w-full text-right"
                               />
                             </td>
-                            <td className="border border-gray-300 p-2 text-right">
+                            <td className="border border-gray-300 p-2 text-right w-24">
                               {(block.gross_measurement - block.net_measurement).toFixed(3)}
                             </td>
                             <td className="border border-gray-300 p-2 text-center">

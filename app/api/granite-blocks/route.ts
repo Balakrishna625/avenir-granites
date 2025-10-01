@@ -6,12 +6,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE!
 );
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE) {
       return NextResponse.json([]);
     }
-    const { data: blocks, error } = await supabase
+
+    const { searchParams } = new URL(request.url);
+    const consignmentId = searchParams.get('consignment_id');
+
+    let query = supabase
       .from('granite_blocks')
       .select(`
         id,
@@ -20,6 +24,8 @@ export async function GET() {
         grade,
         gross_measurement,
         net_measurement,
+        marker_measurement,
+        allowance,
         elavance,
         total_sqft,
         total_slabs,
@@ -32,6 +38,12 @@ export async function GET() {
         )
       `)
       .order('created_at', { ascending: false });
+
+    if (consignmentId) {
+      query = query.eq('consignment_id', consignmentId);
+    }
+
+    const { data: blocks, error } = await query;
 
     if (error) {
       console.error('Error fetching blocks:', error);
@@ -46,6 +58,8 @@ export async function GET() {
       grade: block.grade,
       gross_measurement: block.gross_measurement,
       net_measurement: block.net_measurement,
+      marker_measurement: block.marker_measurement,
+      allowance: block.allowance,
       elavance: block.elavance,
       total_sqft: block.total_sqft,
       total_slabs: block.total_slabs,
@@ -83,6 +97,8 @@ export async function POST(request: NextRequest) {
         grade,
         gross_measurement,
         net_measurement,
+        // default marker = net on creation; can edit later
+        marker_measurement: net_measurement,
         status: 'RAW'
       })
       .select()

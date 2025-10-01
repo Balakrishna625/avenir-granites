@@ -311,10 +311,10 @@ export default function GraniteConsignments() {
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Block No</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Quality Grade</th>
-                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Gross (m³)</th>
-                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Net (m³)</th>
-                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Elavance (m³)</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Block Part (A/B/C)</th>
+                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900 w-28">Gross (m³)</th>
+                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900 w-28">Net (m³)</th>
+                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900 w-28">Elavance (m³)</th>
                           <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900">Actions</th>
                         </tr>
                       </thead>
@@ -332,19 +332,23 @@ export default function GraniteConsignments() {
                                 />
                               </td>
                               <td className="px-4 py-3">
-                                <Input
+                                <select
+                                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
                                   value={block.grade || ''}
                                   onChange={(e) => updateBlock(index, 'grade', e.target.value)}
-                                  placeholder="Premium/Standard"
-                                  className="w-28"
-                                />
+                                >
+                                  <option value="">Select Part</option>
+                                  <option value="A">Part A</option>
+                                  <option value="B">Part B</option>
+                                  <option value="C">Part C</option>
+                                </select>
                               </td>
                               <td className="px-4 py-3">
                                 <Input
                                   type="number"
                                   value={block.gross_measurement}
                                   onChange={(e) => updateBlock(index, 'gross_measurement', parseFloat(e.target.value) || 0)}
-                                  className="w-24 text-right"
+                                  className="w-28 text-right"
                                   step="0.001"
                                   min="0"
                                 />
@@ -354,12 +358,12 @@ export default function GraniteConsignments() {
                                   type="number"
                                   value={block.net_measurement}
                                   onChange={(e) => updateBlock(index, 'net_measurement', parseFloat(e.target.value) || 0)}
-                                  className="w-24 text-right"
+                                  className="w-28 text-right"
                                   step="0.001"
                                   min="0"
                                 />
                               </td>
-                              <td className="px-4 py-3 text-right text-sm font-medium">
+                              <td className="px-4 py-3 text-right text-sm font-medium w-28">
                                 {elavance.toFixed(3)}
                               </td>
                               <td className="px-4 py-3 text-center">

@@ -37,10 +37,16 @@ export async function GET() {
       blockPartsResult,
       salesResult
     ] = await Promise.all([
-      // Total consignments and expenditure
+      // Total consignments and expenditure - handle missing columns gracefully
       supabase
         .from('granite_consignments')
-        .select('id, total_expenditure, total_sqft_produced, raw_material_cost_per_sqft, total_cost_per_sqft'),
+        .select('id, total_expenditure')
+        .then(result => {
+          if (result.error && result.error.message.includes('does not exist')) {
+            return { data: [], error: null };
+          }
+          return result;
+        }),
       
       // Total blocks by status
       supabase

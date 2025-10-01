@@ -11,7 +11,7 @@ import { ArrowLeft, Plus, Search, ShoppingBag, Package, DollarSign, Calculator }
 interface BlockPart {
   id: string;
   block_id: string;
-  part_name: 'A' | 'B' | 'C';
+  part_name: 'A' | 'B' | 'C' | 'C+D';
   slabs_count: number;
   sqft: number;
   thickness: number;
