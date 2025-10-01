@@ -311,7 +311,7 @@ export default function GraniteConsignments() {
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Block No</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Grade</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Quality Grade</th>
                           <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Gross (m³)</th>
                           <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Net (m³)</th>
                           <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Elavance (m³)</th>
@@ -332,15 +332,12 @@ export default function GraniteConsignments() {
                                 />
                               </td>
                               <td className="px-4 py-3">
-                                <select
-                                  value={block.grade}
+                                <Input
+                                  value={block.grade || ''}
                                   onChange={(e) => updateBlock(index, 'grade', e.target.value)}
-                                  className="w-16 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="A">A</option>
-                                  <option value="B">B</option>
-                                  <option value="C">C</option>
-                                </select>
+                                  placeholder="Premium/Standard"
+                                  className="w-28"
+                                />
                               </td>
                               <td className="px-4 py-3">
                                 <Input
