@@ -13,7 +13,9 @@ import {
   ShoppingCart,
   FileText,
   BarChart3,
-  UserCog
+  UserCog,
+  Package,
+  Truck
 } from 'lucide-react';
 
 interface MenuItem {
@@ -42,6 +44,22 @@ const menuItems: MenuItem[] = [
     ]
   },
   {
+    title: 'Consignment Management',
+    icon: <Package className="w-5 h-5" />,
+    children: [
+      {
+        title: 'All Consignments',
+        href: '/consignments',
+        icon: <Truck className="w-4 h-4" />
+      },
+      {
+        title: 'New Consignment',
+        href: '/consignments/new',
+        icon: <Building2 className="w-4 h-4" />
+      }
+    ]
+  },
+  {
     title: 'Expense Management',
     icon: <Receipt className="w-5 h-5" />,
     children: [
@@ -61,7 +79,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Expense Management']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Consignment Management', 'Expense Management']);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems(prev => 
