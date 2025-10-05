@@ -40,15 +40,32 @@ export default function NewConsignmentPage() {
 
   const loadSuppliers = async () => {
     try {
-      // Mock data for now
+      const response = await fetch('/api/granite-suppliers');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setSuppliers(data);
+          return;
+        }
+      }
+      
+      console.warn('No suppliers found or API failed, using fallback data');
+      // Create fallback suppliers with deterministic IDs based on names
       const mockSuppliers: Supplier[] = [
-        { id: '1', name: 'Rising Sun Exports', contact_person: 'Manager' },
-        { id: '2', name: 'Bargandy Quarry', contact_person: 'Sales Head' },
-        { id: '3', name: 'Local Granite Quarry', contact_person: 'Owner' }
+        { id: 'supplier-1', name: 'Rising Sun Exports', contact_person: 'Manager' },
+        { id: 'supplier-2', name: 'Bargandy Quarry', contact_person: 'Sales Head' },
+        { id: 'supplier-3', name: 'Local Granite Quarry', contact_person: 'Owner' }
       ];
       setSuppliers(mockSuppliers);
     } catch (error) {
       console.error('Error loading suppliers:', error);
+      // Fallback to mock data with consistent IDs
+      const mockSuppliers: Supplier[] = [
+        { id: 'supplier-1', name: 'Rising Sun Exports', contact_person: 'Manager' },
+        { id: 'supplier-2', name: 'Bargandy Quarry', contact_person: 'Sales Head' },
+        { id: 'supplier-3', name: 'Local Granite Quarry', contact_person: 'Owner' }
+      ];
+      setSuppliers(mockSuppliers);
     }
   };
 
@@ -63,15 +80,19 @@ export default function NewConsignmentPage() {
     setLoading(true);
     
     try {
+      console.log('Submitting form data:', formData); // Debug log
+      
       const response = await fetch('/api/granite-consignments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
 
-      if (!response.ok) throw new Error('Failed to create consignment');
-      
       const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create consignment');
+      }
       
       // Calculate totals for display
       const paymentCash = parseFloat(formData.payment_cash || '0');
@@ -85,7 +106,8 @@ export default function NewConsignmentPage() {
       router.push(`/consignments/${result.id}`);
     } catch (error) {
       console.error('Error creating consignment:', error);
-      alert('Failed to create consignment. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create consignment. Please try again.';
+      alert(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

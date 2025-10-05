@@ -37,6 +37,7 @@ export default function ConsignmentsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [error, setError] = useState<string | null>(null);
 
   const totalConsignments = consignments.length;
   const totalBlocks = consignments.reduce((sum, c) => sum + (c.total_blocks || 0), 0);
@@ -56,13 +57,19 @@ export default function ConsignmentsPage() {
 
   const loadConsignments = async () => {
     try {
+      setError(null);
       const response = await fetch('/api/granite-consignments');
-      if (!response.ok) throw new Error('Failed to load consignments');
       
-      const data = await response.json();
-      setConsignments(data);
+      if (response.ok) {
+        const data = await response.json();
+        setConsignments(data);
+      } else {
+        throw new Error('Failed to load consignments from API');
+      }
     } catch (error) {
       console.error('Error loading consignments:', error);
+      setError('Failed to load consignments from server. Using sample data.');
+      
       // Fallback to mock data if API fails
       const mockData: Consignment[] = [
         {
@@ -138,7 +145,10 @@ export default function ConsignmentsPage() {
     return (
       <AppLayout>
         <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg">Loading consignments...</div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <div className="text-lg">Loading consignments...</div>
+          </div>
         </div>
       </AppLayout>
     );
@@ -147,6 +157,18 @@ export default function ConsignmentsPage() {
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto p-6 space-y-6">
+      
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Granite Consignments</h1>

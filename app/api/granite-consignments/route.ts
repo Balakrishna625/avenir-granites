@@ -42,8 +42,50 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { consignment_number, supplier_id, arrival_date, payment_cash = 0, payment_upi = 0, transport_cost = 0, notes } = body;
 
+    console.log('Creating consignment with data:', body); // Debug log
+
     if (!consignment_number || !supplier_id || !arrival_date) {
-      return NextResponse.json({ error: "Required fields missing" }, { status: 400 });
+      return NextResponse.json({ error: "Required fields missing: consignment_number, supplier_id, and arrival_date are required" }, { status: 400 });
+    }
+
+    // Check if supplier exists, if not create fallback suppliers
+    let { data: supplier, error: supplierError } = await supabaseAdmin
+      .from("granite_suppliers")
+      .select("id, name")
+      .eq("id", supplier_id)
+      .single();
+
+    if (supplierError || !supplier) {
+      console.log('Supplier not found, checking for fallback supplier creation');
+      
+      // Try to create fallback suppliers if this is a known fallback ID
+      const fallbackSuppliers = [
+        { id: 'supplier-1', name: 'Rising Sun Exports', contact_person: 'Manager' },
+        { id: 'supplier-2', name: 'Bargandy Quarry', contact_person: 'Sales Head' },
+        { id: 'supplier-3', name: 'Local Granite Quarry', contact_person: 'Owner' }
+      ];
+      
+      const fallbackSupplier = fallbackSuppliers.find(s => s.id === supplier_id);
+      if (fallbackSupplier) {
+        // Try to create the supplier
+        const { data: newSupplier, error: createError } = await supabaseAdmin
+          .from("granite_suppliers")
+          .upsert({
+            id: fallbackSupplier.id,
+            name: fallbackSupplier.name,
+            contact_person: fallbackSupplier.contact_person
+          })
+          .select()
+          .single();
+          
+        if (createError) {
+          console.error('Failed to create fallback supplier:', createError);
+          return NextResponse.json({ error: `Supplier with ID ${supplier_id} not found and could not be created: ${createError.message}` }, { status: 400 });
+        }
+        supplier = newSupplier;
+      } else {
+        return NextResponse.json({ error: `Supplier with ID ${supplier_id} not found. Please select a valid supplier.` }, { status: 400 });
+      }
     }
 
     const total_expenditure = parseFloat(payment_cash || 0) + parseFloat(payment_upi || 0) + parseFloat(transport_cost || 0);
@@ -65,11 +107,13 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('Database error:', error); // Debug log
+      return NextResponse.json({ error: `Database error: ${error.message}` }, { status: 400 });
     }
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error('Server error:', error); // Debug log
+    return NextResponse.json({ error: `Server error: ${error instanceof Error ? error.message : 'Unknown error'}` }, { status: 500 });
   }
 }
 
