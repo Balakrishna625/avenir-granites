@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/toast';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
@@ -17,6 +18,7 @@ interface Supplier {
 
 export default function NewConsignmentPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [formData, setFormData] = useState({
@@ -73,7 +75,7 @@ export default function NewConsignmentPage() {
     e.preventDefault();
     
     if (!formData.consignment_number || !formData.supplier_id || !formData.arrival_date) {
-      alert('Please fill in all required fields');
+      showToast('error', 'Please fill in all required fields');
       return;
     }
 
@@ -100,14 +102,14 @@ export default function NewConsignmentPage() {
       const transportCost = parseFloat(formData.transport_cost || '0');
       const totalExpenditure = paymentCash + paymentUpi + transportCost;
       
-      alert(`Consignment created successfully!\n\nConsignment Number: ${formData.consignment_number}\nTotal Expenditure: ₹${totalExpenditure.toLocaleString()}`);
+      showToast('success', `Consignment created successfully! (Total: ₹${totalExpenditure.toLocaleString()})`);
       
       // Redirect to the new consignment detail page
       router.push(`/consignments/${result.id}`);
     } catch (error) {
       console.error('Error creating consignment:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create consignment. Please try again.';
-      alert(`Error: ${errorMessage}`);
+      showToast('error', errorMessage);
     } finally {
       setLoading(false);
     }

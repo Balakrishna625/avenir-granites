@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/toast';
 import { ArrowLeft, Plus, Edit, Trash2, Package, Calculator } from 'lucide-react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
@@ -45,6 +46,7 @@ interface Consignment {
 export default function ConsignmentDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { showToast } = useToast();
   const consignmentId = params.id as string;
   
   const [consignment, setConsignment] = useState<Consignment | null>(null);
@@ -53,8 +55,7 @@ export default function ConsignmentDetailPage() {
   const [newBlock, setNewBlock] = useState({
     block_no: '',
     gross_measurement: '',
-    net_measurement: '',
-    grade: ''
+    net_measurement: ''
   });
 
   useEffect(() => {
@@ -124,7 +125,7 @@ export default function ConsignmentDetailPage() {
 
   const handleAddBlock = async () => {
     if (!newBlock.block_no || !newBlock.gross_measurement || !newBlock.net_measurement) {
-      alert('Please fill in all required fields');
+      showToast('error', 'Please fill in all required fields');
       return;
     }
 
@@ -132,7 +133,7 @@ export default function ConsignmentDetailPage() {
     const netMeasurement = parseFloat(newBlock.net_measurement);
     
     if (grossMeasurement <= netMeasurement) {
-      alert('Gross measurement must be greater than net measurement');
+      showToast('error', 'Gross measurement must be greater than net measurement');
       return;
     }
 
@@ -145,12 +146,14 @@ export default function ConsignmentDetailPage() {
           block_no: newBlock.block_no,
           gross_measurement: grossMeasurement,
           net_measurement: netMeasurement,
-          elavance: grossMeasurement - netMeasurement,
-          grade: newBlock.grade
+          elavance: grossMeasurement - netMeasurement
         })
       });
 
-      if (!response.ok) throw new Error('Failed to add block');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add block');
+      }
 
       // Reload consignment to get updated data
       await loadConsignment();
@@ -159,13 +162,13 @@ export default function ConsignmentDetailPage() {
       setNewBlock({
         block_no: '',
         gross_measurement: '',
-        net_measurement: '',
-        grade: ''
+        net_measurement: ''
       });
       setShowAddBlock(false);
+      showToast('success', 'Block added successfully!');
     } catch (error) {
       console.error('Error adding block:', error);
-      alert('Failed to add block. Please try again.');
+      showToast('error', error instanceof Error ? error.message : 'Failed to add block. Please try again.');
     }
   };
 
@@ -177,12 +180,16 @@ export default function ConsignmentDetailPage() {
         method: 'DELETE'
       });
 
-      if (!response.ok) throw new Error('Failed to delete block');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete block');
+      }
 
       await loadConsignment(); // Reload to get updated data
+      showToast('success', 'Block deleted successfully!');
     } catch (error) {
       console.error('Error deleting block:', error);
-      alert('Failed to delete block. Please try again.');
+      showToast('error', error instanceof Error ? error.message : 'Failed to delete block. Please try again.');
     }
   };
 
@@ -291,7 +298,7 @@ export default function ConsignmentDetailPage() {
       {showAddBlock && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Block</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Block No (e.g., AVG-36)
@@ -324,16 +331,6 @@ export default function ConsignmentDetailPage() {
                 value={newBlock.net_measurement}
                 onChange={(e) => setNewBlock({ ...newBlock, net_measurement: e.target.value })}
                 placeholder="18.2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Grade (Optional)
-              </label>
-              <Input
-                value={newBlock.grade}
-                onChange={(e) => setNewBlock({ ...newBlock, grade: e.target.value })}
-                placeholder="A"
               />
             </div>
           </div>
