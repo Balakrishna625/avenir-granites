@@ -1,1 +1,22 @@
-{}
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/api/bank-accounts/route": "app/api/bank-accounts/route.js",
+  "/api/consignments/[id]/route": "app/api/consignments/[id]/route.js",
+  "/api/customers/route": "app/api/customers/route.js",
+  "/api/expense-accounts/route": "app/api/expense-accounts/route.js",
+  "/api/expense-categories/route": "app/api/expense-categories/route.js",
+  "/api/expenses/route": "app/api/expenses/route.js",
+  "/api/granite-blocks/route": "app/api/granite-blocks/route.js",
+  "/api/granite-suppliers/route": "app/api/granite-suppliers/route.js",
+  "/api/consignments/route": "app/api/consignments/route.js",
+  "/api/transactions/route": "app/api/transactions/route.js",
+  "/api/transactions/[id]/route": "app/api/transactions/[id]/route.js",
+  "/api/vendors/route": "app/api/vendors/route.js",
+  "/expenses/page": "app/expenses/page.js",
+  "/api/granite-consignments/route": "app/api/granite-consignments/route.js",
+  "/page": "app/page.js",
+  "/consignments/[id]/page": "app/consignments/[id]/page.js",
+  "/consignments/new/page": "app/consignments/new/page.js",
+  "/consignments/page": "app/consignments/page.js"
+}

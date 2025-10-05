@@ -145,8 +145,8 @@ export default function ConsignmentDetailPage() {
           consignment_id: consignmentId,
           block_no: newBlock.block_no,
           gross_measurement: grossMeasurement,
-          net_measurement: netMeasurement,
-          elavance: grossMeasurement - netMeasurement
+          net_measurement: netMeasurement
+          // elavance is computed automatically by the database
         })
       });
 

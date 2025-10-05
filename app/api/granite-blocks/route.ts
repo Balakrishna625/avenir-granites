@@ -49,7 +49,7 @@ export async function POST(req: Request) {
       block_no,
       gross_measurement: parseFloat(gross_measurement),
       net_measurement: parseFloat(net_measurement),
-      elavance: parseFloat(elavance),
+      // Don't include elavance - it's a computed column that calculates automatically
       grade,
       status: 'RAW'  // Changed from 'AVAILABLE' to 'RAW' to match schema
     };
