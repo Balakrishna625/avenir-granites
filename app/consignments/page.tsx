@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Package, TrendingUp, DollarSign, Truck } from 'lucide-react';
 import Link from 'next/link';
+import { AppLayout } from '@/components/AppLayout';
 
 interface Supplier {
   id: string;
@@ -55,6 +56,14 @@ export default function ConsignmentsPage() {
 
   const loadConsignments = async () => {
     try {
+      const response = await fetch('/api/granite-consignments');
+      if (!response.ok) throw new Error('Failed to load consignments');
+      
+      const data = await response.json();
+      setConsignments(data);
+    } catch (error) {
+      console.error('Error loading consignments:', error);
+      // Fallback to mock data if API fails
       const mockData: Consignment[] = [
         {
           id: '1',
@@ -65,10 +74,10 @@ export default function ConsignmentsPage() {
           total_net_measurement: 450.5,
           total_gross_measurement: 520.0,
           total_elavance: 69.5,
-          payment_cash: 50000,
+          payment_cash: 75000,
           payment_upi: 25000,
           transport_cost: 5000,
-          total_expenditure: 80000,
+          total_expenditure: 105000,
           status: 'ACTIVE',
           supplier: { id: '1', name: 'Rising Sun Exports', contact_person: 'Manager' }
         },
@@ -90,10 +99,29 @@ export default function ConsignmentsPage() {
         }
       ];
       setConsignments(mockData);
-    } catch (error) {
-      console.error('Error loading consignments:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteConsignment = async (consignmentId: string) => {
+    if (!confirm('Are you sure you want to delete this consignment? This will also delete all associated blocks.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/granite-consignments?id=${consignmentId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete consignment');
+
+      // Reload consignments list
+      await loadConsignments();
+      alert('Consignment deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting consignment:', error);
+      alert('Failed to delete consignment. Please try again.');
     }
   };
 
@@ -108,14 +136,17 @@ export default function ConsignmentsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading consignments...</div>
-      </div>
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-lg">Loading consignments...</div>
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <AppLayout>
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Granite Consignments</h1>
@@ -252,11 +283,21 @@ export default function ConsignmentsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <Link href={`/consignments/${consignment.id}`}>
-                      <Button variant="outline" size="sm">
-                        View Details
+                    <div className="flex gap-2">
+                      <Link href={`/consignments/${consignment.id}`}>
+                        <Button variant="outline" size="sm">
+                          View Details
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDeleteConsignment(consignment.id)}
+                        className="text-red-600 hover:text-red-800 border-red-200 hover:border-red-300"
+                      >
+                        Delete
                       </Button>
-                    </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -287,5 +328,6 @@ export default function ConsignmentsPage() {
         )}
       </Card>
     </div>
+    </AppLayout>
   );
 }

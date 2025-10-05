@@ -1,67 +1,25 @@
 {
   "pages": {
-    "/_not-found/page": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/chunks/app/_not-found/page-e9f46e406e3ef3c9.js"
+    "/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/page.js"
     ],
     "/layout": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/css/1c3cac3e7b40025b.css",
-      "static/chunks/app/layout-d7aa0ca9129ce713.js"
-    ],
-    "/admin/page": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/chunks/48-404cf74ff7626d7e.js",
-      "static/chunks/app/admin/page-05b2d987163028ae.js"
-    ],
-    "/consignments/[id]/page": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/chunks/48-404cf74ff7626d7e.js",
-      "static/chunks/app/consignments/[id]/page-31fdf3773d5e1aa3.js"
-    ],
-    "/consignments/new/page": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/chunks/48-404cf74ff7626d7e.js",
-      "static/chunks/app/consignments/new/page-2be2c36861a5b267.js"
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/layout.css",
+      "static/chunks/app/layout.js"
     ],
     "/consignments/page": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/chunks/48-404cf74ff7626d7e.js",
-      "static/chunks/app/consignments/page-db59eac4ad6a1681.js"
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/consignments/page.js"
     ],
-    "/expenses/page": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/chunks/app/expenses/page-3a1c5f18bb5e716e.js"
-    ],
-    "/page": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/chunks/2170a4aa-2c2e4af8aee6403a.js",
-      "static/chunks/48-404cf74ff7626d7e.js",
-      "static/chunks/app/page-220a812c6b81d7ea.js"
+    "/consignments/new/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/consignments/new/page.js"
     ]
   }
 }

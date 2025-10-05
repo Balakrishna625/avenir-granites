@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import Link from 'next/link';
+import { AppLayout } from '@/components/AppLayout';
 
 interface Supplier {
   id: string;
@@ -62,10 +63,17 @@ export default function NewConsignmentPage() {
     setLoading(true);
     
     try {
-      // TODO: Submit to API
-      console.log('Creating consignment:', formData);
+      const response = await fetch('/api/granite-consignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) throw new Error('Failed to create consignment');
       
-      // Calculate totals
+      const result = await response.json();
+      
+      // Calculate totals for display
       const paymentCash = parseFloat(formData.payment_cash || '0');
       const paymentUpi = parseFloat(formData.payment_upi || '0');
       const transportCost = parseFloat(formData.transport_cost || '0');
@@ -73,11 +81,11 @@ export default function NewConsignmentPage() {
       
       alert(`Consignment created successfully!\n\nConsignment Number: ${formData.consignment_number}\nTotal Expenditure: ₹${totalExpenditure.toLocaleString()}`);
       
-      // Redirect to consignments list
-      router.push('/consignments');
+      // Redirect to the new consignment detail page
+      router.push(`/consignments/${result.id}`);
     } catch (error) {
       console.error('Error creating consignment:', error);
-      alert('Error creating consignment. Please try again.');
+      alert('Failed to create consignment. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -89,6 +97,7 @@ export default function NewConsignmentPage() {
     parseFloat(formData.transport_cost || '0');
 
   return (
+    <AppLayout>
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -255,5 +264,6 @@ export default function NewConsignmentPage() {
         </div>
       </form>
     </div>
+    </AppLayout>
   );
 }

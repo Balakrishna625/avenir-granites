@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Plus, Edit, Trash2, Package, Calculator } from 'lucide-react';
 import Link from 'next/link';
+import { AppLayout } from '@/components/AppLayout';
 
 interface Block {
   id: string;
@@ -62,7 +63,14 @@ export default function ConsignmentDetailPage() {
 
   const loadConsignment = async () => {
     try {
-      // Mock data for now
+      const response = await fetch(`/api/granite-consignments?id=${consignmentId}`);
+      if (!response.ok) throw new Error('Failed to load consignment');
+      
+      const data = await response.json();
+      setConsignment(data);
+    } catch (error) {
+      console.error('Error loading consignment:', error);
+      // Fallback to mock data if API fails
       const mockConsignment: Consignment = {
         id: consignmentId,
         consignment_number: 'CON-001',
@@ -109,8 +117,6 @@ export default function ConsignmentDetailPage() {
         ]
       };
       setConsignment(mockConsignment);
-    } catch (error) {
-      console.error('Error loading consignment:', error);
     } finally {
       setLoading(false);
     }
@@ -130,72 +136,84 @@ export default function ConsignmentDetailPage() {
       return;
     }
 
-    const blockToAdd: Block = {
-      id: Date.now().toString(),
-      block_no: newBlock.block_no,
-      gross_measurement: grossMeasurement,
-      net_measurement: netMeasurement,
-      elavance: grossMeasurement - netMeasurement,
-      grade: newBlock.grade,
-      status: 'RAW'
-    };
+    try {
+      const response = await fetch('/api/granite-blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          consignment_id: consignmentId,
+          block_no: newBlock.block_no,
+          gross_measurement: grossMeasurement,
+          net_measurement: netMeasurement,
+          elavance: grossMeasurement - netMeasurement,
+          grade: newBlock.grade
+        })
+      });
 
-    if (consignment) {
-      const updatedBlocks = [...(consignment.blocks || []), blockToAdd];
-      const updatedConsignment = {
-        ...consignment,
-        blocks: updatedBlocks,
-        total_blocks: updatedBlocks.length,
-        total_gross_measurement: updatedBlocks.reduce((sum, b) => sum + b.gross_measurement, 0),
-        total_net_measurement: updatedBlocks.reduce((sum, b) => sum + b.net_measurement, 0),
-        total_elavance: updatedBlocks.reduce((sum, b) => sum + b.elavance, 0)
-      };
+      if (!response.ok) throw new Error('Failed to add block');
+
+      // Reload consignment to get updated data
+      await loadConsignment();
       
-      setConsignment(updatedConsignment);
-      setNewBlock({ block_no: '', gross_measurement: '', net_measurement: '', grade: '' });
+      // Reset form
+      setNewBlock({
+        block_no: '',
+        gross_measurement: '',
+        net_measurement: '',
+        grade: ''
+      });
       setShowAddBlock(false);
+    } catch (error) {
+      console.error('Error adding block:', error);
+      alert('Failed to add block. Please try again.');
     }
   };
 
-  const handleDeleteBlock = (blockId: string) => {
-    if (consignment && confirm('Are you sure you want to delete this block?')) {
-      const updatedBlocks = consignment.blocks?.filter(b => b.id !== blockId) || [];
-      const updatedConsignment = {
-        ...consignment,
-        blocks: updatedBlocks,
-        total_blocks: updatedBlocks.length,
-        total_gross_measurement: updatedBlocks.reduce((sum, b) => sum + b.gross_measurement, 0),
-        total_net_measurement: updatedBlocks.reduce((sum, b) => sum + b.net_measurement, 0),
-        total_elavance: updatedBlocks.reduce((sum, b) => sum + b.elavance, 0)
-      };
-      
-      setConsignment(updatedConsignment);
+  const handleDeleteBlock = async (blockId: string) => {
+    if (!confirm('Are you sure you want to delete this block?')) return;
+
+    try {
+      const response = await fetch(`/api/granite-blocks?id=${blockId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete block');
+
+      await loadConsignment(); // Reload to get updated data
+    } catch (error) {
+      console.error('Error deleting block:', error);
+      alert('Failed to delete block. Please try again.');
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading consignment details...</div>
-      </div>
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-lg">Loading consignment details...</div>
+        </div>
+      </AppLayout>
     );
   }
 
   if (!consignment) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900">Consignment not found</h2>
-          <Link href="/consignments" className="text-blue-600 hover:text-blue-800 mt-2 inline-block">
-            Back to consignments
-          </Link>
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900">Consignment not found</h2>
+            <Link href="/consignments" className="text-blue-600 hover:text-blue-800 mt-2 inline-block">
+              Back to consignments
+            </Link>
+          </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <AppLayout>
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -421,5 +439,6 @@ export default function ConsignmentDetailPage() {
         )}
       </Card>
     </div>
+    </AppLayout>
   );
 }
