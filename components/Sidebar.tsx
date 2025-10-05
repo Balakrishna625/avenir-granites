@@ -4,29 +4,16 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
-  LayoutDashboard, 
   Users, 
   CreditCard, 
   Receipt, 
-  TrendingUp,
-  Settings,
   ChevronDown,
   ChevronRight,
   Building2,
   ShoppingCart,
   FileText,
   BarChart3,
-  Wallet,
-  Package,
-  Truck,
-  Wrench,
-  Factory,
-  UserCog,
-  Mountain,
-  Scissors,
-  DollarSign,
-  ShoppingBag,
-  Boxes
+  UserCog
 } from 'lucide-react';
 
 interface MenuItem {
@@ -39,42 +26,6 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   {
-    title: 'Dashboard',
-    href: '/dashboard',
-    icon: <LayoutDashboard className="w-5 h-5" />,
-  },
-  {
-    title: 'Granite Processing',
-    icon: <Mountain className="w-5 h-5" />,
-    children: [
-      {
-        title: 'Raw Block Entry',
-        href: '/granite/consignments',
-        icon: <Boxes className="w-4 h-4" />
-      },
-      {
-        title: 'Block Cutting',
-        href: '/granite/cutting',
-        icon: <Scissors className="w-4 h-4" />
-      },
-      {
-        title: 'Costing & Expenditure',
-        href: '/granite/costing',
-        icon: <DollarSign className="w-4 h-4" />
-      },
-      {
-        title: 'Slab Sales',
-        href: '/granite/sales',
-        icon: <ShoppingBag className="w-4 h-4" />
-      },
-      {
-        title: 'Inventory Overview',
-        href: '/granite/inventory',
-        icon: <Package className="w-4 h-4" />
-      }
-    ]
-  },
-  {
     title: 'Customer Management',
     icon: <Users className="w-5 h-5" />,
     children: [
@@ -82,11 +33,6 @@ const menuItems: MenuItem[] = [
         title: 'Customer Payments',
         href: '/',
         icon: <CreditCard className="w-4 h-4" />
-      },
-      {
-        title: 'Payment Analytics',
-        href: '/analytics',
-        icon: <BarChart3 className="w-4 h-4" />
       },
       {
         title: 'Customer Admin',
@@ -103,70 +49,8 @@ const menuItems: MenuItem[] = [
         title: 'Record Expenses',
         href: '/expenses',
         icon: <ShoppingCart className="w-4 h-4" />
-      },
-      {
-        title: 'Expense Categories',
-        href: '/expenses/categories',
-        icon: <Package className="w-4 h-4" />
-      },
-      {
-        title: 'Vendor Management',
-        href: '/expenses/vendors',
-        icon: <Building2 className="w-4 h-4" />
-      },
-      {
-        title: 'Expense Reports',
-        href: '/expenses/reports',
-        icon: <FileText className="w-4 h-4" />
       }
     ]
-  },
-  {
-    title: 'Inventory & Assets',
-    icon: <Factory className="w-5 h-5" />,
-    children: [
-      {
-        title: 'Raw Materials',
-        href: '/inventory/materials',
-        icon: <Package className="w-4 h-4" />
-      },
-      {
-        title: 'Equipment & Tools',
-        href: '/inventory/equipment',
-        icon: <Wrench className="w-4 h-4" />
-      },
-      {
-        title: 'Vehicles & Transport',
-        href: '/inventory/vehicles',
-        icon: <Truck className="w-4 h-4" />
-      }
-    ]
-  },
-  {
-    title: 'Financial Overview',
-    icon: <TrendingUp className="w-5 h-5" />,
-    children: [
-      {
-        title: 'Profit & Loss',
-        href: '/financial/profit-loss',
-        icon: <BarChart3 className="w-4 h-4" />
-      },
-      {
-        title: 'Cash Flow',
-        href: '/financial/cash-flow',
-        icon: <Wallet className="w-4 h-4" />
-      },
-      {
-        title: 'Financial Reports',
-        href: '/financial/reports',
-        icon: <FileText className="w-4 h-4" />
-      }
-    ]
-  },
-  {
-    title: 'Settings',
-    href: '/settings',
-    icon: <Settings className="w-5 h-5" />,
   }
 ];
 
@@ -177,7 +61,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Granite Processing', 'Customer Management']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Expense Management']);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems(prev => 
@@ -264,8 +148,8 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               <span className="text-white font-bold text-sm">AG</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Avenir Granites</h1>
-              <p className="text-xs text-gray-500">Business Management</p>
+              <h1 className="text-lg font-bold text-gray-900">Business Ledger</h1>
+              <p className="text-xs text-gray-500">Customer & Expense Mgmt</p>
             </div>
           </div>
         )}
