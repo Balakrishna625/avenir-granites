@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     // Prepare insert data - include marker_measurement if provided, otherwise use net_measurement as default
     const insertData: any = {
       consignment_id,
-      block_no,
+      block_no: block_no.toUpperCase(), // Always save block numbers in uppercase
       gross_measurement: parseFloat(gross_measurement),
       net_measurement: parseFloat(net_measurement),
       // Don't include elavance - it's a computed column that calculates automatically
@@ -115,7 +115,7 @@ export async function PUT(req: Request) {
     const { data, error } = await supabaseAdmin
       .from("granite_blocks")
       .update({
-        block_no,
+        block_no: block_no.toUpperCase(), // Always save block numbers in uppercase
         gross_measurement,
         net_measurement,
         elavance,

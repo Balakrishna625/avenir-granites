@@ -305,7 +305,7 @@ export default function ConsignmentDetailPage() {
               </label>
               <Input
                 value={newBlock.block_no}
-                onChange={(e) => setNewBlock({ ...newBlock, block_no: e.target.value })}
+                onChange={(e) => setNewBlock({ ...newBlock, block_no: e.target.value.toUpperCase() })}
                 placeholder="AVG-36"
               />
             </div>
