@@ -24,8 +24,8 @@ export async function GET(req: Request) {
             name
           )
         )
-      `)
-      .eq("status", "RAW"); // Only show blocks that haven't been processed yet
+      `);
+      // Removed status filter - show ALL blocks regardless of status
 
     if (consignmentId) {
       query = query.eq("consignment_id", consignmentId);
