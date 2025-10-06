@@ -15,7 +15,8 @@ import {
   BarChart3,
   UserCog,
   Package,
-  Truck
+  Truck,
+  Scissors
 } from 'lucide-react';
 
 interface MenuItem {
@@ -56,6 +57,11 @@ const menuItems: MenuItem[] = [
         title: 'New Consignment',
         href: '/consignments/new',
         icon: <Building2 className="w-4 h-4" />
+      },
+      {
+        title: 'Slab Processing',
+        href: '/consignments/slab-processing',
+        icon: <Scissors className="w-4 h-4" />
       }
     ]
   },
