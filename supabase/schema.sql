@@ -224,10 +224,11 @@ create table if not exists granite_blocks (
 create table if not exists granite_block_parts (
   id uuid primary key default gen_random_uuid(),
   block_id uuid not null references granite_blocks(id) on delete cascade,
-  part_name text not null check (part_name in ('A', 'B', 'C')),
+  part_name text not null check (part_name in ('A', 'B', 'C', 'D')),
   slabs_count integer not null default 0,
   sqft numeric not null default 0,
   thickness numeric default 20, -- mm
+  status text default 'PRODUCED' check (status in ('PRODUCED', 'READY', 'SOLD', 'DEFECTIVE')),
   is_sold boolean default false,
   sold_sqft numeric default 0,
   remaining_sqft numeric generated always as (sqft - sold_sqft) stored,
@@ -256,6 +257,7 @@ create table if not exists granite_sales (
 create index if not exists granite_consignments_supplier_date_idx on granite_consignments(supplier_id, arrival_date);
 create index if not exists granite_blocks_consignment_idx on granite_blocks(consignment_id);
 create index if not exists granite_block_parts_block_idx on granite_block_parts(block_id);
+create index if not exists granite_block_parts_status_idx on granite_block_parts(status);
 create index if not exists granite_sales_buyer_date_idx on granite_sales(buyer_name, sale_date);
 
 -- Seed granite suppliers
