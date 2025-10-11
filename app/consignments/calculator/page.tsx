@@ -12,8 +12,8 @@ interface ConsignmentCalculation {
   calculation_name: string;
   description?: string;
   total_blocks: number;
-  net_meters_per_block: number;  // What you pay for
-  gross_meters_per_block: number; // What you actually get
+  net_meters_per_block: number;  // Auto-calculated from total_net_measurement / total_blocks
+  gross_meters_per_block: number; // Auto-calculated from total_gross_measurement / total_blocks
   cost_per_meter: number;
   loading_charges: number;
   transport_charges: number;
@@ -48,14 +48,20 @@ interface ConsignmentCalculation {
   updated_at?: string;
 }
 
+// New interface for total measurements (UI only)
+interface TotalMeasurements {
+  total_net_measurement: number;
+  total_gross_measurement: number;
+}
+
 export default function ConsignmentCalculatorPage() {
   const [calculations, setCalculations] = useState<ConsignmentCalculation[]>([]);
   const [currentCalculation, setCurrentCalculation] = useState<ConsignmentCalculation>({
     calculation_name: '',
     description: '',
     total_blocks: 0,
-    net_meters_per_block: 0,
-    gross_meters_per_block: 0,
+    net_meters_per_block: 0, // Auto-calculated
+    gross_meters_per_block: 0, // Auto-calculated
     cost_per_meter: 0,
     loading_charges: 0, // Will be auto-calculated but kept for API compatibility
     transport_charges: 0, // Will be auto-calculated but kept for API compatibility
@@ -67,9 +73,30 @@ export default function ConsignmentCalculatorPage() {
     laputra_sale_price: 0,
     whiteline_sale_price: 0
   });
+  
+  // New state for total measurements (UI input)
+  const [totalMeasurements, setTotalMeasurements] = useState<TotalMeasurements>({
+    total_net_measurement: 0,
+    total_gross_measurement: 0
+  });
+  
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Auto-calculate per-block measurements when totals or blocks change
+  useEffect(() => {
+    if (currentCalculation.total_blocks > 0) {
+      const netPerBlock = totalMeasurements.total_net_measurement / currentCalculation.total_blocks;
+      const grossPerBlock = totalMeasurements.total_gross_measurement / currentCalculation.total_blocks;
+      
+      setCurrentCalculation(prev => ({
+        ...prev,
+        net_meters_per_block: parseFloat(netPerBlock.toFixed(3)),
+        gross_meters_per_block: parseFloat(grossPerBlock.toFixed(3))
+      }));
+    }
+  }, [totalMeasurements.total_net_measurement, totalMeasurements.total_gross_measurement, currentCalculation.total_blocks]);
 
   // Fetch all calculations on component mount
   useEffect(() => {
@@ -160,14 +187,21 @@ export default function ConsignmentCalculatorPage() {
     }));
   };
 
+  const handleTotalMeasurementChange = (field: keyof TotalMeasurements, value: number) => {
+    setTotalMeasurements(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const handleSave = async () => {
     if (!currentCalculation.calculation_name.trim()) {
       setError('Calculation name is required');
       return;
     }
 
-    if (currentCalculation.total_blocks <= 0 || currentCalculation.net_meters_per_block <= 0 || currentCalculation.gross_meters_per_block <= 0 || currentCalculation.cost_per_meter <= 0) {
-      setError('Total blocks, net meters per block, gross meters per block, and cost per meter must be greater than 0');
+    if (currentCalculation.total_blocks <= 0 || totalMeasurements.total_net_measurement <= 0 || totalMeasurements.total_gross_measurement <= 0 || currentCalculation.cost_per_meter <= 0) {
+      setError('Total blocks, total net measurement, total gross measurement, and cost per meter must be greater than 0');
       return;
     }
 
@@ -210,6 +244,11 @@ export default function ConsignmentCalculatorPage() {
 
   const handleEdit = (calculation: ConsignmentCalculation) => {
     setCurrentCalculation(calculation);
+    // Calculate total measurements from per-block values
+    setTotalMeasurements({
+      total_net_measurement: calculation.total_blocks * calculation.net_meters_per_block,
+      total_gross_measurement: calculation.total_blocks * calculation.gross_meters_per_block
+    });
     setIsEditing(true);
     setError('');
   };
@@ -244,8 +283,8 @@ export default function ConsignmentCalculatorPage() {
       calculation_name: '',
       description: '',
       total_blocks: 0,
-      net_meters_per_block: 0,
-      gross_meters_per_block: 0,
+      net_meters_per_block: 0, // Auto-calculated
+      gross_meters_per_block: 0, // Auto-calculated
       cost_per_meter: 0,
       loading_charges: 0, // Auto-calculated
       transport_charges: 0, // Auto-calculated
@@ -256,6 +295,10 @@ export default function ConsignmentCalculatorPage() {
       polish_sale_price: 0,
       laputra_sale_price: 0,
       whiteline_sale_price: 0
+    });
+    setTotalMeasurements({
+      total_net_measurement: 0,
+      total_gross_measurement: 0
     });
     setIsEditing(false);
     setError('');
@@ -461,33 +504,66 @@ export default function ConsignmentCalculatorPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Net Meters per Block (What you pay for) *
+                      Total Net Measurement (What you pay for) *
                     </label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.net_meters_per_block || ''}
-                      onChange={(e) => handleInputChange('net_meters_per_block', parseFloat(e.target.value) || 0)}
+                      value={totalMeasurements.total_net_measurement || ''}
+                      onChange={(e) => handleTotalMeasurementChange('total_net_measurement', parseFloat(e.target.value) || 0)}
                       min="0"
-                      placeholder="e.g., 2.0"
+                      placeholder="e.g., 200.0"
                       required
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Gross Meters per Block (What you actually get) *
+                      Total Gross Measurement (What you actually get) *
                     </label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.gross_meters_per_block || ''}
-                      onChange={(e) => handleInputChange('gross_meters_per_block', parseFloat(e.target.value) || 0)}
+                      value={totalMeasurements.total_gross_measurement || ''}
+                      onChange={(e) => handleTotalMeasurementChange('total_gross_measurement', parseFloat(e.target.value) || 0)}
                       min="0"
-                      placeholder="e.g., 7.0"
+                      placeholder="e.g., 700.0"
                       required
                     />
                   </div>
+
+                  {/* Auto-calculated per-block values display */}
+                  {currentCalculation.total_blocks > 0 && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Net Meters per Block (Auto-calculated)
+                        </label>
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <span className="text-sm text-blue-600">
+                            {totalMeasurements.total_net_measurement} ÷ {currentCalculation.total_blocks} blocks = 
+                          </span>
+                          <span className="font-semibold text-blue-900 ml-1">
+                            {currentCalculation.net_meters_per_block.toFixed(3)}m per block
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Gross Meters per Block (Auto-calculated)
+                        </label>
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <span className="text-sm text-green-600">
+                            {totalMeasurements.total_gross_measurement} ÷ {currentCalculation.total_blocks} blocks = 
+                          </span>
+                          <span className="font-semibold text-green-900 ml-1">
+                            {currentCalculation.gross_meters_per_block.toFixed(3)}m per block
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
