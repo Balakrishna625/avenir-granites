@@ -106,20 +106,6 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     return pathname.startsWith(href);
   };
 
-  // Get professional color scheme for main categories
-  const getMainCategoryColors = (title: string) => {
-    switch (title) {
-      case 'Customer Management':
-        return 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 text-blue-900 hover:from-blue-100 hover:to-indigo-100';
-      case 'Consignment Management':
-        return 'bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-500 text-emerald-900 hover:from-emerald-100 hover:to-teal-100';
-      case 'Expense Management':
-        return 'bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 text-amber-900 hover:from-amber-100 hover:to-orange-100';
-      default:
-        return 'text-gray-700 hover:bg-gray-100 hover:text-gray-900';
-    }
-  };
-
   const renderMenuItem = (item: MenuItem, level = 0) => {
     const hasChildren = item.children && item.children.length > 0;
     const isExpanded = expandedItems.includes(item.title);
@@ -130,9 +116,9 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         <div key={item.title}>
           <button
             onClick={() => toggleExpanded(item.title)}
-            className={`w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+            className={`w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
               level === 0 
-                ? getMainCategoryColors(item.title)
+                ? 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' 
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
             } ${collapsed ? 'justify-center' : ''}`}
           >
@@ -145,7 +131,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             )}
           </button>
           {!collapsed && isExpanded && (
-            <div className="ml-6 mt-1 space-y-1 pl-2 border-l-2 border-gray-100">
+            <div className="ml-4 mt-1 space-y-1">
               {item.children?.map(child => renderMenuItem(child, level + 1))}
             </div>
           )}
