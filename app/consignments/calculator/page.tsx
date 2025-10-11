@@ -63,7 +63,7 @@ export default function ConsignmentCalculatorPage() {
     net_meters_per_block: 0, // Auto-calculated
     gross_meters_per_block: 0, // Auto-calculated
     cost_per_meter: 0,
-    loading_charges: 0, // Will be auto-calculated but kept for API compatibility
+    loading_charges: 0, // Can be auto-calculated or manually overridden
     transport_charges: 0, // Will be auto-calculated but kept for API compatibility
     quarry_commission: 0,
     polish_percentage: 0,
@@ -79,6 +79,9 @@ export default function ConsignmentCalculatorPage() {
     total_net_measurement: 0,
     total_gross_measurement: 0
   });
+  
+  // State to track if loading charges are manually overridden
+  const [isLoadingChargesManual, setIsLoadingChargesManual] = useState(false);
   
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -97,6 +100,17 @@ export default function ConsignmentCalculatorPage() {
       }));
     }
   }, [totalMeasurements.total_net_measurement, totalMeasurements.total_gross_measurement, currentCalculation.total_blocks]);
+
+  // Auto-calculate loading charges when total_blocks changes (only if not manually overridden)
+  useEffect(() => {
+    if (!isLoadingChargesManual && currentCalculation.total_blocks > 0) {
+      const autoLoadingCharges = currentCalculation.total_blocks * 1500;
+      setCurrentCalculation(prev => ({
+        ...prev,
+        loading_charges: autoLoadingCharges
+      }));
+    }
+  }, [currentCalculation.total_blocks, isLoadingChargesManual]);
 
   // Fetch all calculations on component mount
   useEffect(() => {
@@ -126,13 +140,15 @@ export default function ConsignmentCalculatorPage() {
     const laputraSqft = totalSqft * (calc.laputra_percentage / 100);
     const whitelineSqft = totalSqft * (calc.whiteline_percentage / 100);
     
-    // Automatic calculation of loading and transport charges
-    const autoLoadingCharges = calc.total_blocks * 1500; // ₹1500 per block
+    // Automatic calculation of transport charges (always auto-calculated)
     const autoTransportCharges = calc.total_blocks * 4500; // ₹4500 per block
     
-    // Raw material cost uses NET meters (what you pay for) + automatic charges
+    // Loading charges: use current value (either auto-calculated or manually set)
+    const loadingCharges = calc.loading_charges || 0;
+    
+    // Raw material cost uses NET meters (what you pay for) + charges
     const rawMaterialCost = (calc.total_blocks * calc.net_meters_per_block * calc.cost_per_meter) + 
-                           autoLoadingCharges + autoTransportCharges + calc.quarry_commission;
+                           loadingCharges + autoTransportCharges + calc.quarry_commission;
     
     // Production costs use GROSS meters (processing actual material)
     const polishCost = polishSqft * 25;
@@ -167,7 +183,7 @@ export default function ConsignmentCalculatorPage() {
       totalProductionCost,
       totalCost,
       costPerSqft,
-      autoLoadingCharges,
+      loadingCharges, // Use actual loading charges (auto or manual)
       autoTransportCharges,
       polishSaleAmount,
       laputraSaleAmount,
@@ -194,6 +210,23 @@ export default function ConsignmentCalculatorPage() {
     }));
   };
 
+  const handleLoadingChargesChange = (value: number) => {
+    setCurrentCalculation(prev => ({
+      ...prev,
+      loading_charges: value
+    }));
+    setIsLoadingChargesManual(true);
+  };
+
+  const resetToAutoLoadingCharges = () => {
+    const autoLoadingCharges = currentCalculation.total_blocks * 1500;
+    setCurrentCalculation(prev => ({
+      ...prev,
+      loading_charges: autoLoadingCharges
+    }));
+    setIsLoadingChargesManual(false);
+  };
+
   const handleSave = async () => {
     if (!currentCalculation.calculation_name.trim()) {
       setError('Calculation name is required');
@@ -210,10 +243,12 @@ export default function ConsignmentCalculatorPage() {
 
     try {
       const method = isEditing ? 'PUT' : 'POST';
-      // Auto-calculate loading and transport charges before saving
+      // Prepare data to save with proper loading and transport charges
       const dataToSave = { 
         ...currentCalculation,
-        loading_charges: currentCalculation.total_blocks * 1500,
+        // Loading charges: use current value (either manual or auto-calculated)
+        loading_charges: currentCalculation.loading_charges,
+        // Transport charges: always auto-calculated
         transport_charges: currentCalculation.total_blocks * 4500
       };
 
@@ -249,6 +284,9 @@ export default function ConsignmentCalculatorPage() {
       total_net_measurement: calculation.total_blocks * calculation.net_meters_per_block,
       total_gross_measurement: calculation.total_blocks * calculation.gross_meters_per_block
     });
+    // Check if loading charges are manually set (not equal to auto-calculated value)
+    const autoLoadingCharges = calculation.total_blocks * 1500;
+    setIsLoadingChargesManual(calculation.loading_charges !== autoLoadingCharges);
     setIsEditing(true);
     setError('');
   };
@@ -300,6 +338,7 @@ export default function ConsignmentCalculatorPage() {
       total_net_measurement: 0,
       total_gross_measurement: 0
     });
+    setIsLoadingChargesManual(false); // Reset to auto-calculation
     setIsEditing(false);
     setError('');
   };
@@ -583,21 +622,62 @@ export default function ConsignmentCalculatorPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <span className="mr-2">🚛</span>
-                      Loading Charges (₹) - Auto Calculated
+                      Loading Charges (₹) - {isLoadingChargesManual ? 'Manual Override' : 'Auto Calculated'}
                     </label>
-                    <div className="relative p-4 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <span className="text-xs text-blue-600 font-medium">₹1,500 per block</span>
-                          <span className="text-sm text-blue-700">
-                            ₹1,500 × {currentCalculation.total_blocks} blocks
-                          </span>
+                    <div className="space-y-2">
+                      {isLoadingChargesManual ? (
+                        // Manual input mode
+                        <div className="space-y-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={currentCalculation.loading_charges || ''}
+                            onChange={(e) => handleLoadingChargesChange(parseFloat(e.target.value) || 0)}
+                            min="0"
+                            placeholder="Enter custom loading charges"
+                            className="w-full"
+                          />
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              type="button"
+                              onClick={resetToAutoLoadingCharges}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              Reset to Auto (₹{(currentCalculation.total_blocks * 1500).toLocaleString()})
+                            </Button>
+                            <span className="text-xs text-gray-500">
+                              Auto would be: ₹1,500 × {currentCalculation.total_blocks} blocks
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-blue-900">{formatCurrency(derived.autoLoadingCharges)}</div>
-                          <div className="text-xs text-blue-600">Automatically calculated</div>
+                      ) : (
+                        // Auto-calculation display mode
+                        <div className="relative p-4 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                              <span className="text-xs text-blue-600 font-medium">₹1,500 per block</span>
+                              <span className="text-sm text-blue-700">
+                                ₹1,500 × {currentCalculation.total_blocks} blocks
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-blue-900">{formatCurrency(derived.loadingCharges)}</div>
+                              <div className="text-xs text-blue-600">Automatically calculated</div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => setIsLoadingChargesManual(true)}
+                            size="sm"
+                            variant="outline"
+                            className="mt-2 text-xs"
+                          >
+                            Override with Custom Amount
+                          </Button>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
@@ -820,7 +900,10 @@ export default function ConsignmentCalculatorPage() {
                   <div>
                     <div className="font-medium">Loading Charges:</div>
                     <div className="ml-2">
-                      {currentCalculation.total_blocks} blocks × ₹1,500 = {formatCurrency(derived.autoLoadingCharges)}
+                      {isLoadingChargesManual ? 
+                        `Custom amount: ${formatCurrency(derived.loadingCharges)}` :
+                        `${currentCalculation.total_blocks} blocks × ₹1,500 = ${formatCurrency(derived.loadingCharges)}`
+                      }
                     </div>
                   </div>
                   <div>
