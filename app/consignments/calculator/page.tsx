@@ -57,8 +57,8 @@ export default function ConsignmentCalculatorPage() {
     net_meters_per_block: 0,
     gross_meters_per_block: 0,
     cost_per_meter: 0,
-    loading_charges: 0,
-    transport_charges: 0,
+    loading_charges: 0, // Will be auto-calculated but kept for API compatibility
+    transport_charges: 0, // Will be auto-calculated but kept for API compatibility
     quarry_commission: 0,
     polish_percentage: 0,
     laputra_percentage: 0,
@@ -99,9 +99,13 @@ export default function ConsignmentCalculatorPage() {
     const laputraSqft = totalSqft * (calc.laputra_percentage / 100);
     const whitelineSqft = totalSqft * (calc.whiteline_percentage / 100);
     
-    // Raw material cost uses NET meters (what you pay for)
+    // Automatic calculation of loading and transport charges
+    const autoLoadingCharges = calc.total_blocks * 1500; // ₹1500 per block
+    const autoTransportCharges = calc.total_blocks * 4500; // ₹4500 per block
+    
+    // Raw material cost uses NET meters (what you pay for) + automatic charges
     const rawMaterialCost = (calc.total_blocks * calc.net_meters_per_block * calc.cost_per_meter) + 
-                           calc.loading_charges + calc.transport_charges + calc.quarry_commission;
+                           autoLoadingCharges + autoTransportCharges + calc.quarry_commission;
     
     // Production costs use GROSS meters (processing actual material)
     const polishCost = polishSqft * 25;
@@ -136,6 +140,8 @@ export default function ConsignmentCalculatorPage() {
       totalProductionCost,
       totalCost,
       costPerSqft,
+      autoLoadingCharges,
+      autoTransportCharges,
       polishSaleAmount,
       laputraSaleAmount,
       whitelineSaleAmount,
@@ -170,14 +176,19 @@ export default function ConsignmentCalculatorPage() {
 
     try {
       const method = isEditing ? 'PUT' : 'POST';
-      const body = isEditing ? currentCalculation : { ...currentCalculation };
+      // Auto-calculate loading and transport charges before saving
+      const dataToSave = { 
+        ...currentCalculation,
+        loading_charges: currentCalculation.total_blocks * 1500,
+        transport_charges: currentCalculation.total_blocks * 4500
+      };
 
       const response = await fetch('/api/consignment-calculations', {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(dataToSave),
       });
 
       const result = await response.json();
@@ -236,8 +247,8 @@ export default function ConsignmentCalculatorPage() {
       net_meters_per_block: 0,
       gross_meters_per_block: 0,
       cost_per_meter: 0,
-      loading_charges: 0,
-      transport_charges: 0,
+      loading_charges: 0, // Auto-calculated
+      transport_charges: 0, // Auto-calculated
       quarry_commission: 0,
       polish_percentage: 0,
       laputra_percentage: 0,
@@ -495,30 +506,22 @@ export default function ConsignmentCalculatorPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Loading Charges (₹)
+                      Loading Charges (₹) - Auto Calculated
                     </label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={currentCalculation.loading_charges || ''}
-                      onChange={(e) => handleInputChange('loading_charges', parseFloat(e.target.value) || 0)}
-                      min="0"
-                      placeholder="e.g., 50000"
-                    />
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                      <span className="text-sm text-gray-600">₹1,500 × {currentCalculation.total_blocks} blocks = </span>
+                      <span className="font-semibold text-gray-900">{formatCurrency(derived.autoLoadingCharges)}</span>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Transport Charges (₹)
+                      Transport Charges (₹) - Auto Calculated
                     </label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={currentCalculation.transport_charges || ''}
-                      onChange={(e) => handleInputChange('transport_charges', parseFloat(e.target.value) || 0)}
-                      min="0"
-                      placeholder="e.g., 25000"
-                    />
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                      <span className="text-sm text-gray-600">₹4,500 × {currentCalculation.total_blocks} blocks = </span>
+                      <span className="font-semibold text-gray-900">{formatCurrency(derived.autoTransportCharges)}</span>
+                    </div>
                   </div>
 
                   <div>
@@ -698,8 +701,14 @@ export default function ConsignmentCalculatorPage() {
               {/* Raw Material Costs */}
               <div className="bg-green-50 p-4 rounded-lg">
                 <h3 className="font-medium text-green-900 mb-2">Raw Material Cost</h3>
-                <div className="text-2xl font-bold text-green-900">
+                <div className="text-2xl font-bold text-green-900 mb-2">
                   {formatCurrency(derived.rawMaterialCost)}
+                </div>
+                <div className="text-xs text-green-700 space-y-1">
+                  <div>Material: {formatCurrency(currentCalculation.total_blocks * currentCalculation.net_meters_per_block * currentCalculation.cost_per_meter)}</div>
+                  <div>Loading: {formatCurrency(derived.autoLoadingCharges)} (₹1,500 × {currentCalculation.total_blocks})</div>
+                  <div>Transport: {formatCurrency(derived.autoTransportCharges)} (₹4,500 × {currentCalculation.total_blocks})</div>
+                  <div>Commission: {formatCurrency(currentCalculation.quarry_commission)}</div>
                 </div>
               </div>
 
