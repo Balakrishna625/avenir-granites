@@ -291,6 +291,106 @@ export default function ConsignmentCalculatorPage() {
         </Card>
       )}
 
+      {/* Summary Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        {/* Raw Material Cost */}
+        <Card className="p-4 bg-green-50 border-green-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-green-700">Raw Material Cost</p>
+              <p className="text-xl font-bold text-green-900">
+                {formatCurrency(derived.rawMaterialCost)}
+              </p>
+            </div>
+            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+              <span className="text-green-600 text-lg">🏗️</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Processing Costs */}
+        <Card className="p-4 bg-yellow-50 border-yellow-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-yellow-700">Processing Costs</p>
+              <p className="text-xl font-bold text-yellow-900">
+                {formatCurrency(derived.totalProductionCost)}
+              </p>
+            </div>
+            <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+              <span className="text-yellow-600 text-lg">⚙️</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Total Project Cost */}
+        <Card className="p-4 bg-purple-50 border-purple-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-purple-700">Total Project Cost</p>
+              <p className="text-xl font-bold text-purple-900">
+                {formatCurrency(derived.totalCost)}
+              </p>
+            </div>
+            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+              <span className="text-purple-600 text-lg">💰</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Raw Material Cost per SqFt */}
+        <Card className="p-4 bg-teal-50 border-teal-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-teal-700">Cost per SqFt</p>
+              <p className="text-xl font-bold text-teal-900">
+                ₹{derived.costPerSqft.toFixed(2)}
+              </p>
+            </div>
+            <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
+              <span className="text-teal-600 text-lg">📏</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Total Sale Revenue */}
+        <Card className="p-4 bg-indigo-50 border-indigo-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-indigo-700">Total Sale Revenue</p>
+              <p className="text-xl font-bold text-indigo-900">
+                {formatCurrency(derived.totalSaleRevenue)}
+              </p>
+            </div>
+            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+              <span className="text-indigo-600 text-lg">💵</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Profit/Loss */}
+        <Card className={`p-4 ${derived.profitLoss >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className={`text-sm font-medium ${derived.profitLoss >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                {derived.profitLoss >= 0 ? 'PROFIT' : 'LOSS'}
+              </p>
+              <p className={`text-xl font-bold ${derived.profitLoss >= 0 ? 'text-emerald-900' : 'text-red-900'}`}>
+                {formatCurrency(Math.abs(derived.profitLoss))}
+              </p>
+              <p className={`text-xs ${derived.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                {derived.profitMarginPercentage.toFixed(1)}% margin
+              </p>
+            </div>
+            <div className={`w-8 h-8 ${derived.profitLoss >= 0 ? 'bg-emerald-100' : 'bg-red-100'} rounded-full flex items-center justify-center`}>
+              <span className={`${derived.profitLoss >= 0 ? 'text-emerald-600' : 'text-red-600'} text-lg`}>
+                {derived.profitLoss >= 0 ? '📈' : '📉'}
+              </span>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       <div className="space-y-8">
         {/* Input Form - Full Width */}
         <Card className="p-6">
