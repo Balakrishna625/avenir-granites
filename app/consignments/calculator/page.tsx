@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { AppLayout } from '@/components/AppLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,10 @@ interface ConsignmentCalculation {
   polish_percentage: number;
   laputra_percentage: number;
   whiteline_percentage: number;
+  // New sale price fields
+  polish_sale_price: number;
+  laputra_sale_price: number;
+  whiteline_sale_price: number;
   // Computed fields
   total_expected_sqft?: number;
   polish_sqft?: number;
@@ -30,6 +35,13 @@ interface ConsignmentCalculation {
   whiteline_cost?: number;
   total_production_cost?: number;
   total_cost?: number;
+  // New computed fields for sales
+  polish_sale_amount?: number;
+  laputra_sale_amount?: number;
+  whiteline_sale_amount?: number;
+  total_sale_revenue?: number;
+  profit_loss?: number;
+  profit_margin_percentage?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -47,7 +59,10 @@ export default function ConsignmentCalculatorPage() {
     quarry_commission: 0,
     polish_percentage: 0,
     laputra_percentage: 0,
-    whiteline_percentage: 0
+    whiteline_percentage: 0,
+    polish_sale_price: 0,
+    laputra_sale_price: 0,
+    whiteline_sale_price: 0
   });
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -90,6 +105,16 @@ export default function ConsignmentCalculatorPage() {
     const totalProductionCost = polishCost + laputraCost + whitelineCost;
     const totalCost = rawMaterialCost + totalProductionCost;
 
+    // Sale calculations
+    const polishSaleAmount = polishSqft * (calc.polish_sale_price || 0);
+    const laputraSaleAmount = laputraSqft * (calc.laputra_sale_price || 0);
+    const whitelineSaleAmount = whitelineSqft * (calc.whiteline_sale_price || 0);
+    const totalSaleRevenue = polishSaleAmount + laputraSaleAmount + whitelineSaleAmount;
+    
+    // Profit/Loss calculation
+    const profitLoss = totalSaleRevenue - totalCost;
+    const profitMarginPercentage = totalSaleRevenue > 0 ? (profitLoss / totalSaleRevenue) * 100 : 0;
+
     return {
       totalSqft,
       polishSqft,
@@ -100,7 +125,13 @@ export default function ConsignmentCalculatorPage() {
       laputraCost,
       whitelineCost,
       totalProductionCost,
-      totalCost
+      totalCost,
+      polishSaleAmount,
+      laputraSaleAmount,
+      whitelineSaleAmount,
+      totalSaleRevenue,
+      profitLoss,
+      profitMarginPercentage
     };
   };
 
@@ -199,7 +230,10 @@ export default function ConsignmentCalculatorPage() {
       quarry_commission: 0,
       polish_percentage: 0,
       laputra_percentage: 0,
-      whiteline_percentage: 0
+      whiteline_percentage: 0,
+      polish_sale_price: 0,
+      laputra_sale_price: 0,
+      whiteline_sale_price: 0
     });
     setIsEditing(false);
     setError('');
@@ -220,7 +254,8 @@ export default function ConsignmentCalculatorPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <AppLayout>
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-3">
           <Calculator className="w-8 h-8 text-blue-600" />
@@ -245,39 +280,42 @@ export default function ConsignmentCalculatorPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Input Form */}
-        <div className="space-y-6">
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">
-              {isEditing ? 'Edit Calculation' : 'New Calculation'}
-            </h2>
+      <div className="space-y-8">
+        {/* Input Form - Full Width */}
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900">
+            {isEditing ? 'Edit Calculation' : 'New Calculation'}
+          </h2>
             
             <div className="space-y-4">
               {/* Basic Information */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Calculation Name *
-                </label>
-                <Input
-                  type="text"
-                  value={currentCalculation.calculation_name}
-                  onChange={(e) => handleInputChange('calculation_name', e.target.value)}
-                  placeholder="Enter calculation name"
-                  required
-                />
-              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Calculation Name *
+                  </label>
+                  <Input
+                    type="text"
+                    value={currentCalculation.calculation_name}
+                    onChange={(e) => handleInputChange('calculation_name', e.target.value)}
+                    placeholder="Enter calculation name"
+                    className="w-full"
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <Input
-                  type="text"
-                  value={currentCalculation.description || ''}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Optional description"
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <Input
+                    type="text"
+                    value={currentCalculation.description || ''}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    placeholder="Optional description"
+                    className="w-full"
+                  />
+                </div>
               </div>
 
               {/* Raw Material Inputs */}
@@ -420,6 +458,55 @@ export default function ConsignmentCalculatorPage() {
                 </div>
               </div>
 
+              {/* Expected Sale Prices */}
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Expected Sale Prices (₹ per sqft)</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Polish Sale Price (₹/sqft)
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={currentCalculation.polish_sale_price}
+                      onChange={(e) => handleInputChange('polish_sale_price', parseFloat(e.target.value) || 0)}
+                      min="0"
+                      placeholder="e.g., 45"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Laputra Sale Price (₹/sqft)
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={currentCalculation.laputra_sale_price}
+                      onChange={(e) => handleInputChange('laputra_sale_price', parseFloat(e.target.value) || 0)}
+                      min="0"
+                      placeholder="e.g., 55"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      White Line Sale Price (₹/sqft)
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={currentCalculation.whiteline_sale_price}
+                      onChange={(e) => handleInputChange('whiteline_sale_price', parseFloat(e.target.value) || 0)}
+                      min="0"
+                      placeholder="e.g., 40"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Action Buttons */}
               <div className="flex space-x-3 pt-4">
                 <Button
@@ -441,13 +528,13 @@ export default function ConsignmentCalculatorPage() {
                 )}
               </div>
             </div>
-          </Card>
-        </div>
+        </Card>
 
-        {/* Live Calculations */}
-        <div className="space-y-6">
+        {/* Live Calculations - 3 Column Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Cost Analysis Column */}
           <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">Live Calculations</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">Cost Analysis</h2>
             
             <div className="space-y-4">
               {/* Production Estimates */}
@@ -504,11 +591,87 @@ export default function ConsignmentCalculatorPage() {
                 </div>
               </div>
 
-              {/* Total Cost */}
+              {/* Total Project Cost */}
               <div className="bg-purple-50 p-4 rounded-lg">
                 <h3 className="font-medium text-purple-900 mb-2">Total Project Cost</h3>
                 <div className="text-3xl font-bold text-purple-900">
                   {formatCurrency(derived.totalCost)}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Expected Sale Column */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">Expected Sales</h2>
+            
+            <div className="space-y-4">
+              {/* Expected Sale Revenue */}
+              <div className="bg-indigo-50 p-4 rounded-lg">
+                <h3 className="font-medium text-indigo-900 mb-2">Expected Sale Revenue</h3>
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-indigo-700">Polish Sale ({formatNumber(derived.polishSqft)} sqft × ₹{currentCalculation.polish_sale_price}):</span>
+                    <span className="font-semibold text-indigo-900">{formatCurrency(derived.polishSaleAmount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-indigo-700">Laputra Sale ({formatNumber(derived.laputraSqft)} sqft × ₹{currentCalculation.laputra_sale_price}):</span>
+                    <span className="font-semibold text-indigo-900">{formatCurrency(derived.laputraSaleAmount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-indigo-700">White Line Sale ({formatNumber(derived.whitelineSqft)} sqft × ₹{currentCalculation.whiteline_sale_price}):</span>
+                    <span className="font-semibold text-indigo-900">{formatCurrency(derived.whitelineSaleAmount)}</span>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between">
+                    <span className="font-medium text-indigo-900">Total Sale Revenue:</span>
+                    <span className="font-bold text-indigo-900">{formatCurrency(derived.totalSaleRevenue)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Profit/Loss Column */}
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">Profit/Loss Analysis</h2>
+            
+            <div className="space-y-4">
+              {/* Profit/Loss Analysis */}
+              <div className={`p-4 rounded-lg ${derived.profitLoss >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                <h3 className={`font-medium mb-2 ${derived.profitLoss >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                  Financial Summary
+                </h3>
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className={derived.profitLoss >= 0 ? 'text-green-700' : 'text-red-700'}>Total Sale Revenue:</span>
+                    <span className={`font-semibold ${derived.profitLoss >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                      {formatCurrency(derived.totalSaleRevenue)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className={derived.profitLoss >= 0 ? 'text-green-700' : 'text-red-700'}>Total Cost:</span>
+                    <span className={`font-semibold ${derived.profitLoss >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                      {formatCurrency(derived.totalCost)}
+                    </span>
+                  </div>
+                  <div className="border-t pt-2">
+                    <div className="flex justify-between items-center">
+                      <span className={`font-bold text-lg ${derived.profitLoss >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                        {derived.profitLoss >= 0 ? 'PROFIT:' : 'LOSS:'}
+                      </span>
+                      <span className={`font-bold text-2xl ${derived.profitLoss >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                        {formatCurrency(Math.abs(derived.profitLoss))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className={`text-sm ${derived.profitLoss >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        Profit Margin:
+                      </span>
+                      <span className={`text-sm font-semibold ${derived.profitLoss >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                        {derived.profitMarginPercentage.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -580,6 +743,7 @@ export default function ConsignmentCalculatorPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AppLayout>
   );
 }

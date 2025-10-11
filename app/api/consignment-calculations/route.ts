@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
     const numericFields = [
       'total_blocks', 'avg_meters_per_block', 'cost_per_meter', 
       'loading_charges', 'transport_charges', 'quarry_commission',
-      'polish_percentage', 'laputra_percentage', 'whiteline_percentage'
+      'polish_percentage', 'laputra_percentage', 'whiteline_percentage',
+      'polish_sale_price', 'laputra_sale_price', 'whiteline_sale_price'
     ];
     
     for (const field of numericFields) {
@@ -86,7 +87,10 @@ export async function POST(request: NextRequest) {
         quarry_commission: parseFloat(body.quarry_commission) || 0,
         polish_percentage: parseFloat(body.polish_percentage) || 0,
         laputra_percentage: parseFloat(body.laputra_percentage) || 0,
-        whiteline_percentage: parseFloat(body.whiteline_percentage) || 0
+        whiteline_percentage: parseFloat(body.whiteline_percentage) || 0,
+        polish_sale_price: parseFloat(body.polish_sale_price) || 0,
+        laputra_sale_price: parseFloat(body.laputra_sale_price) || 0,
+        whiteline_sale_price: parseFloat(body.whiteline_sale_price) || 0
       }])
       .select()
       .single();
@@ -141,7 +145,8 @@ export async function PUT(request: NextRequest) {
     const numericFields = [
       'total_blocks', 'avg_meters_per_block', 'cost_per_meter', 
       'loading_charges', 'transport_charges', 'quarry_commission',
-      'polish_percentage', 'laputra_percentage', 'whiteline_percentage'
+      'polish_percentage', 'laputra_percentage', 'whiteline_percentage',
+      'polish_sale_price', 'laputra_sale_price', 'whiteline_sale_price'
     ];
     
     for (const field of numericFields) {
@@ -163,7 +168,8 @@ export async function PUT(request: NextRequest) {
     const floatFields = [
       'avg_meters_per_block', 'cost_per_meter', 'loading_charges', 
       'transport_charges', 'quarry_commission', 'polish_percentage', 
-      'laputra_percentage', 'whiteline_percentage'
+      'laputra_percentage', 'whiteline_percentage', 'polish_sale_price',
+      'laputra_sale_price', 'whiteline_sale_price'
     ];
     
     floatFields.forEach(field => {
