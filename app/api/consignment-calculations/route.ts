@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Validate required fields
-    const requiredFields = ['calculation_name', 'total_blocks', 'avg_meters_per_block', 'cost_per_meter'];
+    const requiredFields = ['calculation_name', 'total_blocks', 'net_meters_per_block', 'gross_meters_per_block', 'cost_per_meter'];
     const missingFields = requiredFields.filter(field => body[field] === undefined || body[field] === null);
     
     if (missingFields.length > 0) {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // Validate numeric fields
     const numericFields = [
-      'total_blocks', 'avg_meters_per_block', 'cost_per_meter', 
+      'total_blocks', 'net_meters_per_block', 'gross_meters_per_block', 'cost_per_meter', 
       'loading_charges', 'transport_charges', 'quarry_commission',
       'polish_percentage', 'laputra_percentage', 'whiteline_percentage',
       'polish_sale_price', 'laputra_sale_price', 'whiteline_sale_price'
@@ -80,7 +80,8 @@ export async function POST(request: NextRequest) {
         calculation_name: body.calculation_name,
         description: body.description || null,
         total_blocks: parseInt(body.total_blocks),
-        avg_meters_per_block: parseFloat(body.avg_meters_per_block),
+        net_meters_per_block: parseFloat(body.net_meters_per_block),
+        gross_meters_per_block: parseFloat(body.gross_meters_per_block),
         cost_per_meter: parseFloat(body.cost_per_meter),
         loading_charges: parseFloat(body.loading_charges) || 0,
         transport_charges: parseFloat(body.transport_charges) || 0,
@@ -166,7 +167,7 @@ export async function PUT(request: NextRequest) {
     }
     
     const floatFields = [
-      'avg_meters_per_block', 'cost_per_meter', 'loading_charges', 
+      'net_meters_per_block', 'gross_meters_per_block', 'cost_per_meter', 'loading_charges', 
       'transport_charges', 'quarry_commission', 'polish_percentage', 
       'laputra_percentage', 'whiteline_percentage', 'polish_sale_price',
       'laputra_sale_price', 'whiteline_sale_price'

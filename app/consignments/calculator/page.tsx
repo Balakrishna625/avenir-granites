@@ -12,7 +12,8 @@ interface ConsignmentCalculation {
   calculation_name: string;
   description?: string;
   total_blocks: number;
-  avg_meters_per_block: number;
+  net_meters_per_block: number;  // What you pay for
+  gross_meters_per_block: number; // What you actually get
   cost_per_meter: number;
   loading_charges: number;
   transport_charges: number;
@@ -20,7 +21,7 @@ interface ConsignmentCalculation {
   polish_percentage: number;
   laputra_percentage: number;
   whiteline_percentage: number;
-  // New sale price fields
+  // Sale price fields
   polish_sale_price: number;
   laputra_sale_price: number;
   whiteline_sale_price: number;
@@ -35,7 +36,8 @@ interface ConsignmentCalculation {
   whiteline_cost?: number;
   total_production_cost?: number;
   total_cost?: number;
-  // New computed fields for sales
+  cost_per_sqft?: number; // New field
+  // Computed fields for sales
   polish_sale_amount?: number;
   laputra_sale_amount?: number;
   whiteline_sale_amount?: number;
@@ -52,7 +54,8 @@ export default function ConsignmentCalculatorPage() {
     calculation_name: '',
     description: '',
     total_blocks: 0,
-    avg_meters_per_block: 0,
+    net_meters_per_block: 0,
+    gross_meters_per_block: 0,
     cost_per_meter: 0,
     loading_charges: 0,
     transport_charges: 0,
@@ -88,16 +91,19 @@ export default function ConsignmentCalculatorPage() {
     }
   };
 
-  // Calculate derived values in real-time
+  // Calculate derived values in real-time with correct business logic
   const calculateDerivedValues = (calc: ConsignmentCalculation) => {
-    const totalSqft = calc.total_blocks * calc.avg_meters_per_block * 300;
+    // SqFt calculations use GROSS meters (what you actually get)
+    const totalSqft = calc.total_blocks * calc.gross_meters_per_block * 300;
     const polishSqft = totalSqft * (calc.polish_percentage / 100);
     const laputraSqft = totalSqft * (calc.laputra_percentage / 100);
     const whitelineSqft = totalSqft * (calc.whiteline_percentage / 100);
     
-    const rawMaterialCost = (calc.total_blocks * calc.avg_meters_per_block * calc.cost_per_meter) + 
+    // Raw material cost uses NET meters (what you pay for)
+    const rawMaterialCost = (calc.total_blocks * calc.net_meters_per_block * calc.cost_per_meter) + 
                            calc.loading_charges + calc.transport_charges + calc.quarry_commission;
     
+    // Production costs use GROSS meters (processing actual material)
     const polishCost = polishSqft * 25;
     const laputraCost = laputraSqft * 30;
     const whitelineCost = whitelineSqft * 25;
@@ -105,7 +111,10 @@ export default function ConsignmentCalculatorPage() {
     const totalProductionCost = polishCost + laputraCost + whitelineCost;
     const totalCost = rawMaterialCost + totalProductionCost;
 
-    // Sale calculations
+    // Cost per SqFt: Raw material cost divided by total SqFt
+    const costPerSqft = totalSqft > 0 ? rawMaterialCost / totalSqft : 0;
+
+    // Sale calculations use GROSS meters (selling actual material)
     const polishSaleAmount = polishSqft * (calc.polish_sale_price || 0);
     const laputraSaleAmount = laputraSqft * (calc.laputra_sale_price || 0);
     const whitelineSaleAmount = whitelineSqft * (calc.whiteline_sale_price || 0);
@@ -126,6 +135,7 @@ export default function ConsignmentCalculatorPage() {
       whitelineCost,
       totalProductionCost,
       totalCost,
+      costPerSqft,
       polishSaleAmount,
       laputraSaleAmount,
       whitelineSaleAmount,
@@ -150,8 +160,8 @@ export default function ConsignmentCalculatorPage() {
       return;
     }
 
-    if (currentCalculation.total_blocks <= 0 || currentCalculation.avg_meters_per_block <= 0 || currentCalculation.cost_per_meter <= 0) {
-      setError('Total blocks, average meters per block, and cost per meter must be greater than 0');
+    if (currentCalculation.total_blocks <= 0 || currentCalculation.net_meters_per_block <= 0 || currentCalculation.gross_meters_per_block <= 0 || currentCalculation.cost_per_meter <= 0) {
+      setError('Total blocks, net meters per block, gross meters per block, and cost per meter must be greater than 0');
       return;
     }
 
@@ -223,7 +233,8 @@ export default function ConsignmentCalculatorPage() {
       calculation_name: '',
       description: '',
       total_blocks: 0,
-      avg_meters_per_block: 0,
+      net_meters_per_block: 0,
+      gross_meters_per_block: 0,
       cost_per_meter: 0,
       loading_charges: 0,
       transport_charges: 0,
@@ -329,23 +340,40 @@ export default function ConsignmentCalculatorPage() {
                     </label>
                     <Input
                       type="number"
-                      value={currentCalculation.total_blocks}
+                      value={currentCalculation.total_blocks || ''}
                       onChange={(e) => handleInputChange('total_blocks', parseInt(e.target.value) || 0)}
                       min="0"
+                      placeholder="e.g., 100"
                       required
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Avg Meters per Block *
+                      Net Meters per Block (What you pay for) *
                     </label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.avg_meters_per_block}
-                      onChange={(e) => handleInputChange('avg_meters_per_block', parseFloat(e.target.value) || 0)}
+                      value={currentCalculation.net_meters_per_block || ''}
+                      onChange={(e) => handleInputChange('net_meters_per_block', parseFloat(e.target.value) || 0)}
                       min="0"
+                      placeholder="e.g., 2.0"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Gross Meters per Block (What you actually get) *
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={currentCalculation.gross_meters_per_block || ''}
+                      onChange={(e) => handleInputChange('gross_meters_per_block', parseFloat(e.target.value) || 0)}
+                      min="0"
+                      placeholder="e.g., 7.0"
                       required
                     />
                   </div>
@@ -357,9 +385,10 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.cost_per_meter}
+                      value={currentCalculation.cost_per_meter || ''}
                       onChange={(e) => handleInputChange('cost_per_meter', parseFloat(e.target.value) || 0)}
                       min="0"
+                      placeholder="e.g., 1000"
                       required
                     />
                   </div>
@@ -371,9 +400,10 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.loading_charges}
+                      value={currentCalculation.loading_charges || ''}
                       onChange={(e) => handleInputChange('loading_charges', parseFloat(e.target.value) || 0)}
                       min="0"
+                      placeholder="e.g., 50000"
                     />
                   </div>
 
@@ -384,9 +414,10 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.transport_charges}
+                      value={currentCalculation.transport_charges || ''}
                       onChange={(e) => handleInputChange('transport_charges', parseFloat(e.target.value) || 0)}
                       min="0"
+                      placeholder="e.g., 25000"
                     />
                   </div>
 
@@ -397,9 +428,10 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.quarry_commission}
+                      value={currentCalculation.quarry_commission || ''}
                       onChange={(e) => handleInputChange('quarry_commission', parseFloat(e.target.value) || 0)}
                       min="0"
+                      placeholder="e.g., 15000"
                     />
                   </div>
                 </div>
@@ -417,10 +449,11 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.1"
-                      value={currentCalculation.polish_percentage}
+                      value={currentCalculation.polish_percentage || ''}
                       onChange={(e) => handleInputChange('polish_percentage', parseFloat(e.target.value) || 0)}
                       min="0"
                       max="100"
+                      placeholder="e.g., 40"
                     />
                   </div>
 
@@ -431,10 +464,11 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.1"
-                      value={currentCalculation.laputra_percentage}
+                      value={currentCalculation.laputra_percentage || ''}
                       onChange={(e) => handleInputChange('laputra_percentage', parseFloat(e.target.value) || 0)}
                       min="0"
                       max="100"
+                      placeholder="e.g., 35"
                     />
                   </div>
 
@@ -445,10 +479,11 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.1"
-                      value={currentCalculation.whiteline_percentage}
+                      value={currentCalculation.whiteline_percentage || ''}
                       onChange={(e) => handleInputChange('whiteline_percentage', parseFloat(e.target.value) || 0)}
                       min="0"
                       max="100"
+                      placeholder="e.g., 25"
                     />
                   </div>
                 </div>
@@ -470,7 +505,7 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.polish_sale_price}
+                      value={currentCalculation.polish_sale_price || ''}
                       onChange={(e) => handleInputChange('polish_sale_price', parseFloat(e.target.value) || 0)}
                       min="0"
                       placeholder="e.g., 45"
@@ -484,7 +519,7 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.laputra_sale_price}
+                      value={currentCalculation.laputra_sale_price || ''}
                       onChange={(e) => handleInputChange('laputra_sale_price', parseFloat(e.target.value) || 0)}
                       min="0"
                       placeholder="e.g., 55"
@@ -498,7 +533,7 @@ export default function ConsignmentCalculatorPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={currentCalculation.whiteline_sale_price}
+                      value={currentCalculation.whiteline_sale_price || ''}
                       onChange={(e) => handleInputChange('whiteline_sale_price', parseFloat(e.target.value) || 0)}
                       min="0"
                       placeholder="e.g., 40"
@@ -596,6 +631,17 @@ export default function ConsignmentCalculatorPage() {
                 <h3 className="font-medium text-purple-900 mb-2">Total Project Cost</h3>
                 <div className="text-3xl font-bold text-purple-900">
                   {formatCurrency(derived.totalCost)}
+                </div>
+              </div>
+
+              {/* Cost per SqFt */}
+              <div className="bg-teal-50 p-4 rounded-lg">
+                <h3 className="font-medium text-teal-900 mb-2">Raw Material Cost per SqFt</h3>
+                <div className="text-xl font-bold text-teal-900">
+                  ₹{derived.costPerSqft.toFixed(2)} per SqFt
+                </div>
+                <div className="text-sm text-teal-700 mt-1">
+                  Total raw material cost ÷ Total SqFt produced
                 </div>
               </div>
             </div>
