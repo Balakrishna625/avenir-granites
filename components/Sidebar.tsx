@@ -116,10 +116,10 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         <div key={item.title}>
           <button
             onClick={() => toggleExpanded(item.title)}
-            className={`w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            className={`w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-lg transition-colors ${
               level === 0 
-                ? 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' 
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                ? 'font-bold text-gray-700 hover:bg-gray-100 hover:text-gray-900' 
+                : 'font-normal text-gray-600 hover:bg-gray-50 hover:text-gray-800'
             } ${collapsed ? 'justify-center' : ''}`}
           >
             <div className="flex items-center space-x-3">
@@ -143,12 +143,12 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       <Link
         key={item.title}
         href={item.href!}
-        className={`flex items-center space-x-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+        className={`flex items-center space-x-3 px-3 py-2.5 text-sm rounded-lg transition-colors ${
           active
-            ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-700'
+            ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-700 font-medium'
             : level === 0
-            ? 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+            ? 'font-bold text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+            : 'font-normal text-gray-600 hover:bg-gray-50 hover:text-gray-800'
         } ${collapsed ? 'justify-center' : ''}`}
       >
         {item.icon}
