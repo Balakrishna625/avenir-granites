@@ -16,7 +16,8 @@ import {
   UserCog,
   Package,
   Truck,
-  Scissors
+  Scissors,
+  Calculator
 } from 'lucide-react';
 
 interface MenuItem {
@@ -48,6 +49,11 @@ const menuItems: MenuItem[] = [
     title: 'Consignment Management',
     icon: <Package className="w-5 h-5" />,
     children: [
+      {
+        title: 'Consignment Calculator',
+        href: '/consignments/calculator',
+        icon: <Calculator className="w-4 h-4" />
+      },
       {
         title: 'All Consignments',
         href: '/consignments',
