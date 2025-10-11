@@ -505,22 +505,44 @@ export default function ConsignmentCalculatorPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <span className="mr-2">🚛</span>
                       Loading Charges (₹) - Auto Calculated
                     </label>
-                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                      <span className="text-sm text-gray-600">₹1,500 × {currentCalculation.total_blocks} blocks = </span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(derived.autoLoadingCharges)}</span>
+                    <div className="relative p-4 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-xs text-blue-600 font-medium">₹1,500 per block</span>
+                          <span className="text-sm text-blue-700">
+                            ₹1,500 × {currentCalculation.total_blocks} blocks
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-blue-900">{formatCurrency(derived.autoLoadingCharges)}</div>
+                          <div className="text-xs text-blue-600">Automatically calculated</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      <span className="mr-2">🚚</span>
                       Transport Charges (₹) - Auto Calculated
                     </label>
-                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                      <span className="text-sm text-gray-600">₹4,500 × {currentCalculation.total_blocks} blocks = </span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(derived.autoTransportCharges)}</span>
+                    <div className="relative p-4 bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-xs text-green-600 font-medium">₹4,500 per block</span>
+                          <span className="text-sm text-green-700">
+                            ₹4,500 × {currentCalculation.total_blocks} blocks
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-green-900">{formatCurrency(derived.autoTransportCharges)}</div>
+                          <div className="text-xs text-green-600">Automatically calculated</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
