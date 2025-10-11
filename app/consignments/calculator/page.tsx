@@ -675,62 +675,99 @@ export default function ConsignmentCalculatorPage() {
             <h2 className="text-xl font-semibold mb-4 text-gray-900">Cost Analysis</h2>
             
             <div className="space-y-4">
-              {/* Production Estimates */}
+              {/* Production Estimates with Detailed Calculations */}
               <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="font-medium text-blue-900 mb-2">Production Estimates</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <h3 className="font-medium text-blue-900 mb-3">Production Estimates</h3>
+                <div className="space-y-2 text-sm">
                   <div>
-                    <span className="text-blue-700">Total Expected SqFt:</span>
-                    <div className="font-semibold text-blue-900">{formatNumber(derived.totalSqft)}</div>
+                    <div className="text-blue-700 font-medium">Total Expected SqFt:</div>
+                    <div className="text-blue-600 ml-2">
+                      {currentCalculation.total_blocks} blocks × {currentCalculation.gross_meters_per_block}m × 300 = {formatNumber(derived.totalSqft)}
+                    </div>
                   </div>
                   <div>
-                    <span className="text-blue-700">Polish SqFt:</span>
-                    <div className="font-semibold text-blue-900">{formatNumber(derived.polishSqft)}</div>
+                    <div className="text-blue-700 font-medium">Polish SqFt:</div>
+                    <div className="text-blue-600 ml-2">
+                      {currentCalculation.polish_percentage}% of {formatNumber(derived.totalSqft)} = {formatNumber(derived.polishSqft)}
+                    </div>
                   </div>
                   <div>
-                    <span className="text-blue-700">Laputra SqFt:</span>
-                    <div className="font-semibold text-blue-900">{formatNumber(derived.laputraSqft)}</div>
+                    <div className="text-blue-700 font-medium">Laputra SqFt:</div>
+                    <div className="text-blue-600 ml-2">
+                      {currentCalculation.laputra_percentage}% of {formatNumber(derived.totalSqft)} = {formatNumber(derived.laputraSqft)}
+                    </div>
                   </div>
                   <div>
-                    <span className="text-blue-700">White Line SqFt:</span>
-                    <div className="font-semibold text-blue-900">{formatNumber(derived.whitelineSqft)}</div>
+                    <div className="text-blue-700 font-medium">White Line SqFt:</div>
+                    <div className="text-blue-600 ml-2">
+                      {currentCalculation.whiteline_percentage}% of {formatNumber(derived.totalSqft)} = {formatNumber(derived.whitelineSqft)}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Raw Material Costs */}
+              {/* Raw Material Cost with Detailed Breakdown */}
               <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-medium text-green-900 mb-2">Raw Material Cost</h3>
-                <div className="text-2xl font-bold text-green-900 mb-2">
+                <h3 className="font-medium text-green-900 mb-3">Raw Material Cost</h3>
+                <div className="text-2xl font-bold text-green-900 mb-3">
                   {formatCurrency(derived.rawMaterialCost)}
                 </div>
-                <div className="text-xs text-green-700 space-y-1">
-                  <div>Material: {formatCurrency(currentCalculation.total_blocks * currentCalculation.net_meters_per_block * currentCalculation.cost_per_meter)}</div>
-                  <div>Loading: {formatCurrency(derived.autoLoadingCharges)} (₹1,500 × {currentCalculation.total_blocks})</div>
-                  <div>Transport: {formatCurrency(derived.autoTransportCharges)} (₹4,500 × {currentCalculation.total_blocks})</div>
-                  <div>Commission: {formatCurrency(currentCalculation.quarry_commission)}</div>
+                <div className="space-y-1 text-sm text-green-700">
+                  <div>
+                    <div className="font-medium">Material Cost:</div>
+                    <div className="ml-2">
+                      {currentCalculation.total_blocks} blocks × {currentCalculation.net_meters_per_block}m × ₹{formatNumber(currentCalculation.cost_per_meter)} = {formatCurrency(currentCalculation.total_blocks * currentCalculation.net_meters_per_block * currentCalculation.cost_per_meter)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-medium">Loading Charges:</div>
+                    <div className="ml-2">
+                      {currentCalculation.total_blocks} blocks × ₹1,500 = {formatCurrency(derived.autoLoadingCharges)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-medium">Transport Charges:</div>
+                    <div className="ml-2">
+                      {currentCalculation.total_blocks} blocks × ₹4,500 = {formatCurrency(derived.autoTransportCharges)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-medium">Quarry Commission:</div>
+                    <div className="ml-2">₹{formatNumber(currentCalculation.quarry_commission)}</div>
+                  </div>
                 </div>
               </div>
 
-              {/* Processing Costs */}
+              {/* Processing Costs with Detailed Calculations */}
               <div className="bg-yellow-50 p-4 rounded-lg">
-                <h3 className="font-medium text-yellow-900 mb-2">Processing Costs</h3>
-                <div className="grid grid-cols-1 gap-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-yellow-700">Polish Cost:</span>
-                    <span className="font-semibold text-yellow-900">{formatCurrency(derived.polishCost)}</span>
+                <h3 className="font-medium text-yellow-900 mb-3">Processing Costs</h3>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <div className="text-yellow-700 font-medium">Polish Cost:</div>
+                    <div className="text-yellow-600 ml-2">
+                      {formatNumber(derived.polishSqft)} sqft × ₹25 = {formatCurrency(derived.polishCost)}
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-yellow-700">Laputra Cost:</span>
-                    <span className="font-semibold text-yellow-900">{formatCurrency(derived.laputraCost)}</span>
+                  <div>
+                    <div className="text-yellow-700 font-medium">Laputra Cost:</div>
+                    <div className="text-yellow-600 ml-2">
+                      {formatNumber(derived.laputraSqft)} sqft × ₹30 = {formatCurrency(derived.laputraCost)}
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-yellow-700">White Line Cost:</span>
-                    <span className="font-semibold text-yellow-900">{formatCurrency(derived.whitelineCost)}</span>
+                  <div>
+                    <div className="text-yellow-700 font-medium">White Line Cost:</div>
+                    <div className="text-yellow-600 ml-2">
+                      {formatNumber(derived.whitelineSqft)} sqft × ₹25 = {formatCurrency(derived.whitelineCost)}
+                    </div>
                   </div>
-                  <div className="border-t pt-2 flex justify-between">
-                    <span className="font-medium text-yellow-900">Total Production:</span>
-                    <span className="font-bold text-yellow-900">{formatCurrency(derived.totalProductionCost)}</span>
+                  <div className="border-t pt-2 mt-2">
+                    <div className="text-yellow-800 font-medium">Total Production:</div>
+                    <div className="text-yellow-700 ml-2 text-xs">
+                      Raw Material Cost + Production Cost
+                    </div>
+                    <div className="text-yellow-700 ml-2">
+                      {formatCurrency(derived.rawMaterialCost)} + {formatCurrency(derived.totalProductionCost)} = {formatCurrency(derived.rawMaterialCost + derived.totalProductionCost)}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -738,8 +775,13 @@ export default function ConsignmentCalculatorPage() {
               {/* Total Project Cost */}
               <div className="bg-purple-50 p-4 rounded-lg">
                 <h3 className="font-medium text-purple-900 mb-2">Total Project Cost</h3>
-                <div className="text-3xl font-bold text-purple-900">
+                <div className="text-3xl font-bold text-purple-900 mb-2">
                   {formatCurrency(derived.totalCost)}
+                </div>
+                <div className="text-sm text-purple-700">
+                  <div>Raw Material: {formatCurrency(derived.rawMaterialCost)}</div>
+                  <div>+ Processing: {formatCurrency(derived.totalProductionCost)}</div>
+                  <div className="border-t pt-1 font-medium">= Total: {formatCurrency(derived.totalCost)}</div>
                 </div>
               </div>
 
