@@ -114,6 +114,35 @@ export default function AdminPage() {
     }
   }
 
+  async function deleteBankAccount(accountId: string, accountName: string) {
+    if (!confirm(`Are you sure you want to delete the bank account "${accountName}"?\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/bank-accounts?id=${accountId}`, {
+        method: "DELETE"
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        if (data.inUse) {
+          alert(`Cannot delete bank account "${accountName}".\n\nThis account is being used in ${data.usageCount} transaction(s). Please remove those transactions first.`);
+        } else {
+          alert(data.error || "Failed to delete bank account");
+        }
+        return;
+      }
+      
+      setBankAccounts(prev => prev.filter(account => account.id !== accountId));
+      alert("Bank account deleted successfully!");
+    } catch (error) {
+      console.error("Failed to delete bank account:", error);
+      alert("Failed to delete bank account. Please try again.");
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen w-full bg-gray-50 flex items-center justify-center">
@@ -271,6 +300,14 @@ export default function AdminPage() {
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <div className="font-medium text-gray-900">{account.name}</div>
+                    <Button
+                      onClick={() => deleteBankAccount(account.id, account.name)}
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
