@@ -309,9 +309,8 @@ export default function Page() {
       throw new Error(data.error || "Create failed");
     }
     
-    // Success: Update state and clear form
+    // Success: Update state (form will be cleared by child component)
     setConsignments((s) => [...s, data]);
-    e.currentTarget.reset();
     
     // Show success indicator for 2 seconds
     setConsignmentSubmitted(true);
@@ -352,9 +351,8 @@ export default function Page() {
       throw new Error(data.error || "Create failed");
     }
     
-    // Success: Update state and clear form
+    // Success: Update state (form will be cleared by child component)
     setTxns((s) => [...s, data]);
-    e.currentTarget.reset();
     
     // Show success indicator for 2 seconds
     setTransactionSubmitted(true);

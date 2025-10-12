@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Transaction>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const handleEdit = (transaction: Transaction) => {
     setEditingId(transaction.id);
@@ -47,6 +48,10 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
     try {
       if (onAddTransaction) {
         await onAddTransaction(e);
+        // Reset form after successful submission
+        if (formRef.current) {
+          formRef.current.reset();
+        }
       }
     } catch (error) {
       // Error is already handled by the parent component
@@ -86,7 +91,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
         <div className="p-6 border-b bg-gray-50">
           <h2 className="text-2xl font-semibold mb-4">Payments (Transactions)</h2>
           {onAddTransaction && (
-            <form onSubmit={handleAddTransaction} className="space-y-4">
+            <form ref={formRef} onSubmit={handleAddTransaction} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Date</label>
@@ -260,11 +265,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                                     <Edit className="w-3 h-3" />
                                   </button>
                                   <button
-                                    onClick={() => {
-                                      onDeleteTransaction(t.id); {
-                                        onDeleteTransaction(t.id);
-                                      }
-                                    }}
+                                    onClick={() => onDeleteTransaction(t.id)}
                                     className="text-red-600 hover:text-red-800 p-1 rounded"
                                     title="Delete transaction"
                                   >
@@ -384,11 +385,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                                     <Edit className="w-3 h-3" />
                                   </button>
                                   <button
-                                    onClick={() => {
-                                      onDeleteTransaction(t.id); {
-                                        onDeleteTransaction(t.id);
-                                      }
-                                    }}
+                                    onClick={() => onDeleteTransaction(t.id)}
                                     className="text-red-600 hover:text-red-800 p-1 rounded"
                                     title="Delete transaction"
                                   >

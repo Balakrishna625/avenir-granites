@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Consignment>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const handleEdit = (consignment: Consignment) => {
     setEditingId(consignment.id);
@@ -50,6 +51,10 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
     try {
       if (onAddConsignment) {
         await onAddConsignment(e);
+        // Reset form after successful submission
+        if (formRef.current) {
+          formRef.current.reset();
+        }
       }
     } catch (error) {
       // Error is already handled by the parent component
@@ -89,7 +94,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
         <div className="p-6 border-b bg-gray-50">
           <h2 className="text-2xl font-semibold mb-4">Consignments (Expected)</h2>
           {onAddConsignment && (
-            <form onSubmit={handleAddConsignment} className="space-y-4">
+            <form ref={formRef} onSubmit={handleAddConsignment} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Date</label>
