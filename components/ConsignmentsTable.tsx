@@ -51,6 +51,9 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
       if (onAddConsignment) {
         await onAddConsignment(e);
       }
+    } catch (error) {
+      // Error is already handled by the parent component
+      console.error("Consignment submission error:", error);
     } finally {
       // Re-enable submission after a short delay
       setTimeout(() => setIsSubmitting(false), 1000);

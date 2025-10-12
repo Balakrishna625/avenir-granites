@@ -277,6 +277,15 @@ export default function Page() {
     e.currentTarget.reset();
   }
 
+  async function handleAddConsignment(e: React.FormEvent<HTMLFormElement>) {
+    try {
+      await addConsignment(e);
+    } catch (error) {
+      console.error("Error adding consignment:", error);
+      // Error is already shown by addConsignment function via alert
+    }
+  }
+
   async function addConsignment(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -288,25 +297,35 @@ export default function Page() {
       cash_expected: Number(fd.get("c_cash") || 0),
       remarks: String(fd.get("c_remarks") || ""),
     };
-    if (!payload.customer_id) return alert("Please select/add a customer first.");
+    if (!payload.customer_id) {
+      alert("Please select/add a customer first.");
+      throw new Error("No customer selected");
+    }
     
+    const res = await fetch("/api/consignments", { method: "POST", body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Create failed");
+      throw new Error(data.error || "Create failed");
+    }
+    
+    // Success: Update state and clear form
+    setConsignments((s) => [...s, data]);
+    e.currentTarget.reset();
+    
+    // Show success indicator for 2 seconds
+    setConsignmentSubmitted(true);
+    setTimeout(() => setConsignmentSubmitted(false), 2000);
+    
+    showToast("success", "Consignment added successfully!");
+  }
+
+  async function handleAddTransaction(e: React.FormEvent<HTMLFormElement>) {
     try {
-      const res = await fetch("/api/consignments", { method: "POST", body: JSON.stringify(payload) });
-      const data = await res.json();
-      if (!res.ok) return alert(data.error || "Create failed");
-      
-      // Success: Update state and clear form
-      setConsignments((s) => [...s, data]);
-      e.currentTarget.reset();
-      
-      // Show success indicator for 2 seconds
-      setConsignmentSubmitted(true);
-      setTimeout(() => setConsignmentSubmitted(false), 2000);
-      
-      showToast("success", "Consignment added successfully!");
+      await addTxn(e);
     } catch (error) {
-      console.error("Error adding consignment:", error);
-      alert("Failed to add consignment. Please try again.");
+      console.error("Error adding transaction:", error);
+      // Error is already shown by addTxn function via alert
     }
   }
 
@@ -321,26 +340,27 @@ export default function Page() {
       amount: Number(fd.get("t_amount") || 0),
       note: String(fd.get("t_note") || ""),
     };
-    if (!payload.customer_id) return alert("Please select/add a customer first.");
-    
-    try {
-      const res = await fetch("/api/transactions", { method: "POST", body: JSON.stringify(payload) });
-      const data = await res.json();
-      if (!res.ok) return alert(data.error || "Create failed");
-      
-      // Success: Update state and clear form
-      setTxns((s) => [...s, data]);
-      e.currentTarget.reset();
-      
-      // Show success indicator for 2 seconds
-      setTransactionSubmitted(true);
-      setTimeout(() => setTransactionSubmitted(false), 2000);
-      
-      showToast("success", "Transaction added successfully!");
-    } catch (error) {
-      console.error("Error adding transaction:", error);
-      alert("Failed to add transaction. Please try again.");
+    if (!payload.customer_id) {
+      alert("Please select/add a customer first.");
+      throw new Error("No customer selected");
     }
+    
+    const res = await fetch("/api/transactions", { method: "POST", body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Create failed");
+      throw new Error(data.error || "Create failed");
+    }
+    
+    // Success: Update state and clear form
+    setTxns((s) => [...s, data]);
+    e.currentTarget.reset();
+    
+    // Show success indicator for 2 seconds
+    setTransactionSubmitted(true);
+    setTimeout(() => setTransactionSubmitted(false), 2000);
+    
+    showToast("success", "Transaction added successfully!");
   }
 
   async function updateOldDueAmount() {
@@ -640,7 +660,7 @@ export default function Page() {
           {/* Consignments Table */}
           <ConsignmentsTable 
             consignments={consignments}
-            onAddConsignment={customerId !== "all" ? addConsignment : undefined}
+            onAddConsignment={customerId !== "all" ? handleAddConsignment : undefined}
             onEditConsignment={editConsignment}
             onDeleteConsignment={deleteConsignment}
             customerId={customerId}
@@ -653,7 +673,7 @@ export default function Page() {
             transactions={txns}
             accounts={accounts}
             customers={customers}
-            onAddTransaction={customerId !== "all" ? addTxn : undefined}
+            onAddTransaction={customerId !== "all" ? handleAddTransaction : undefined}
             onEditTransaction={editTransaction}
             onDeleteTransaction={deleteTransaction}
             showSubmissionSuccess={transactionSubmitted}
