@@ -553,73 +553,62 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Previous Due Section - Only show for individual customers */}
+      {/* Previous Due Section - Compact and subtle for individual customers */}
       {customerId !== "all" && (
-        <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-6 shadow-sm">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                <span className="text-orange-600 text-2xl">💰</span>
+            <div className="flex items-center space-x-3">
+              <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 text-sm">₹</span>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-orange-900">Previous Due Amount</h3>
-                <p className="text-sm text-orange-700">
-                  Unpaid amounts from before current consignments
-                </p>
+                <span className="text-gray-700 font-medium">Previous Due: </span>
+                <span className="text-lg font-semibold text-orange-900">{fmt(kpi.oldDueAmount)}</span>
+                {kpi.oldDueAmount > 0 && (
+                  <span className="text-xs text-gray-500 ml-2">(included in Total Receivables)</span>
+                )}
               </div>
             </div>
-            <div className="flex items-center space-x-6">
-              <div className="text-right">
-                <div className="text-3xl font-bold text-orange-900">{fmt(kpi.oldDueAmount)}</div>
-                <div className="text-xs text-orange-600 uppercase tracking-wide">Outstanding Balance</div>
-              </div>
+            <div className="flex items-center space-x-2">
               {!editingOldDue ? (
                 <Button 
                   onClick={startEditingOldDue}
-                  className="bg-orange-600 hover:bg-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-100"
                 >
-                  {kpi.oldDueAmount > 0 ? 'Update Amount' : 'Add Previous Due'}
+                  {kpi.oldDueAmount > 0 ? 'Edit' : 'Add'}
                 </Button>
               ) : (
-                <div className="flex items-center space-x-3">
-                  <div className="flex flex-col space-y-2">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={oldDueInput}
-                      onChange={(e) => setOldDueInput(e.target.value)}
-                      placeholder="Enter amount"
-                      className="w-32 text-right"
-                    />
-                  </div>
-                  <div className="flex flex-col space-y-2">
-                    <Button 
-                      onClick={updateOldDueAmount}
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      Save
-                    </Button>
-                    <Button 
-                      onClick={cancelEditingOldDue}
-                      size="sm"
-                      variant="outline"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+                <>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={oldDueInput}
+                    onChange={(e) => setOldDueInput(e.target.value)}
+                    placeholder="Amount"
+                    className="w-24 h-7 text-xs text-right"
+                  />
+                  <Button 
+                    onClick={updateOldDueAmount}
+                    size="sm"
+                    className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                  >
+                    Save
+                  </Button>
+                  <Button 
+                    onClick={cancelEditingOldDue}
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </>
               )}
             </div>
           </div>
-          {kpi.oldDueAmount > 0 && (
-            <div className="mt-4 p-3 bg-white/60 rounded-lg border border-orange-200">
-              <div className="text-xs text-orange-700">
-                <strong>Note:</strong> This amount is included in your Total Receivables calculation ({fmt(kpi.totalReceivables)}) and represents cash receivables from previous business.
-              </div>
-            </div>
-          )}
         </div>
       )}
 
