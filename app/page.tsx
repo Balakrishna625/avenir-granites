@@ -139,9 +139,9 @@ export default function Page() {
       
       // Overall Summary
       const summary = [
-        { Metric: "Expected Total", Value: kpi.expectedTotal },
-        { Metric: "Expected RTGS", Value: kpi.expectedRTGS },
-        { Metric: "Expected Cash", Value: kpi.expectedCASH },
+        { Metric: "Total Invoiced", Value: kpi.expectedTotal },
+        { Metric: "Invoiced RTGS", Value: kpi.expectedRTGS },
+        { Metric: "Invoiced Cash", Value: kpi.expectedCASH },
         { Metric: "Received RTGS", Value: kpi.receivedRTGS },
         { Metric: "Received Cash", Value: kpi.receivedCASH },
         { Metric: "Total Received", Value: kpi.receivedTotal },
@@ -165,9 +165,9 @@ export default function Page() {
         
         return {
           Customer: customer.name,
-          Expected_Total: expectedTotal,
-          Expected_RTGS: expectedRTGS,
-          Expected_Cash: expectedCash,
+          Total_Invoiced: expectedTotal,
+          Invoiced_RTGS: expectedRTGS,
+          Invoiced_Cash: expectedCash,
           Received_RTGS: receivedRTGS,
           Received_Cash: receivedCash,
           Total_Received: receivedRTGS + receivedCash,
@@ -178,7 +178,7 @@ export default function Page() {
           Total_Receivables: expectedTotal + (customer.old_due_amount || 0) - (receivedRTGS + receivedCash),
           Collection_Rate: expectedTotal > 0 ? `${((receivedRTGS + receivedCash) / expectedTotal * 100).toFixed(1)}%` : '0%'
         };
-      }).filter(c => c.Expected_Total > 0 || c.Total_Received > 0); // Only include customers with activity
+      }).filter(c => c.Total_Invoiced > 0 || c.Total_Received > 0); // Only include customers with activity
 
       // Detailed Consignments
       const consRows = consignments.map((c: any, index) => ({
@@ -186,8 +186,8 @@ export default function Page() {
         Date: c.date,
         Customer: customers.find((x) => x.id === c.customer_id)?.name || "Unknown",
         'Total (₹)': c.total,
-        'RTGS Expected (₹)': c.rtgs_expected || 0,
-        'Cash Expected (₹)': c.cash_expected || 0,
+        'RTGS Invoiced (₹)': c.rtgs_expected || 0,
+        'Cash Invoiced (₹)': c.cash_expected || 0,
         Remarks: c.remarks || ""
       }));
 
@@ -519,15 +519,15 @@ export default function Page() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <div className="text-xs text-gray-600 uppercase tracking-wide">Expected Total</div>
+          <div className="text-xs text-gray-600 uppercase tracking-wide">Total Invoiced</div>
           <div className="text-2xl font-bold text-gray-900">{fmt(kpi.expectedTotal)}</div>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <div className="text-xs text-gray-600 uppercase tracking-wide">Expected RTGS</div>
+          <div className="text-xs text-gray-600 uppercase tracking-wide">Invoiced RTGS</div>
           <div className="text-2xl font-bold text-gray-900">{fmt(kpi.expectedRTGS)}</div>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <div className="text-xs text-gray-600 uppercase tracking-wide">Expected Cash</div>
+          <div className="text-xs text-gray-600 uppercase tracking-wide">Invoiced Cash</div>
           <div className="text-2xl font-bold text-gray-900">{fmt(kpi.expectedCASH)}</div>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
@@ -546,11 +546,14 @@ export default function Page() {
           <div className="text-xs text-amber-600 uppercase tracking-wide">Pending RTGS</div>
           <div className="text-2xl font-bold text-amber-600">{fmt(Math.max(0, kpi.expectedRTGS - kpi.receivedRTGS))}</div>
         </div>
-        <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <div className="text-xs text-red-600 uppercase tracking-wide">Total Receivables</div>
-          <div className="text-2xl font-bold text-red-600">{fmt(Math.max(0, kpi.totalReceivables))}</div>
-          <div className="text-xs text-red-500 mt-1">Including Old Due</div>
-        </div>
+        {/* Only show Total Receivables if there's an old due amount */}
+        {kpi.oldDueAmount > 0 && (
+          <div className="bg-white rounded-xl p-4 border shadow-sm">
+            <div className="text-xs text-red-600 uppercase tracking-wide">Total Receivables</div>
+            <div className="text-2xl font-bold text-red-600">{fmt(Math.max(0, kpi.totalReceivables))}</div>
+            <div className="text-xs text-red-500 mt-1">Including Previous Due</div>
+          </div>
+        )}
       </div>
 
       {/* Previous Due Section - Compact and subtle for individual customers */}
