@@ -85,6 +85,36 @@ export default function Page() {
     };
   }, [consignments, txns]);
 
+  // Calculate account-wise totals
+  const accountSummary = useMemo(() => {
+    const accountTotals = new Map();
+    
+    txns.forEach(txn => {
+      const account = accounts.find(a => a.id === txn.account_id);
+      const accountName = account?.name || 'Unknown Account';
+      
+      if (!accountTotals.has(accountName)) {
+        accountTotals.set(accountName, { total: 0, rtgs: 0, cash: 0 });
+      }
+      
+      const current = accountTotals.get(accountName);
+      current.total += txn.amount || 0;
+      
+      if (txn.mode === 'RTGS') {
+        current.rtgs += txn.amount || 0;
+      } else if (txn.mode === 'CASH') {
+        current.cash += txn.amount || 0;
+      }
+    });
+    
+    return Array.from(accountTotals.entries()).map(([name, data]) => ({
+      name,
+      total: data.total,
+      rtgs: data.rtgs,
+      cash: data.cash
+    })).sort((a, b) => b.total - a.total); // Sort by total amount descending
+  }, [txns, accounts]);
+
   const currentCustomerName =
     customerId === "all" ? "All Customers" : (customers.find((c) => c.id === customerId)?.name || "");
 
@@ -409,7 +439,7 @@ export default function Page() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-gray-600 uppercase tracking-wide">Expected Total</div>
           <div className="text-2xl font-bold text-gray-900">{fmt(kpi.expectedTotal)}</div>
@@ -429,6 +459,10 @@ export default function Page() {
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-green-600 uppercase tracking-wide">Received Cash</div>
           <div className="text-2xl font-bold text-green-600">{fmt(kpi.receivedCASH)}</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="text-xs text-purple-600 uppercase tracking-wide">Total Pending</div>
+          <div className="text-2xl font-bold text-purple-600">{fmt(Math.max(0, kpi.expectedTotal - kpi.receivedTotal))}</div>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-amber-600 uppercase tracking-wide">Pending RTGS</div>
@@ -461,6 +495,35 @@ export default function Page() {
         onDeleteTransaction={deleteTransaction}
         showSubmissionSuccess={transactionSubmitted}
       />
+
+      {/* Account-wise Summary */}
+      {accountSummary.length > 0 && (
+        <div className="mt-8 space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Account-wise Collection Summary</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {accountSummary.map((account, index) => (
+              <div key={account.name} className="bg-white rounded-xl p-4 border shadow-sm">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-gray-700 truncate" title={account.name}>
+                    {account.name}
+                  </div>
+                  <div className="text-xl font-bold text-gray-900">{fmt(account.total)}</div>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    <div className="flex justify-between">
+                      <span>RTGS:</span>
+                      <span className="font-medium text-blue-600">{fmt(account.rtgs)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Cash:</span>
+                      <span className="font-medium text-green-600">{fmt(account.cash)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <p className="text-xs text-gray-500 text-center">
         Granite Ledger - Comprehensive consignment and payment management system
