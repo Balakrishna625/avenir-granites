@@ -517,7 +517,7 @@ export default function Page() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-gray-600 uppercase tracking-wide">Expected Total</div>
           <div className="text-2xl font-bold text-gray-900">{fmt(kpi.expectedTotal)}</div>
@@ -539,11 +539,6 @@ export default function Page() {
           <div className="text-2xl font-bold text-green-600">{fmt(kpi.receivedCASH)}</div>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <div className="text-xs text-orange-600 uppercase tracking-wide">Old Due Amount</div>
-          <div className="text-2xl font-bold text-orange-600">{fmt(kpi.oldDueAmount)}</div>
-          <div className="text-xs text-orange-500 mt-1">Previous unpaid</div>
-        </div>
-        <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-purple-600 uppercase tracking-wide">Total Pending</div>
           <div className="text-2xl font-bold text-purple-600">{fmt(Math.max(0, kpi.expectedTotal - kpi.receivedTotal))}</div>
         </div>
@@ -554,72 +549,74 @@ export default function Page() {
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-red-600 uppercase tracking-wide">Total Receivables</div>
           <div className="text-2xl font-bold text-red-600">{fmt(Math.max(0, kpi.totalReceivables))}</div>
-          <div className="text-xs text-red-500 mt-1">Pending + Old Due</div>
+          <div className="text-xs text-red-500 mt-1">Including Old Due</div>
         </div>
       </div>
 
-      {/* Old Due Amount Management - Only show for individual customers */}
+      {/* Previous Due Section - Only show for individual customers */}
       {customerId !== "all" && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-orange-900">Previous Due Management</h3>
-              <p className="text-sm text-orange-700">
-                Manage unpaid amounts from before current consignments. This amount is added to Cash Receivables tracking.
-              </p>
-            </div>
+        <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <div className="text-xs text-orange-600 uppercase tracking-wide">Current Old Due</div>
-                <div className="text-2xl font-bold text-orange-900">{fmt(kpi.oldDueAmount)}</div>
+              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 text-2xl">💰</span>
               </div>
-              {!editingOldDue && (
+              <div>
+                <h3 className="text-lg font-semibold text-orange-900">Previous Due Amount</h3>
+                <p className="text-sm text-orange-700">
+                  Unpaid amounts from before current consignments
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-6">
+              <div className="text-right">
+                <div className="text-3xl font-bold text-orange-900">{fmt(kpi.oldDueAmount)}</div>
+                <div className="text-xs text-orange-600 uppercase tracking-wide">Outstanding Balance</div>
+              </div>
+              {!editingOldDue ? (
                 <Button 
                   onClick={startEditingOldDue}
-                  variant="outline"
-                  className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                  className="bg-orange-600 hover:bg-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                 >
-                  Update Amount
+                  {kpi.oldDueAmount > 0 ? 'Update Amount' : 'Add Previous Due'}
                 </Button>
+              ) : (
+                <div className="flex items-center space-x-3">
+                  <div className="flex flex-col space-y-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={oldDueInput}
+                      onChange={(e) => setOldDueInput(e.target.value)}
+                      placeholder="Enter amount"
+                      className="w-32 text-right"
+                    />
+                  </div>
+                  <div className="flex flex-col space-y-2">
+                    <Button 
+                      onClick={updateOldDueAmount}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      Save
+                    </Button>
+                    <Button 
+                      onClick={cancelEditingOldDue}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
-          
-          {editingOldDue && (
-            <div className="bg-white rounded-lg p-4 border border-orange-200">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                <div className="md:col-span-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Old Due Amount (₹)
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={oldDueInput}
-                    onChange={(e) => setOldDueInput(e.target.value)}
-                    placeholder="Enter old due amount"
-                    className="w-full"
-                  />
-                </div>
-                <div className="md:col-span-6 flex space-x-2">
-                  <Button 
-                    onClick={updateOldDueAmount}
-                    className="bg-orange-600 hover:bg-orange-700 text-white flex-1"
-                  >
-                    Save Amount
-                  </Button>
-                  <Button 
-                    onClick={cancelEditingOldDue}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-              <div className="mt-3 text-xs text-gray-600">
-                <strong>Note:</strong> This amount represents previous unpaid dues and will be included in your total receivables calculation.
+          {kpi.oldDueAmount > 0 && (
+            <div className="mt-4 p-3 bg-white/60 rounded-lg border border-orange-200">
+              <div className="text-xs text-orange-700">
+                <strong>Note:</strong> This amount is included in your Total Receivables calculation ({fmt(kpi.totalReceivables)}) and represents cash receivables from previous business.
               </div>
             </div>
           )}
