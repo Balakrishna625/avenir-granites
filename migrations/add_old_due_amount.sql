@@ -20,10 +20,10 @@ CREATE INDEX IF NOT EXISTS customers_old_due_amount_idx ON customers(old_due_amo
 
 -- Verify the migration
 SELECT 
-    column_name, 
-    data_type, 
-    is_nullable, 
-    column_default,
+    columns.column_name, 
+    columns.data_type, 
+    columns.is_nullable, 
+    columns.column_default,
     check_constraints.constraint_name
 FROM information_schema.columns 
 LEFT JOIN (
@@ -37,5 +37,5 @@ LEFT JOIN (
     WHERE tc.constraint_type = 'CHECK'
         AND tc.table_name = 'customers'
 ) check_constraints ON check_constraints.column_name = columns.column_name
-WHERE table_name = 'customers' 
-    AND column_name = 'old_due_amount';
+WHERE columns.table_name = 'customers' 
+    AND columns.column_name = 'old_due_amount';
