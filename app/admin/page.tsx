@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Users, CreditCard, ArrowLeft, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
 
 interface Customer {
@@ -23,6 +24,7 @@ export default function AdminPage() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'customers' | 'banks'>('customers');
+  const { showToast } = useToast();
 
   useEffect(() => {
     async function loadData() {
@@ -39,7 +41,7 @@ export default function AdminPage() {
         setBankAccounts(bankAccountsData);
       } catch (error) {
         console.error("Failed to load data:", error);
-        alert("Failed to load data. Please refresh the page.");
+        showToast("error", "Failed to load data. Please refresh the page.");
       } finally {
         setLoading(false);
       }
@@ -54,7 +56,7 @@ export default function AdminPage() {
     const name = String(formData.get("customerName") || "").trim();
     
     if (!name) {
-      alert("Customer name is required");
+      showToast("error", "Customer name is required");
       return;
     }
 
@@ -68,16 +70,53 @@ export default function AdminPage() {
       const data = await res.json();
       
       if (!res.ok) {
-        alert(data.error || "Failed to create customer");
+        showToast("error", data.error || "Failed to create customer");
         return;
       }
       
       setCustomers(prev => [data, ...prev]);
       e.currentTarget.reset();
-      alert("Customer added successfully!");
+      showToast("success", "Customer added successfully!");
     } catch (error) {
       console.error("Failed to add customer:", error);
-      alert("Failed to add customer. Please try again.");
+      showToast("error", "Failed to add customer. Please try again.");
+    }
+  }
+
+  async function deleteCustomer(customerId: string, customerName: string) {
+    if (!confirm(`Are you sure you want to delete the customer "${customerName}"?\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/customers?id=${customerId}`, {
+        method: "DELETE"
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        if (data.inUse) {
+          const usageDetails = [];
+          if (data.consignmentCount > 0) {
+            usageDetails.push(`${data.consignmentCount} consignment(s)`);
+          }
+          if (data.transactionCount > 0) {
+            usageDetails.push(`${data.transactionCount} transaction(s)`);
+          }
+          
+          showToast("error", `Cannot delete customer "${customerName}". This customer has ${usageDetails.join(' and ')}. Please remove those records first.`);
+        } else {
+          showToast("error", data.error || "Failed to delete customer");
+        }
+        return;
+      }
+      
+      setCustomers(prev => prev.filter(customer => customer.id !== customerId));
+      showToast("success", `Customer "${customerName}" deleted successfully!`);
+    } catch (error) {
+      console.error("Failed to delete customer:", error);
+      showToast("error", "Failed to delete customer. Please try again.");
     }
   }
 
@@ -87,7 +126,7 @@ export default function AdminPage() {
     const name = String(formData.get("bankAccountName") || "").trim();
     
     if (!name) {
-      alert("Bank account name is required");
+      showToast("error", "Bank account name is required");
       return;
     }
 
@@ -101,16 +140,16 @@ export default function AdminPage() {
       const data = await res.json();
       
       if (!res.ok) {
-        alert(data.error || "Failed to create bank account");
+        showToast("error", data.error || "Failed to create bank account");
         return;
       }
       
       setBankAccounts(prev => [data, ...prev]);
       e.currentTarget.reset();
-      alert("Bank account added successfully!");
+      showToast("success", "Bank account added successfully!");
     } catch (error) {
       console.error("Failed to add bank account:", error);
-      alert("Failed to add bank account. Please try again.");
+      showToast("error", "Failed to add bank account. Please try again.");
     }
   }
 
@@ -128,18 +167,18 @@ export default function AdminPage() {
       
       if (!res.ok) {
         if (data.inUse) {
-          alert(`Cannot delete bank account "${accountName}".\n\nThis account is being used in ${data.usageCount} transaction(s). Please remove those transactions first.`);
+          showToast("error", `Cannot delete bank account "${accountName}". This account is being used in ${data.usageCount} transaction(s). Please remove those transactions first.`);
         } else {
-          alert(data.error || "Failed to delete bank account");
+          showToast("error", data.error || "Failed to delete bank account");
         }
         return;
       }
       
       setBankAccounts(prev => prev.filter(account => account.id !== accountId));
-      alert("Bank account deleted successfully!");
+      showToast("success", `Bank account "${accountName}" deleted successfully!`);
     } catch (error) {
       console.error("Failed to delete bank account:", error);
-      alert("Failed to delete bank account. Please try again.");
+      showToast("error", "Failed to delete bank account. Please try again.");
     }
   }
 
@@ -249,6 +288,14 @@ export default function AdminPage() {
                         Created: {new Date(customer.created_at).toLocaleDateString()}
                       </div>
                     </div>
+                    <Button
+                      onClick={() => deleteCustomer(customer.id, customer.name)}
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 ))}
               </div>

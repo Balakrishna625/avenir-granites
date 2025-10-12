@@ -15,3 +15,61 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data);
 }
+
+export async function DELETE(req: Request) {
+  const url = new URL(req.url);
+  const id = url.searchParams.get("id");
+  
+  if (!id) {
+    return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
+  }
+
+  try {
+    // Check if customer has any consignments
+    const { data: consignments, error: consignmentError } = await supabaseAdmin
+      .from("consignments")
+      .select("id")
+      .eq("customer_id", id);
+    
+    if (consignmentError) {
+      return NextResponse.json({ error: consignmentError.message }, { status: 500 });
+    }
+
+    // Check if customer has any transactions
+    const { data: transactions, error: transactionError } = await supabaseAdmin
+      .from("transactions")
+      .select("id")
+      .eq("customer_id", id);
+    
+    if (transactionError) {
+      return NextResponse.json({ error: transactionError.message }, { status: 500 });
+    }
+
+    const totalUsage = (consignments?.length || 0) + (transactions?.length || 0);
+    
+    if (totalUsage > 0) {
+      return NextResponse.json({
+        error: "Cannot delete customer",
+        inUse: true,
+        usageCount: totalUsage,
+        consignmentCount: consignments?.length || 0,
+        transactionCount: transactions?.length || 0
+      }, { status: 400 });
+    }
+
+    // If no related data, proceed with deletion
+    const { error: deleteError } = await supabaseAdmin
+      .from("customers")
+      .delete()
+      .eq("id", id);
+    
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting customer:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
