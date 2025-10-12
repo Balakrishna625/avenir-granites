@@ -19,7 +19,7 @@ interface Consignment {
 
 interface ConsignmentsTableProps {
   consignments: Consignment[];
-  onAddConsignment: (e: React.FormEvent<HTMLFormElement>) => void;
+  onAddConsignment?: (e: React.FormEvent<HTMLFormElement>) => void;
   onEditConsignment: (id: string, data: Partial<Consignment>) => void;
   onDeleteConsignment: (id: string) => void;
   customerId: string;
@@ -69,20 +69,21 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
       <CardContent className="p-0 overflow-hidden">
         <div className="p-6 border-b bg-gray-50">
           <h2 className="text-2xl font-semibold mb-4">Consignments (Expected)</h2>
-          <form onSubmit={onAddConsignment} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Date</label>
-                <div className="flex items-center gap-2 border rounded-xl px-3 py-2">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  <Input 
-                    name="c_date" 
-                    type="date" 
-                    className="border-0 p-0 focus-visible:ring-0 w-full" 
-                    required 
-                  />
+          {onAddConsignment && (
+            <form onSubmit={onAddConsignment} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Date</label>
+                  <div className="flex items-center gap-2 border rounded-xl px-3 py-2">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <Input 
+                      name="c_date" 
+                      type="date" 
+                      className="border-0 p-0 focus-visible:ring-0 w-full" 
+                      required 
+                    />
+                  </div>
                 </div>
-              </div>
               
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Total Amount (₹)</label>
@@ -135,6 +136,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
               </div>
             </div>
           </form>
+          )}
         </div>
 
         <div className="overflow-x-auto">

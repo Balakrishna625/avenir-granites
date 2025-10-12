@@ -433,7 +433,7 @@ export default function Page() {
       {/* Consignments Table */}
       <ConsignmentsTable 
         consignments={consignments}
-        onAddConsignment={addConsignment}
+        onAddConsignment={customerId !== "all" ? addConsignment : undefined}
         onEditConsignment={editConsignment}
         onDeleteConsignment={deleteConsignment}
         customerId={customerId}
@@ -445,7 +445,7 @@ export default function Page() {
         transactions={txns}
         accounts={accounts}
         customers={customers}
-        onAddTransaction={addTxn}
+        onAddTransaction={customerId !== "all" ? addTxn : undefined}
         onEditTransaction={editTransaction}
         onDeleteTransaction={deleteTransaction}
       />

@@ -21,7 +21,7 @@ interface TransactionsTableProps {
   transactions: Transaction[];
   accounts: any[];
   customers: any[];
-  onAddTransaction: (e: React.FormEvent<HTMLFormElement>) => void;
+  onAddTransaction?: (e: React.FormEvent<HTMLFormElement>) => void;
   onEditTransaction: (id: string, data: Partial<Transaction>) => void;
   onDeleteTransaction: (id: string) => void;
 }
@@ -66,7 +66,8 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
       <CardContent className="p-0 overflow-hidden">
         <div className="p-6 border-b bg-gray-50">
           <h2 className="text-2xl font-semibold mb-4">Payments (Transactions)</h2>
-          <form onSubmit={onAddTransaction} className="space-y-4">
+          {onAddTransaction && (
+            <form onSubmit={onAddTransaction} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Date</label>
@@ -126,6 +127,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
               </Button>
             </div>
           </form>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">

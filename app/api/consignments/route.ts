@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   if (customerId && customerId !== "all") q = q.eq("customer_id", customerId);
   if (from) q = q.gte("date", from);
   if (to) q = q.lte("date", to);
-  q = q.order("date", { ascending: false }); // Sort by date descending (newest first)
+  q = q.order("date", { ascending: true }); // Sort by date ascending (oldest first)
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
