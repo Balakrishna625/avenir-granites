@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Download, PlusCircle, BarChart3, Settings } from "lucide-react";
 import { ConsignmentsTable } from "@/components/ConsignmentsTable";
 import { TransactionsTable } from "@/components/TransactionsTable";
+import { CustomerAnalytics } from "@/components/CustomerAnalytics";
 import { useToast } from "@/components/ui/toast";
 import * as XLSX from "xlsx";
 
@@ -611,55 +612,62 @@ export default function Page() {
         </div>
       )}
 
-      {/* Consignments Table */}
-      <ConsignmentsTable 
-        consignments={consignments}
-        onAddConsignment={customerId !== "all" ? addConsignment : undefined}
-        onEditConsignment={editConsignment}
-        onDeleteConsignment={deleteConsignment}
-        customerId={customerId}
-        customers={customers}
-        showSubmissionSuccess={consignmentSubmitted}
-      />
+      {/* Content Area - Show Customer Analytics for "All customers" or Tables for specific customer */}
+      {customerId === "all" ? (
+        <CustomerAnalytics dateFrom={dateFrom} dateTo={dateTo} />
+      ) : (
+        <>
+          {/* Consignments Table */}
+          <ConsignmentsTable 
+            consignments={consignments}
+            onAddConsignment={customerId !== "all" ? addConsignment : undefined}
+            onEditConsignment={editConsignment}
+            onDeleteConsignment={deleteConsignment}
+            customerId={customerId}
+            customers={customers}
+            showSubmissionSuccess={consignmentSubmitted}
+          />
 
-      {/* Transactions Table */}
-      <TransactionsTable 
-        transactions={txns}
-        accounts={accounts}
-        customers={customers}
-        onAddTransaction={customerId !== "all" ? addTxn : undefined}
-        onEditTransaction={editTransaction}
-        onDeleteTransaction={deleteTransaction}
-        showSubmissionSuccess={transactionSubmitted}
-      />
+          {/* Transactions Table */}
+          <TransactionsTable 
+            transactions={txns}
+            accounts={accounts}
+            customers={customers}
+            onAddTransaction={customerId !== "all" ? addTxn : undefined}
+            onEditTransaction={editTransaction}
+            onDeleteTransaction={deleteTransaction}
+            showSubmissionSuccess={transactionSubmitted}
+          />
 
-      {/* Account-wise Summary */}
-      {accountSummary.length > 0 && (
-        <div className="mt-8 space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Account-wise Collection Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {accountSummary.map((account, index) => (
-              <div key={account.name} className="bg-white rounded-xl p-4 border shadow-sm">
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-700 truncate" title={account.name}>
-                    {account.name}
-                  </div>
-                  <div className="text-xl font-bold text-gray-900">{fmt(account.total)}</div>
-                  <div className="space-y-1 text-xs text-gray-600">
-                    <div className="flex justify-between">
-                      <span>RTGS:</span>
-                      <span className="font-medium text-blue-600">{fmt(account.rtgs)}</span>
+          {/* Account-wise Summary */}
+          {accountSummary.length > 0 && (
+            <div className="mt-8 space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Account-wise Collection Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {accountSummary.map((account, index) => (
+                  <div key={account.name} className="bg-white rounded-xl p-4 border shadow-sm">
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-gray-700 truncate" title={account.name}>
+                        {account.name}
+                      </div>
+                      <div className="text-xl font-bold text-gray-900">{fmt(account.total)}</div>
+                      <div className="space-y-1 text-xs text-gray-600">
+                        <div className="flex justify-between">
+                          <span>RTGS:</span>
+                          <span className="font-medium text-blue-600">{fmt(account.rtgs)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Cash:</span>
+                          <span className="font-medium text-green-600">{fmt(account.cash)}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Cash:</span>
-                      <span className="font-medium text-green-600">{fmt(account.cash)}</span>
-                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       <p className="text-xs text-gray-500 text-center">

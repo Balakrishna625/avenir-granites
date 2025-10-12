@@ -39,6 +39,11 @@ const menuItems: MenuItem[] = [
         icon: <CreditCard className="w-4 h-4" />
       },
       {
+        title: 'Customer Analytics',
+        href: '/customers',
+        icon: <BarChart3 className="w-4 h-4" />
+      },
+      {
         title: 'Customer Admin',
         href: '/admin',
         icon: <UserCog className="w-4 h-4" />
