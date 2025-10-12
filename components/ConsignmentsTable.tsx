@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar, PlusCircle, Edit, Trash2, Save, X } from "lucide-react";
+import { Calendar, PlusCircle, Edit, Trash2, Save, X, Check } from "lucide-react";
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
@@ -24,9 +24,10 @@ interface ConsignmentsTableProps {
   onDeleteConsignment: (id: string) => void;
   customerId: string;
   customers: any[];
+  showSubmissionSuccess?: boolean;
 }
 
-export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsignment, onDeleteConsignment, customerId, customers }: ConsignmentsTableProps) {
+export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsignment, onDeleteConsignment, customerId, customers, showSubmissionSuccess }: ConsignmentsTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Consignment>>({});
 
@@ -131,7 +132,12 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">&nbsp;</label>
                 <Button className="rounded-xl w-full" type="submit">
-                  <PlusCircle className="w-4 h-4 mr-2" /> Add Consignment
+                  {showSubmissionSuccess ? (
+                    <Check className="w-4 h-4 mr-2 text-green-600" />
+                  ) : (
+                    <PlusCircle className="w-4 h-4 mr-2" />
+                  )}
+                  Add Consignment
                 </Button>
               </div>
             </div>

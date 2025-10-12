@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar, PlusCircle, Edit, Trash2, Save, X } from "lucide-react";
+import { Calendar, PlusCircle, Edit, Trash2, Save, X, Check } from "lucide-react";
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
@@ -24,9 +24,10 @@ interface TransactionsTableProps {
   onAddTransaction?: (e: React.FormEvent<HTMLFormElement>) => void;
   onEditTransaction: (id: string, data: Partial<Transaction>) => void;
   onDeleteTransaction: (id: string) => void;
+  showSubmissionSuccess?: boolean;
 }
 
-export function TransactionsTable({ transactions, accounts, customers, onAddTransaction, onEditTransaction, onDeleteTransaction }: TransactionsTableProps) {
+export function TransactionsTable({ transactions, accounts, customers, onAddTransaction, onEditTransaction, onDeleteTransaction, showSubmissionSuccess }: TransactionsTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Transaction>>({});
 
@@ -123,7 +124,12 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
             
             <div className="flex justify-end">
               <Button className="rounded-xl" type="submit">
-                <PlusCircle className="w-4 h-4 mr-2" /> Add Transaction
+                {showSubmissionSuccess ? (
+                  <Check className="w-4 h-4 mr-2 text-green-600" />
+                ) : (
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                )}
+                Add Transaction
               </Button>
             </div>
           </form>

@@ -44,6 +44,8 @@ export default function Page() {
   const [customerId, setCustomerId] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [consignmentSubmitted, setConsignmentSubmitted] = useState(false);
+  const [transactionSubmitted, setTransactionSubmitted] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -242,6 +244,10 @@ export default function Page() {
     if (!res.ok) return alert(data.error || "Create failed");
     setConsignments((s) => [...s, data]);
     e.currentTarget.reset();
+    
+    // Show success indicator for 2 seconds
+    setConsignmentSubmitted(true);
+    setTimeout(() => setConsignmentSubmitted(false), 2000);
   }
 
   async function addTxn(e: React.FormEvent<HTMLFormElement>) {
@@ -261,6 +267,10 @@ export default function Page() {
     if (!res.ok) return alert(data.error || "Create failed");
     setTxns((s) => [...s, data]);
     e.currentTarget.reset();
+    
+    // Show success indicator for 2 seconds
+    setTransactionSubmitted(true);
+    setTimeout(() => setTransactionSubmitted(false), 2000);
   }
 
   async function editConsignment(consignmentId: string, updatedData: any) {
@@ -438,6 +448,7 @@ export default function Page() {
         onDeleteConsignment={deleteConsignment}
         customerId={customerId}
         customers={customers}
+        showSubmissionSuccess={consignmentSubmitted}
       />
 
       {/* Transactions Table */}
@@ -448,6 +459,7 @@ export default function Page() {
         onAddTransaction={customerId !== "all" ? addTxn : undefined}
         onEditTransaction={editTransaction}
         onDeleteTransaction={deleteTransaction}
+        showSubmissionSuccess={transactionSubmitted}
       />
 
       <p className="text-xs text-gray-500 text-center">
