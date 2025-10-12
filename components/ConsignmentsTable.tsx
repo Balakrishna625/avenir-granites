@@ -33,6 +33,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
   const handleEdit = (consignment: Consignment) => {
     setEditingId(consignment.id);
     setEditValues({
+      date: consignment.date,
       total: consignment.total,
       rtgs_expected: consignment.rtgs_expected,
       cash_expected: consignment.cash_expected,
@@ -165,7 +166,21 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
                   return (
                     <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 text-sm text-gray-900">{idx + 1}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{c.date}</td>
+                      
+                      {/* Date */}
+                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                        {isEditing ? (
+                          <Input
+                            type="date"
+                            value={editValues.date || ''}
+                            onChange={(e) => setEditValues({ ...editValues, date: e.target.value })}
+                            className="w-32 p-1 text-sm"
+                          />
+                        ) : (
+                          c.date
+                        )}
+                      </td>
+                      
                       <td className="px-6 py-4 text-sm text-gray-900">{customer?.name || 'Unknown'}</td>
                       
                       {/* Total Amount */}
@@ -278,9 +293,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
                               </button>
                               <button
                                 onClick={() => {
-                                  if (confirm('Are you sure you want to delete this consignment?')) {
-                                    onDeleteConsignment(c.id);
-                                  }
+                                  onDeleteConsignment(c.id);
                                 }}
                                 className="text-red-600 hover:text-red-800 p-1 rounded"
                                 title="Delete consignment"

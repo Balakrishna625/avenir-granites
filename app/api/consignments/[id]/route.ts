@@ -3,11 +3,11 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const body = await req.json();
-  const { total, rtgs_expected, cash_expected, remarks } = body || {};
+  const { date, total, rtgs_expected, cash_expected, remarks } = body || {};
   
   const { data, error } = await supabaseAdmin
     .from("consignments")
-    .update({ total, rtgs_expected, cash_expected, remarks })
+    .update({ date, total, rtgs_expected, cash_expected, remarks })
     .eq("id", params.id)
     .select()
     .single();

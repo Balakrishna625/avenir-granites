@@ -231,7 +231,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                                   </button>
                                   <button
                                     onClick={() => {
-                                      if (confirm('Are you sure you want to delete this transaction?')) {
+                                      onDeleteTransaction(t.id); {
                                         onDeleteTransaction(t.id);
                                       }
                                     }}
@@ -355,7 +355,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                                   </button>
                                   <button
                                     onClick={() => {
-                                      if (confirm('Are you sure you want to delete this transaction?')) {
+                                      onDeleteTransaction(t.id); {
                                         onDeleteTransaction(t.id);
                                       }
                                     }}

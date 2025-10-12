@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Download, PlusCircle, BarChart3, Settings } from "lucide-react";
 import { ConsignmentsTable } from "@/components/ConsignmentsTable";
 import { TransactionsTable } from "@/components/TransactionsTable";
+import { useToast } from "@/components/ui/toast";
 import * as XLSX from "xlsx";
 
 declare global {
@@ -36,14 +37,14 @@ const fmt = (n: number) => INR.format(n || 0);
 function __safeName(s: string) { return (s || "all").replace(/[^a-z0-9]+/gi, "_").toLowerCase(); }
 
 export default function Page() {
-  const [customerId, setCustomerId] = useState<string>("all");
-  const [from, setFrom] = useState<string>("");
-  const [to, setTo] = useState<string>("");
-
   const [customers, setCustomers] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [consignments, setConsignments] = useState<any[]>([]);
   const [txns, setTxns] = useState<any[]>([]);
+  const [customerId, setCustomerId] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const { showToast } = useToast();
 
   useEffect(() => {
     async function boot() {
@@ -60,11 +61,11 @@ export default function Page() {
   useEffect(() => {
     const p = new URLSearchParams();
     if (customerId) p.set("customerId", customerId);
-    if (from) p.set("from", from);
-    if (to) p.set("to", to);
+    if (dateFrom) p.set("from", dateFrom);
+    if (dateTo) p.set("to", dateTo);
     fetch(`/api/consignments?${p.toString()}`).then((r) => r.json()).then(setConsignments);
     fetch(`/api/transactions?${p.toString()}`).then((r) => r.json()).then(setTxns);
-  }, [customerId, from, to]);
+  }, [customerId, dateFrom, dateTo]);
 
   const kpi = useMemo(() => {
     const expectedTotal = consignments.reduce((s, r) => s + (r.total || 0), 0);
@@ -274,6 +275,7 @@ export default function Page() {
     }
 
     const payload = {
+      date: updatedData.date,
       total: total,
       rtgs_expected: rtgs,
       cash_expected: cash,
@@ -295,10 +297,13 @@ export default function Page() {
 
     const res = await fetch(`/api/consignments/${consignmentId}`, { method: "DELETE" });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "Delete failed");
+    if (!res.ok) {
+      showToast("error", data.error || "Delete failed");
+      return;
+    }
     
     setConsignments((s) => s.filter(c => c.id !== consignmentId));
-    alert("Consignment deleted successfully!");
+    showToast("success", "Consignment deleted successfully!");
   }
 
   async function editTransaction(transactionId: string, updatedData: any) {
@@ -322,10 +327,13 @@ export default function Page() {
 
     const res = await fetch(`/api/transactions/${transactionId}`, { method: "DELETE" });
     const data = await res.json();
-    if (!res.ok) return alert(data.error || "Delete failed");
+    if (!res.ok) {
+      showToast("error", data.error || "Delete failed");
+      return;
+    }
     
     setTxns((s) => s.filter(t => t.id !== transactionId));
-    alert("Transaction deleted successfully!");
+    showToast("success", "Transaction deleted successfully!");
   }
 
   return (
@@ -364,11 +372,11 @@ export default function Page() {
 
             <div className="flex items-center gap-2 border rounded-xl px-3 py-2 md:col-span-2">
               <Calendar className="w-4 h-4" />
-              <Input type="date" className="border-0 p-0 focus-visible:ring-0 w-full min-w-[160px]" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Input type="date" className="border-0 p-0 focus-visible:ring-0 w-full min-w-[160px]" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
             </div>
             <div className="flex items-center gap-2 border rounded-xl px-3 py-2 md:col-span-2">
               <Calendar className="w-4 h-4" />
-              <Input type="date" className="border-0 p-0 focus-visible:ring-0 w-full min-w-[160px]" value={to} onChange={(e) => setTo(e.target.value)} />
+              <Input type="date" className="border-0 p-0 focus-visible:ring-0 w-full min-w-[160px]" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>
 
             <form onSubmit={addCustomer} className="flex items-stretch gap-2 md:col-span-4 justify-self-end w-full md:w-auto">
