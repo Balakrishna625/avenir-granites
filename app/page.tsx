@@ -46,6 +46,8 @@ export default function Page() {
   const [dateTo, setDateTo] = useState("");
   const [consignmentSubmitted, setConsignmentSubmitted] = useState(false);
   const [transactionSubmitted, setTransactionSubmitted] = useState(false);
+  const [editingOldDue, setEditingOldDue] = useState(false);
+  const [oldDueInput, setOldDueInput] = useState("");
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -75,15 +77,28 @@ export default function Page() {
     const expectedCASH = consignments.reduce((s, r) => s + (r.cash_expected || 0), 0);
     const receivedRTGS = txns.filter((t) => t.mode === "RTGS").reduce((s, t) => s + (t.amount || 0), 0);
     const receivedCASH = txns.filter((t) => t.mode === "CASH").reduce((s, t) => s + (t.amount || 0), 0);
+    
+    // Calculate old due amount for the selected customer
+    let oldDueAmount = 0;
+    if (customerId !== "all") {
+      const selectedCustomer = customers.find(c => c.id === customerId);
+      oldDueAmount = selectedCustomer?.old_due_amount || 0;
+    } else {
+      // For "all customers", sum up all old due amounts
+      oldDueAmount = customers.reduce((sum, customer) => sum + (customer.old_due_amount || 0), 0);
+    }
+    
     return { 
       expectedTotal, 
       expectedRTGS, 
       expectedCASH, 
       receivedRTGS, 
       receivedCASH, 
-      receivedTotal: receivedRTGS + receivedCASH 
+      receivedTotal: receivedRTGS + receivedCASH,
+      oldDueAmount,
+      totalReceivables: expectedTotal + oldDueAmount - (receivedRTGS + receivedCASH)
     };
-  }, [consignments, txns]);
+  }, [consignments, txns, customers, customerId]);
 
   // Calculate account-wise totals
   const accountSummary = useMemo(() => {
@@ -130,9 +145,11 @@ export default function Page() {
         { Metric: "Received RTGS", Value: kpi.receivedRTGS },
         { Metric: "Received Cash", Value: kpi.receivedCASH },
         { Metric: "Total Received", Value: kpi.receivedTotal },
+        { Metric: "Old Due Amount", Value: kpi.oldDueAmount },
         { Metric: "Pending RTGS", Value: Math.max(0, kpi.expectedRTGS - kpi.receivedRTGS) },
         { Metric: "Pending Cash", Value: Math.max(0, kpi.expectedCASH - kpi.receivedCASH) },
         { Metric: "Total Pending", Value: kpi.expectedTotal - kpi.receivedTotal },
+        { Metric: "Total Receivables", Value: kpi.totalReceivables },
       ];
 
       // Customer-wise Summary
@@ -154,9 +171,11 @@ export default function Page() {
           Received_RTGS: receivedRTGS,
           Received_Cash: receivedCash,
           Total_Received: receivedRTGS + receivedCash,
+          Old_Due_Amount: customer.old_due_amount || 0,
           Pending_RTGS: Math.max(0, expectedRTGS - receivedRTGS),
           Pending_Cash: Math.max(0, expectedCash - receivedCash),
           Total_Pending: expectedTotal - (receivedRTGS + receivedCash),
+          Total_Receivables: expectedTotal + (customer.old_due_amount || 0) - (receivedRTGS + receivedCash),
           Collection_Rate: expectedTotal > 0 ? `${((receivedRTGS + receivedCash) / expectedTotal * 100).toFixed(1)}%` : '0%'
         };
       }).filter(c => c.Expected_Total > 0 || c.Total_Received > 0); // Only include customers with activity
@@ -303,6 +322,65 @@ export default function Page() {
     setTimeout(() => setTransactionSubmitted(false), 2000);
   }
 
+  async function updateOldDueAmount() {
+    if (customerId === "all") {
+      alert("Please select a specific customer to update old due amount.");
+      return;
+    }
+
+    const amount = parseFloat(oldDueInput);
+    if (isNaN(amount) || amount < 0) {
+      alert("Please enter a valid amount (0 or greater).");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/customers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: customerId, old_due_amount: amount }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Update failed");
+        return;
+      }
+
+      // Update local state
+      setCustomers(prevCustomers =>
+        prevCustomers.map(customer =>
+          customer.id === customerId
+            ? { ...customer, old_due_amount: amount }
+            : customer
+        )
+      );
+
+      setEditingOldDue(false);
+      setOldDueInput("");
+      showToast("success", "Old due amount updated successfully!");
+    } catch (error) {
+      alert("Failed to update old due amount");
+      console.error("Error updating old due amount:", error);
+    }
+  }
+
+  function startEditingOldDue() {
+    if (customerId === "all") {
+      alert("Please select a specific customer to manage old due amount.");
+      return;
+    }
+    
+    const selectedCustomer = customers.find(c => c.id === customerId);
+    setOldDueInput(String(selectedCustomer?.old_due_amount || 0));
+    setEditingOldDue(true);
+  }
+
+  function cancelEditingOldDue() {
+    setEditingOldDue(false);
+    setOldDueInput("");
+  }
+
   async function editConsignment(consignmentId: string, updatedData: any) {
     const rtgs = updatedData.rtgs_expected || 0;
     const cash = updatedData.cash_expected || 0;
@@ -439,7 +517,7 @@ export default function Page() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-4">
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-gray-600 uppercase tracking-wide">Expected Total</div>
           <div className="text-2xl font-bold text-gray-900">{fmt(kpi.expectedTotal)}</div>
@@ -461,6 +539,11 @@ export default function Page() {
           <div className="text-2xl font-bold text-green-600">{fmt(kpi.receivedCASH)}</div>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
+          <div className="text-xs text-orange-600 uppercase tracking-wide">Old Due Amount</div>
+          <div className="text-2xl font-bold text-orange-600">{fmt(kpi.oldDueAmount)}</div>
+          <div className="text-xs text-orange-500 mt-1">Previous unpaid</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-purple-600 uppercase tracking-wide">Total Pending</div>
           <div className="text-2xl font-bold text-purple-600">{fmt(Math.max(0, kpi.expectedTotal - kpi.receivedTotal))}</div>
         </div>
@@ -469,10 +552,79 @@ export default function Page() {
           <div className="text-2xl font-bold text-amber-600">{fmt(Math.max(0, kpi.expectedRTGS - kpi.receivedRTGS))}</div>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <div className="text-xs text-amber-600 uppercase tracking-wide">Pending Cash</div>
-          <div className="text-2xl font-bold text-amber-600">{fmt(Math.max(0, kpi.expectedCASH - kpi.receivedCASH))}</div>
+          <div className="text-xs text-red-600 uppercase tracking-wide">Total Receivables</div>
+          <div className="text-2xl font-bold text-red-600">{fmt(Math.max(0, kpi.totalReceivables))}</div>
+          <div className="text-xs text-red-500 mt-1">Pending + Old Due</div>
         </div>
       </div>
+
+      {/* Old Due Amount Management - Only show for individual customers */}
+      {customerId !== "all" && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-orange-900">Previous Due Management</h3>
+              <p className="text-sm text-orange-700">
+                Manage unpaid amounts from before current consignments. This amount is added to Cash Receivables tracking.
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <div className="text-xs text-orange-600 uppercase tracking-wide">Current Old Due</div>
+                <div className="text-2xl font-bold text-orange-900">{fmt(kpi.oldDueAmount)}</div>
+              </div>
+              {!editingOldDue && (
+                <Button 
+                  onClick={startEditingOldDue}
+                  variant="outline"
+                  className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                >
+                  Update Amount
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          {editingOldDue && (
+            <div className="bg-white rounded-lg p-4 border border-orange-200">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <div className="md:col-span-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Old Due Amount (₹)
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={oldDueInput}
+                    onChange={(e) => setOldDueInput(e.target.value)}
+                    placeholder="Enter old due amount"
+                    className="w-full"
+                  />
+                </div>
+                <div className="md:col-span-6 flex space-x-2">
+                  <Button 
+                    onClick={updateOldDueAmount}
+                    className="bg-orange-600 hover:bg-orange-700 text-white flex-1"
+                  >
+                    Save Amount
+                  </Button>
+                  <Button 
+                    onClick={cancelEditingOldDue}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-gray-600">
+                <strong>Note:</strong> This amount represents previous unpaid dues and will be included in your total receivables calculation.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Consignments Table */}
       <ConsignmentsTable 

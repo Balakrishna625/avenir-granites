@@ -11,9 +11,47 @@ export async function POST(req: Request) {
   const body = await req.json();
   const name = String(body?.name || "").trim();
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
-  const { data, error } = await supabaseAdmin.from("customers").insert({ name }).select().single();
+  
+  // Initialize old_due_amount to 0 for new customers
+  const { data, error } = await supabaseAdmin
+    .from("customers")
+    .insert({ name, old_due_amount: 0 })
+    .select()
+    .single();
+    
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data);
+}
+
+export async function PUT(req: Request) {
+  const body = await req.json();
+  const { id, old_due_amount } = body;
+  
+  if (!id) {
+    return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
+  }
+  
+  if (old_due_amount === undefined || old_due_amount < 0) {
+    return NextResponse.json({ error: "Old due amount must be 0 or greater" }, { status: 400 });
+  }
+  
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("customers")
+      .update({ old_due_amount })
+      .eq("id", id)
+      .select()
+      .single();
+    
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Error updating customer old due amount:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: Request) {
