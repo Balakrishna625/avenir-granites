@@ -289,15 +289,25 @@ export default function Page() {
       remarks: String(fd.get("c_remarks") || ""),
     };
     if (!payload.customer_id) return alert("Please select/add a customer first.");
-    const res = await fetch("/api/consignments", { method: "POST", body: JSON.stringify(payload) });
-    const data = await res.json();
-    if (!res.ok) return alert(data.error || "Create failed");
-    setConsignments((s) => [...s, data]);
-    e.currentTarget.reset();
     
-    // Show success indicator for 2 seconds
-    setConsignmentSubmitted(true);
-    setTimeout(() => setConsignmentSubmitted(false), 2000);
+    try {
+      const res = await fetch("/api/consignments", { method: "POST", body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) return alert(data.error || "Create failed");
+      
+      // Success: Update state and clear form
+      setConsignments((s) => [...s, data]);
+      e.currentTarget.reset();
+      
+      // Show success indicator for 2 seconds
+      setConsignmentSubmitted(true);
+      setTimeout(() => setConsignmentSubmitted(false), 2000);
+      
+      showToast("success", "Consignment added successfully!");
+    } catch (error) {
+      console.error("Error adding consignment:", error);
+      alert("Failed to add consignment. Please try again.");
+    }
   }
 
   async function addTxn(e: React.FormEvent<HTMLFormElement>) {
@@ -312,15 +322,25 @@ export default function Page() {
       note: String(fd.get("t_note") || ""),
     };
     if (!payload.customer_id) return alert("Please select/add a customer first.");
-    const res = await fetch("/api/transactions", { method: "POST", body: JSON.stringify(payload) });
-    const data = await res.json();
-    if (!res.ok) return alert(data.error || "Create failed");
-    setTxns((s) => [...s, data]);
-    e.currentTarget.reset();
     
-    // Show success indicator for 2 seconds
-    setTransactionSubmitted(true);
-    setTimeout(() => setTransactionSubmitted(false), 2000);
+    try {
+      const res = await fetch("/api/transactions", { method: "POST", body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) return alert(data.error || "Create failed");
+      
+      // Success: Update state and clear form
+      setTxns((s) => [...s, data]);
+      e.currentTarget.reset();
+      
+      // Show success indicator for 2 seconds
+      setTransactionSubmitted(true);
+      setTimeout(() => setTransactionSubmitted(false), 2000);
+      
+      showToast("success", "Transaction added successfully!");
+    } catch (error) {
+      console.error("Error adding transaction:", error);
+      alert("Failed to add transaction. Please try again.");
+    }
   }
 
   async function updateOldDueAmount() {

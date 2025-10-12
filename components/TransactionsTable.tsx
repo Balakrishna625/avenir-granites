@@ -30,6 +30,7 @@ interface TransactionsTableProps {
 export function TransactionsTable({ transactions, accounts, customers, onAddTransaction, onEditTransaction, onDeleteTransaction, showSubmissionSuccess }: TransactionsTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Transaction>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleEdit = (transaction: Transaction) => {
     setEditingId(transaction.id);
@@ -37,6 +38,20 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
       amount: transaction.amount,
       note: transaction.note
     });
+  };
+
+  const handleAddTransaction = async (e: React.FormEvent<HTMLFormElement>) => {
+    if (isSubmitting) return; // Prevent double submission
+    setIsSubmitting(true);
+    
+    try {
+      if (onAddTransaction) {
+        await onAddTransaction(e);
+      }
+    } finally {
+      // Re-enable submission after a short delay
+      setTimeout(() => setIsSubmitting(false), 1000);
+    }
   };
 
   const handleSave = () => {
@@ -68,7 +83,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
         <div className="p-6 border-b bg-gray-50">
           <h2 className="text-2xl font-semibold mb-4">Payments (Transactions)</h2>
           {onAddTransaction && (
-            <form onSubmit={onAddTransaction} className="space-y-4">
+            <form onSubmit={handleAddTransaction} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Date</label>
@@ -123,13 +138,17 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
             </div>
             
             <div className="flex justify-end">
-              <Button className="rounded-xl" type="submit">
+              <Button 
+                className="rounded-xl" 
+                type="submit"
+                disabled={isSubmitting}
+              >
                 {showSubmissionSuccess ? (
                   <Check className="w-4 h-4 mr-2 text-green-600" />
                 ) : (
                   <PlusCircle className="w-4 h-4 mr-2" />
                 )}
-                Add Transaction
+                {isSubmitting ? "Adding..." : "Add Transaction"}
               </Button>
             </div>
           </form>

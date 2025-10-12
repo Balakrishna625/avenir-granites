@@ -30,6 +30,7 @@ interface ConsignmentsTableProps {
 export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsignment, onDeleteConsignment, customerId, customers, showSubmissionSuccess }: ConsignmentsTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Consignment>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleEdit = (consignment: Consignment) => {
     setEditingId(consignment.id);
@@ -40,6 +41,20 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
       cash_expected: consignment.cash_expected,
       remarks: consignment.remarks
     });
+  };
+
+  const handleAddConsignment = async (e: React.FormEvent<HTMLFormElement>) => {
+    if (isSubmitting) return; // Prevent double submission
+    setIsSubmitting(true);
+    
+    try {
+      if (onAddConsignment) {
+        await onAddConsignment(e);
+      }
+    } finally {
+      // Re-enable submission after a short delay
+      setTimeout(() => setIsSubmitting(false), 1000);
+    }
   };
 
   const handleSave = () => {
@@ -71,7 +86,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
         <div className="p-6 border-b bg-gray-50">
           <h2 className="text-2xl font-semibold mb-4">Consignments (Expected)</h2>
           {onAddConsignment && (
-            <form onSubmit={onAddConsignment} className="space-y-4">
+            <form onSubmit={handleAddConsignment} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Date</label>
@@ -131,13 +146,17 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
               
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">&nbsp;</label>
-                <Button className="rounded-xl w-full" type="submit">
+                <Button 
+                  className="rounded-xl w-full" 
+                  type="submit"
+                  disabled={isSubmitting}
+                >
                   {showSubmissionSuccess ? (
                     <Check className="w-4 h-4 mr-2 text-green-600" />
                   ) : (
                     <PlusCircle className="w-4 h-4 mr-2" />
                   )}
-                  Add Consignment
+                  {isSubmitting ? "Adding..." : "Add Consignment"}
                 </Button>
               </div>
             </div>
