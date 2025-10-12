@@ -12,7 +12,7 @@
       "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
       "static/chunks/23-94ccc1c37884d778.js",
       "static/chunks/main-app-743b5b907899c10a.js",
-      "static/css/7e3a6da963b85e72.css",
+      "static/css/998042f859917eca.css",
       "static/chunks/app/layout-3de494e404ffde10.js"
     ],
     "/admin/page": [
@@ -22,14 +22,6 @@
       "static/chunks/main-app-743b5b907899c10a.js",
       "static/chunks/841-7b48d42b2a53f4f8.js",
       "static/chunks/app/admin/page-5f03f7fe41c64622.js"
-    ],
-    "/consignments/new/page": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/chunks/841-7b48d42b2a53f4f8.js",
-      "static/chunks/app/consignments/new/page-9d8dbcbf70c894be.js"
     ],
     "/consignments/[id]/page": [
       "static/chunks/webpack-cb86a99cd2f791d1.js",
@@ -47,6 +39,14 @@
       "static/chunks/841-7b48d42b2a53f4f8.js",
       "static/chunks/app/consignments/calculator/page-35e6cc07e25aaf4d.js"
     ],
+    "/consignments/new/page": [
+      "static/chunks/webpack-cb86a99cd2f791d1.js",
+      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
+      "static/chunks/23-94ccc1c37884d778.js",
+      "static/chunks/main-app-743b5b907899c10a.js",
+      "static/chunks/841-7b48d42b2a53f4f8.js",
+      "static/chunks/app/consignments/new/page-9d8dbcbf70c894be.js"
+    ],
     "/consignments/page": [
       "static/chunks/webpack-cb86a99cd2f791d1.js",
       "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
@@ -62,16 +62,6 @@
       "static/chunks/main-app-743b5b907899c10a.js",
       "static/chunks/app/expenses/page-3a1c5f18bb5e716e.js"
     ],
-    "/page": [
-      "static/chunks/webpack-cb86a99cd2f791d1.js",
-      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
-      "static/chunks/23-94ccc1c37884d778.js",
-      "static/chunks/main-app-743b5b907899c10a.js",
-      "static/chunks/2170a4aa-2c2e4af8aee6403a.js",
-      "static/chunks/841-7b48d42b2a53f4f8.js",
-      "static/chunks/624-19490f5a37fd0129.js",
-      "static/chunks/app/page-82b09546eb5652df.js"
-    ],
     "/consignments/slab-processing/page": [
       "static/chunks/webpack-cb86a99cd2f791d1.js",
       "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
@@ -86,7 +76,17 @@
       "static/chunks/23-94ccc1c37884d778.js",
       "static/chunks/main-app-743b5b907899c10a.js",
       "static/chunks/841-7b48d42b2a53f4f8.js",
-      "static/chunks/app/customers/page-1df656fa58750852.js"
+      "static/chunks/app/customers/page-fad2b880ceb19eb0.js"
+    ],
+    "/page": [
+      "static/chunks/webpack-cb86a99cd2f791d1.js",
+      "static/chunks/fd9d1056-7ac6a1c8ca1a5074.js",
+      "static/chunks/23-94ccc1c37884d778.js",
+      "static/chunks/main-app-743b5b907899c10a.js",
+      "static/chunks/2170a4aa-2c2e4af8aee6403a.js",
+      "static/chunks/841-7b48d42b2a53f4f8.js",
+      "static/chunks/275-95ee17daf382f19a.js",
+      "static/chunks/app/page-78fbfde52459e045.js"
     ]
   }
 }

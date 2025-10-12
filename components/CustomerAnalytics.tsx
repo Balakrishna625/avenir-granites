@@ -7,9 +7,7 @@ import {
   DollarSign, 
   TrendingUp,
   Star,
-  Clock,
-  AlertCircle,
-  Calendar
+  AlertCircle
 } from 'lucide-react';
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -28,6 +26,14 @@ interface CustomerSummary {
   avgPaymentDelay: number;
 }
 
+interface BankAccountSummary {
+  id: string;
+  name: string;
+  total: number;
+  rtgs: number;
+  cash: number;
+}
+
 interface CustomerAnalyticsProps {
   dateFrom?: string;
   dateTo?: string;
@@ -35,24 +41,32 @@ interface CustomerAnalyticsProps {
 
 export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) {
   const [customerSummaries, setCustomerSummaries] = useState<CustomerSummary[]>([]);
+  const [bankAccountsSummary, setBankAccountsSummary] = useState<BankAccountSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    loadCustomerSummaries();
+    loadData();
   }, [dateFrom, dateTo]);
 
-  async function loadCustomerSummaries() {
+  async function loadData() {
     try {
       const params = new URLSearchParams();
       if (dateFrom) params.set('from', dateFrom);
       if (dateTo) params.set('to', dateTo);
       
-      const response = await fetch(`/api/customers/summary?${params.toString()}`);
-      const data = await response.json();
-      setCustomerSummaries(data);
+      const [customerResponse, bankResponse] = await Promise.all([
+        fetch(`/api/customers/summary?${params.toString()}`),
+        fetch(`/api/bank-accounts/summary?${params.toString()}`)
+      ]);
+      
+      const customerData = await customerResponse.json();
+      const bankData = await bankResponse.json();
+      
+      setCustomerSummaries(customerData);
+      setBankAccountsSummary(bankData);
     } catch (error) {
-      console.error('Failed to load customer summaries:', error);
+      console.error('Failed to load analytics data:', error);
     } finally {
       setLoading(false);
     }
@@ -79,12 +93,6 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
   const highOutstanding = [...filteredCustomers]
     .filter(c => c.totalPending > 0)
     .sort((a, b) => b.totalPending - a.totalPending)
-    .slice(0, 5);
-
-  // Customers with payment delays
-  const paymentDelays = [...filteredCustomers]
-    .filter(c => c.avgPaymentDelay > 0)
-    .sort((a, b) => b.avgPaymentDelay - a.avgPaymentDelay)
     .slice(0, 5);
 
   if (loading) {
@@ -191,12 +199,6 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
                 
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>{customer.consignmentCount} consignments</span>
-                  {customer.avgPaymentDelay > 0 && (
-                    <span className="flex items-center">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {customer.avgPaymentDelay.toFixed(0)}d delay
-                    </span>
-                  )}
                 </div>
               </div>
             </Card>
@@ -281,24 +283,29 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
           </div>
         </Card>
 
-        {/* Payment Delays */}
+        {/* Bank Accounts Summary */}
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Clock className="w-5 h-5 mr-2 text-orange-500" />
-            Payment Delays
+            <DollarSign className="w-5 h-5 mr-2 text-green-500" />
+            Bank Collections
           </h3>
           <div className="space-y-3">
-            {paymentDelays.map((customer, index) => (
-              <div key={customer.id} className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="w-6 h-6 bg-orange-100 text-orange-800 rounded-full flex items-center justify-center text-xs font-medium mr-3">
-                    {index + 1}
-                  </span>
-                  <span className="font-medium">{customer.name}</span>
+            {bankAccountsSummary.map((account, index) => (
+              <div key={account.id} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm truncate">{account.name}</span>
+                  <span className="text-green-600 font-semibold text-sm">{fmt(account.total)}</span>
                 </div>
-                <span className="text-orange-600 font-semibold">{customer.avgPaymentDelay.toFixed(0)}d</span>
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>RTGS: {fmt(account.rtgs)}</span>
+                  <span>Cash: {fmt(account.cash)}</span>
+                </div>
+                {index < bankAccountsSummary.length - 1 && <div className="border-b border-gray-100"></div>}
               </div>
             ))}
+            {bankAccountsSummary.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">No payment data available</p>
+            )}
           </div>
         </Card>
       </div>
