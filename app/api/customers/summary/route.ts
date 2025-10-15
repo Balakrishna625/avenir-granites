@@ -86,6 +86,9 @@ export async function GET(req: Request) {
         }
       }
 
+      // Calculate total receivables (total invoiced + old due - total received)
+      const totalReceivables = totalInvoiced + (customer.old_due_amount || 0) - totalReceived;
+
       return {
         id: customer.id,
         name: customer.name,
@@ -93,6 +96,7 @@ export async function GET(req: Request) {
         totalReceived,
         totalPending: Math.max(0, totalPending), // Ensure non-negative
         oldDueAmount: customer.old_due_amount || 0,
+        totalReceivables: Math.max(0, totalReceivables), // Ensure non-negative
         consignmentCount: customerConsignments.length,
         lastPaymentDate,
         collectionEfficiency: Math.round(collectionEfficiency * 10) / 10, // Round to 1 decimal

@@ -20,6 +20,7 @@ interface CustomerSummary {
   totalReceived: number;
   totalPending: number;
   oldDueAmount: number;
+  totalReceivables: number;
   consignmentCount: number;
   lastPaymentDate: string | null;
   collectionEfficiency: number;
@@ -192,8 +193,12 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
                     <p className="font-semibold text-red-600">{fmt(customer.totalPending)}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Old Due</p>
-                    <p className="font-semibold text-orange-600">{fmt(customer.oldDueAmount)}</p>
+                    <p className="text-gray-600">
+                      {customer.totalReceivables !== undefined ? 'Total Receivables' : 'Total Pending'}
+                    </p>
+                    <p className="font-semibold text-orange-600">
+                      {fmt(customer.totalReceivables !== undefined ? customer.totalReceivables : customer.totalPending)}
+                    </p>
                   </div>
                 </div>
                 

@@ -61,7 +61,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- STEP 4: CREATE ONLY ESSENTIAL TRIGGERS
+-- STEP 4: CREATE ONLY ESSENTIAL TRIGGERSks
 
 -- Drop existing triggers first to avoid conflicts
 DROP TRIGGER IF EXISTS trigger_uppercase_block_no ON granite_blocks;
