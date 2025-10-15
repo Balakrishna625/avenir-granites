@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AppLayout } from '@/components/AppLayout';
 import { 
   ArrowLeft,
   Save,
@@ -161,7 +162,8 @@ export default function LinePolishReportsPage() {
   }, {} as Record<string, LinePolishReport[]>);
 
   return (
-    <div className="min-h-screen w-full bg-gray-50">
+    <AppLayout>
+      <div className="min-h-screen w-full bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -473,5 +475,6 @@ export default function LinePolishReportsPage() {
         </Card>
       </div>
     </div>
+    </AppLayout>
   );
 }

@@ -6,6 +6,7 @@ import { CategoryManagement } from "@/components/CategoryManagement";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { AppLayout } from "@/components/AppLayout";
 import { 
   Plus, 
   Search, 
@@ -139,7 +140,7 @@ export default function ExpensesPage() {
     .reduce((sum, expense) => sum + expense.total_amount, 0);
 
   return (
-    <>
+    <AppLayout>
       {showAddForm && (
         <AddExpenseForm
           onClose={() => setShowAddForm(false)}
@@ -383,6 +384,6 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </AppLayout>
   );
 }

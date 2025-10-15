@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { AppLayout } from "@/components/AppLayout";
 import { PlusCircle, Users, CreditCard, ArrowLeft, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
@@ -184,14 +185,17 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-full bg-gray-50 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading...</div>
-      </div>
+      <AppLayout>
+        <div className="min-h-screen w-full bg-gray-50 flex items-center justify-center">
+          <div className="text-lg text-gray-600">Loading...</div>
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
+    <AppLayout>
+      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -363,5 +367,6 @@ export default function AdminPage() {
         </div>
       )}
     </div>
+    </AppLayout>
   );
 }
