@@ -73,6 +73,7 @@ export default function LinePolishPage() {
   // Month/Year filter states
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // Format: YYYY-MM
   const [showAllRecords, setShowAllRecords] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<'ALL' | 'POLISHING' | 'GRINDING'>('ALL');
 
   const initialFormData: FormData = {
     date: new Date().toISOString().split('T')[0],
@@ -136,9 +137,13 @@ export default function LinePolishPage() {
       const response = await fetch('/api/line-polish-reports');
       if (response.ok) {
         const data = await response.json();
-        setReports(data.sort((a: LinePolishReport, b: LinePolishReport) => 
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        ));
+        // Sort by date ascending (1-30), then by shift (MORNING before NIGHT)
+        setReports(data.sort((a: LinePolishReport, b: LinePolishReport) => {
+          const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+          if (dateCompare !== 0) return dateCompare;
+          // If same date, MORNING before NIGHT
+          return a.shift === 'MORNING' ? -1 : 1;
+        }));
       }
     } catch (error) {
       console.error('Error fetching reports:', error);
@@ -323,14 +328,24 @@ export default function LinePolishPage() {
     }
   };
 
-  // Filter reports by selected month
+  // Filter reports by selected month and activity
   const filterReportsByMonth = (reportsToFilter: LinePolishReport[]) => {
-    if (showAllRecords) return reportsToFilter;
+    let filtered = reportsToFilter;
     
-    return reportsToFilter.filter(report => {
-      const reportMonth = report.date.slice(0, 7); // Get YYYY-MM from date
-      return reportMonth === selectedMonth;
-    });
+    // Filter by month
+    if (!showAllRecords) {
+      filtered = filtered.filter(report => {
+        const reportMonth = report.date.slice(0, 7); // Get YYYY-MM from date
+        return reportMonth === selectedMonth;
+      });
+    }
+    
+    // Filter by activity
+    if (selectedActivity !== 'ALL') {
+      filtered = filtered.filter(report => report.activity === selectedActivity);
+    }
+    
+    return filtered;
   };
 
   // Get unique months from all reports for the dropdown
@@ -343,10 +358,93 @@ export default function LinePolishPage() {
     return Array.from(months).sort().reverse(); // Most recent first
   };
 
+  // Calculate metrics for the filtered reports
+  const calculateMetrics = () => {
+    const filteredReports = filterReportsByMonth(reports);
+    
+    const polishingReports = filteredReports.filter(r => r.activity === 'POLISHING');
+    const grindingReports = filteredReports.filter(r => r.activity === 'GRINDING');
+    
+    return {
+      totalHours: filteredReports.reduce((sum, r) => sum + r.no_of_hours, 0),
+      polishingSqft: polishingReports.reduce((sum, r) => sum + r.total_sqft, 0),
+      grindingSqft: grindingReports.reduce((sum, r) => sum + r.total_sqft, 0),
+      polishingAmount: polishingReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0),
+      grindingAmount: grindingReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0),
+      totalSlabs: filteredReports.reduce((sum, r) => sum + r.number_of_slabs, 0),
+      totalAmount: filteredReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0),
+    };
+  };
+
+  const metrics = calculateMetrics();
+
   return (
     <AppLayout>
       <div className="min-h-screen bg-gray-50 py-6">
         <div className="w-full max-w-none mx-auto px-6 space-y-6">
+          
+          {/* Metrics Tiles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg shadow-sm border p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Hours Worked</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{metrics.totalHours.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">SqFt Polished</p>
+                  <p className="text-2xl font-bold text-blue-600 mt-1">{metrics.polishingSqft.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">{fmt(metrics.polishingAmount)}</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">SqFt Ground</p>
+                  <p className="text-2xl font-bold text-green-600 mt-1">{metrics.grindingSqft.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="h-12 w-12 bg-green-50 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">{fmt(metrics.grindingAmount)}</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Amount</p>
+                  <p className="text-2xl font-bold text-purple-600 mt-1">{fmt(metrics.totalAmount)}</p>
+                </div>
+                <div className="h-12 w-12 bg-purple-50 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">{metrics.totalSlabs} slabs total</p>
+            </div>
+          </div>
+
           {/* Add Polish Report */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b">
@@ -635,32 +733,33 @@ export default function LinePolishPage() {
             </div>
           </div>
 
-          {/* Polish Reports Table */}
+          {/* Reports Table with Filters */}
           <div className="bg-white rounded-lg shadow-sm border">
-            <div className="px-6 py-4 border-b bg-blue-50">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-blue-900">
-                  Polishing Reports
-                </h3>
-                
-                {/* Month Filter */}
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={showAllRecords}
-                      onChange={(e) => setShowAllRecords(e.target.checked)}
-                      className="rounded border-gray-300"
-                    />
-                    <span className="font-medium">Show All</span>
-                  </label>
+            <div className="px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-green-50">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Line Polish Reports
+                  </h3>
                   
-                  {!showAllRecords && (
-                    <select
-                      value={selectedMonth}
-                      onChange={(e) => setSelectedMonth(e.target.value)}
-                      className="px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
-                    >
+                  {/* Month Filter */}
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={showAllRecords}
+                        onChange={(e) => setShowAllRecords(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="font-medium">Show All</span>
+                    </label>
+                    
+                    {!showAllRecords && (
+                      <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                      >
                       {getAvailableMonths().map(month => {
                         const date = new Date(month + '-01');
                         const monthName = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
@@ -670,10 +769,52 @@ export default function LinePolishPage() {
                       })}
                     </select>
                   )}
+                  </div>
+                </div>
+                
+                {/* Activity Filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">Activity:</span>
+                  <div className="inline-flex rounded-md shadow-sm" role="group">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedActivity('ALL')}
+                      className={`px-4 py-2 text-sm font-medium border ${
+                        selectedActivity === 'ALL'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      } rounded-l-lg`}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedActivity('POLISHING')}
+                      className={`px-4 py-2 text-sm font-medium border-t border-b ${
+                        selectedActivity === 'POLISHING'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      Polishing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedActivity('GRINDING')}
+                      className={`px-4 py-2 text-sm font-medium border ${
+                        selectedActivity === 'GRINDING'
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      } rounded-r-lg`}
+                    >
+                      Grinding
+                    </button>
+                  </div>
                 </div>
               </div>
-              <p className="text-sm text-blue-700">
-                {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total: ₹{filterReportsByMonth(reports.filter(r => r.activity === 'POLISHING')).reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({filterReportsByMonth(reports.filter(r => r.activity === 'POLISHING')).length} transactions)
+              
+              <p className="text-sm text-gray-700 mt-2">
+                {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total: ₹{filterReportsByMonth(reports).reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({filterReportsByMonth(reports).length} transactions)
               </p>
             </div>
             
@@ -683,9 +824,9 @@ export default function LinePolishPage() {
                   <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                   <p className="text-gray-600">Loading reports...</p>
                 </div>
-              ) : filterReportsByMonth(reports.filter(r => r.activity === 'POLISHING')).length === 0 ? (
+              ) : filterReportsByMonth(reports).length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-600">No polishing reports for {showAllRecords ? 'this period' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}.</p>
+                  <p className="text-gray-600">No reports found for the selected filters.</p>
                 </div>
               ) : (
                 <table className="w-full">
@@ -693,6 +834,7 @@ export default function LinePolishPage() {
                     <tr className="border-b bg-gray-50">
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Shift</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Activity</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Workers</th>
                       <th className="text-right py-3 px-4 font-medium text-gray-700">Slabs</th>
                       <th className="text-right py-3 px-4 font-medium text-gray-700">Sq Ft</th>
@@ -703,82 +845,17 @@ export default function LinePolishPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filterReportsByMonth(reports.filter(r => r.activity === 'POLISHING')).map((report) => (
+                    {filterReportsByMonth(reports).map((report) => (
                       <tr key={report.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4">{new Date(report.date).toLocaleDateString('en-IN')}</td>
                         <td className="py-3 px-4">{report.shift === 'MORNING' ? 'A (Morning)' : 'B (Night)'}</td>
-                        <td className="py-3 px-4">{report.no_of_workers}</td>
-                        <td className="py-3 px-4 text-right">{report.number_of_slabs}</td>
-                        <td className="py-3 px-4 text-right">{report.total_sqft}</td>
-                        <td className="py-3 px-4 text-right">{report.no_of_hours}</td>
-                        <td className="py-3 px-4 text-right">₹{parseFloat(report.debit_amount.toString()).toLocaleString('en-IN')}</td>
-                        <td className="py-3 px-4">{report.remarks || '-'}</td>
                         <td className="py-3 px-4">
-                          <div className="flex items-center justify-center space-x-2">
-                            <Button
-                              onClick={() => handleEdit(report)}
-                              size="sm"
-                              variant="outline"
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              onClick={() => handleDelete(report.id)}
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            report.activity === 'POLISHING' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                          }`}>
+                            {report.activity}
+                          </span>
                         </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-
-          {/* Grinding Reports Table */}
-          <div className="bg-white rounded-lg shadow-sm border">
-            <div className="px-6 py-4 border-b bg-green-50">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-green-900">
-                  Grinding Reports
-                </h3>
-              </div>
-              <p className="text-sm text-green-700">
-                {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total: ₹{filterReportsByMonth(reports.filter(r => r.activity === 'GRINDING')).reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({filterReportsByMonth(reports.filter(r => r.activity === 'GRINDING')).length} transactions)
-              </p>
-            </div>
-            
-            <div className="overflow-x-auto">
-              {filterReportsByMonth(reports.filter(r => r.activity === 'GRINDING')).length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-600">No grinding reports for {showAllRecords ? 'this period' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}.</p>
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Shift</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Workers</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-700">Slabs</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-700">Sq Ft</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-700">Hours</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-700">Amount (₹)</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Note</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filterReportsByMonth(reports.filter(r => r.activity === 'GRINDING')).map((report) => (
-                      <tr key={report.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">{new Date(report.date).toLocaleDateString('en-IN')}</td>
-                        <td className="py-3 px-4">{report.shift === 'MORNING' ? 'A (Morning)' : 'B (Night)'}</td>
                         <td className="py-3 px-4">{report.no_of_workers}</td>
                         <td className="py-3 px-4 text-right">{report.number_of_slabs}</td>
                         <td className="py-3 px-4 text-right">{report.total_sqft}</td>
