@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function PUT(
   request: NextRequest,
@@ -23,7 +18,7 @@ export async function PUT(
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('line_polish_reports')
       .update(updateData)
       .eq('id', id)
@@ -49,7 +44,7 @@ export async function DELETE(
   try {
     const id = params.id;
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('line_polish_reports')
       .delete()
       .eq('id', id);
