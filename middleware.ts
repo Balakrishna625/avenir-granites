@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { jwtVerify } from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
+const secret = new TextEncoder().encode(JWT_SECRET);
 
 // Paths that don't require authentication
 const PUBLIC_PATHS = ['/login', '/api/auth/login'];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   console.log('🛡️ Middleware checking path:', pathname);
@@ -39,9 +40,9 @@ export function middleware(request: NextRequest) {
   }
 
   try {
-    // Verify the token
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('✅ Token valid for:', (decoded as any).username, '| Allowing access to:', pathname);
+    // Verify the token using jose (Edge-compatible)
+    const { payload } = await jwtVerify(token, secret);
+    console.log('✅ Token valid for:', payload.username, '| Allowing access to:', pathname);
     
     // Create response and pass through
     const response = NextResponse.next();
@@ -57,7 +58,7 @@ export function middleware(request: NextRequest) {
     
     return response;
   } catch (error) {
-    console.log('❌ Invalid token, redirecting to login');
+    console.log('❌ Invalid token, redirecting to login. Error:', error instanceof Error ? error.message : 'Unknown error');
     // Invalid token, redirect to login
     const loginUrl = new URL('/login', request.url);
     const response = NextResponse.redirect(loginUrl);
