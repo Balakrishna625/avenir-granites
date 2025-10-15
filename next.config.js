@@ -1,5 +1,4 @@
-/** @type {import(              // keep inline styles for Tailwind's injected styles and our UI
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",ext').NextConfig} */
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
     return [
@@ -11,17 +10,20 @@ const nextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Permissions-Policy", value: "geolocation=(), microphone=(), camera=()" },
           {
-            // MVP-friendly CSP: allow Next’s inline bootstrap + SheetJS fallback
+            // MVP-friendly CSP: allow Next's inline bootstrap + SheetJS fallback
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
               // allow Next.js inline runtime + Recharts/Excel usage in MVP
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.sheetjs.com",
-              // keep inline styles for Tailwind’s injected styles and our UI
-              "style-src 'self' 'unsafe-inline'",
+              // keep inline styles for Tailwind's injected styles and our UI
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              // allow loading external stylesheets (Google Fonts)
+              "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data:",
               // allow fetching from our own API routes and (future) Supabase if used client-side
               "connect-src 'self' https://*.supabase.co https://*.supabase.in",
+              // allow Google Fonts
               "font-src 'self' data: https://fonts.gstatic.com",
             ].join("; "),
           },
