@@ -18,10 +18,19 @@ interface LinePolishReport {
   no_of_hours: number;
   rate_per_hour: number;
   debit_amount: number;
-  credit_amount: number;
   remarks?: string;
   created_at: string;
   updated_at: string;
+}
+
+interface Payment {
+  id: string;
+  payment_date: string;
+  amount: number;
+  payment_method: 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'UPI';
+  reference_number?: string;
+  remarks?: string;
+  created_at: string;
 }
 
 interface FormData {
@@ -34,7 +43,14 @@ interface FormData {
   no_of_hours: string;
   rate_per_hour: string;
   debit_amount: string;
-  credit_amount: string;
+  remarks: string;
+}
+
+interface PaymentFormData {
+  payment_date: string;
+  amount: string;
+  payment_method: 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'UPI';
+  reference_number: string;
   remarks: string;
 }
 
@@ -54,17 +70,28 @@ export default function LinePolishPage() {
     date: new Date().toISOString().split('T')[0],
     shift: 'MORNING',
     activity: 'GRINDING',
-    no_of_workers: '',
+    no_of_workers: '3', // Prefilled with 3
     number_of_slabs: '',
     total_sqft: '',
     no_of_hours: '',
-    rate_per_hour: '',
+    rate_per_hour: '250', // Prefilled with 250
     debit_amount: '',
-    credit_amount: '',
+    remarks: ''
+  };
+
+  const initialPaymentFormData: PaymentFormData = {
+    payment_date: new Date().toISOString().split('T')[0],
+    amount: '',
+    payment_method: 'CASH',
+    reference_number: '',
     remarks: ''
   };
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [paymentFormData, setPaymentFormData] = useState<PaymentFormData>(initialPaymentFormData);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [totalDue, setTotalDue] = useState(0);
+  const [totalPaid, setTotalPaid] = useState(0);
 
   useEffect(() => {
     fetchReports();
@@ -84,7 +111,7 @@ export default function LinePolishPage() {
   const fetchReports = async () => {
     try {
       setReportsLoading(true);
-      const response = await fetch('/api/slab-processing');
+      const response = await fetch('/api/line-polish-reports');
       if (response.ok) {
         const data = await response.json();
         setReports(data.sort((a: LinePolishReport, b: LinePolishReport) => 
@@ -117,11 +144,10 @@ export default function LinePolishPage() {
         no_of_hours: parseFloat(formData.no_of_hours) || 0,
         rate_per_hour: parseFloat(formData.rate_per_hour) || 0,
         debit_amount: parseFloat(formData.debit_amount) || 0,
-        credit_amount: parseFloat(formData.credit_amount) || 0,
         remarks: formData.remarks.trim() || null
       };
 
-      const url = isEditing && editingId ? `/api/slab-processing/${editingId}` : '/api/slab-processing';
+      const url = isEditing && editingId ? `/api/line-polish-reports/${editingId}` : '/api/line-polish-reports';
       const method = isEditing ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -156,7 +182,6 @@ export default function LinePolishPage() {
       no_of_hours: report.no_of_hours.toString(),
       rate_per_hour: report.rate_per_hour.toString(),
       debit_amount: report.debit_amount.toString(),
-      credit_amount: report.credit_amount.toString(),
       remarks: report.remarks || ''
     });
     setIsEditing(true);
@@ -168,7 +193,7 @@ export default function LinePolishPage() {
     if (!confirm('Are you sure you want to delete this report?')) return;
 
     try {
-      const response = await fetch(`/api/slab-processing/${id}`, {
+      const response = await fetch(`/api/line-polish-reports/${id}`, {
         method: 'DELETE'
       });
 
@@ -180,10 +205,179 @@ export default function LinePolishPage() {
     }
   };
 
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const submitData = {
+        payment_date: paymentFormData.payment_date,
+        amount: parseFloat(paymentFormData.amount) || 0,
+        payment_method: paymentFormData.payment_method,
+        reference_number: paymentFormData.reference_number.trim() || null,
+        remarks: paymentFormData.remarks.trim() || null
+      };
+
+      const response = await fetch('/api/line-polish-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submitData)
+      });
+
+      if (response.ok) {
+        setPaymentFormData(initialPaymentFormData);
+        await fetchPayments();
+        await calculateTotals();
+      } else {
+        console.error('Failed to save payment');
+      }
+    } catch (error) {
+      console.error('Error saving payment:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      const response = await fetch('/api/line-polish-payments');
+      if (response.ok) {
+        const data = await response.json();
+        setPayments(data);
+      }
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+    }
+  };
+
+  const calculateTotals = async () => {
+    try {
+      // Calculate total due from reports
+      const totalDueAmount = reports.reduce((sum, report) => sum + parseFloat(report.debit_amount.toString()), 0);
+      setTotalDue(totalDueAmount);
+
+      // Calculate total paid from payments
+      const totalPaidAmount = payments.reduce((sum, payment) => sum + parseFloat(payment.amount.toString()), 0);
+      setTotalPaid(totalPaidAmount);
+    } catch (error) {
+      console.error('Error calculating totals:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayments();
+  }, []);
+
+  useEffect(() => {
+    calculateTotals();
+  }, [reports, payments]);
+
   return (
     <AppLayout>
       <div className="min-h-screen bg-gray-50 py-6">
         <div className="max-w-6xl mx-auto px-4 space-y-6">
+          {/* Analytics Summary */}
+          <Card className="bg-white shadow-md border-0 rounded-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-4 py-3">
+              <h2 className="text-lg font-bold text-white">Payment Analytics</h2>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="text-xs font-medium text-red-700">Total Due</div>
+                  <div className="text-lg font-bold text-red-800">{fmt(totalDue)}</div>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="text-xs font-medium text-green-700">Total Paid</div>
+                  <div className="text-lg font-bold text-green-800">{fmt(totalPaid)}</div>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="text-xs font-medium text-blue-700">Balance</div>
+                  <div className={`text-lg font-bold ${totalDue - totalPaid > 0 ? 'text-red-800' : 'text-green-800'}`}>
+                    {fmt(totalDue - totalPaid)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Payment Entry Form */}
+          <Card className="bg-white shadow-md border-0 rounded-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-green-600 to-green-700 px-4 py-3">
+              <h2 className="text-lg font-bold text-white flex items-center">
+                <Plus className="w-4 h-4 mr-2" />
+                Record Payment
+              </h2>
+            </div>
+            <div className="p-4">
+              <form onSubmit={handlePaymentSubmit} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Payment Date</label>
+                    <Input
+                      type="date"
+                      value={paymentFormData.payment_date}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, payment_date: e.target.value }))}
+                      className="h-8 text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Amount (₹)</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Amount paid"
+                      value={paymentFormData.amount}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, amount: e.target.value }))}
+                      className="h-8 text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Method</label>
+                    <select
+                      value={paymentFormData.payment_method}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, payment_method: e.target.value as any }))}
+                      className="w-full h-8 px-2 border border-gray-300 rounded text-sm focus:border-green-500 focus:ring-green-500 bg-white"
+                      required
+                    >
+                      <option value="CASH">💵 Cash</option>
+                      <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
+                      <option value="UPI">📱 UPI</option>
+                      <option value="CHEQUE">📝 Cheque</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Reference</label>
+                    <Input
+                      type="text"
+                      placeholder="Ref number"
+                      value={paymentFormData.reference_number}
+                      onChange={(e) => setPaymentFormData(prev => ({ ...prev, reference_number: e.target.value }))}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      type="submit" 
+                      disabled={loading}
+                      className="h-8 px-4 text-sm bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 w-full"
+                    >
+                      {loading ? (
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <>
+                          <Save className="w-3 h-3 mr-1" />
+                          Record
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </Card>
           {/* Compact Form Card */}
           <Card className="bg-white shadow-md border-0 rounded-lg overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
@@ -243,7 +437,7 @@ export default function LinePolishPage() {
                 </div>
 
                 {/* Row 2: Production & Payment */}
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Workers</label>
                     <Input
@@ -298,17 +492,6 @@ export default function LinePolishPage() {
                       placeholder="Rate"
                       value={formData.rate_per_hour}
                       onChange={(e) => handleInputChange('rate_per_hour', e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Paid</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      placeholder="Amount"
-                      value={formData.credit_amount}
-                      onChange={(e) => handleInputChange('credit_amount', e.target.value)}
                       className="h-8 text-sm"
                     />
                   </div>
@@ -403,7 +586,6 @@ export default function LinePolishPage() {
                         <th className="text-right py-2 px-2 font-medium text-gray-700">Sq Ft</th>
                         <th className="text-right py-2 px-2 font-medium text-gray-700">Hours</th>
                         <th className="text-right py-2 px-2 font-medium text-gray-700">Due</th>
-                        <th className="text-right py-2 px-2 font-medium text-gray-700">Paid</th>
                         <th className="text-center py-2 px-2 font-medium text-gray-700">Actions</th>
                       </tr>
                     </thead>
@@ -436,7 +618,6 @@ export default function LinePolishPage() {
                           <td className="py-2 px-2 text-right text-gray-900">{report.total_sqft}</td>
                           <td className="py-2 px-2 text-right text-gray-900">{report.no_of_hours}</td>
                           <td className="py-2 px-2 text-right font-medium text-red-600">{fmt(report.debit_amount)}</td>
-                          <td className="py-2 px-2 text-right font-medium text-green-600">{fmt(report.credit_amount)}</td>
                           <td className="py-2 px-2">
                             <div className="flex items-center justify-center space-x-1">
                               <Button

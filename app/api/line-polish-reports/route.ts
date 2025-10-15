@@ -45,7 +45,6 @@ export async function POST(req: Request) {
       total_sqft,
       no_of_hours,
       rate_per_hour,
-      credit_amount,
       remarks
     } = body;
 
@@ -66,13 +65,12 @@ export async function POST(req: Request) {
         date,
         shift,
         activity,
-        no_of_workers: no_of_workers || 0,
+        no_of_workers: no_of_workers || 3, // Default to 3
         number_of_slabs: number_of_slabs || 0,
         total_sqft: total_sqft || 0,
         no_of_hours: no_of_hours || 0,
-        rate_per_hour: rate_per_hour || 0,
+        rate_per_hour: rate_per_hour || 250, // Default to 250
         debit_amount,
-        credit_amount: credit_amount || 0,
         remarks
       })
       .select()
@@ -102,7 +100,6 @@ export async function PUT(req: Request) {
       total_sqft,
       no_of_hours,
       rate_per_hour,
-      credit_amount,
       remarks
     } = body;
 
@@ -119,13 +116,12 @@ export async function PUT(req: Request) {
         date,
         shift,
         activity,
-        no_of_workers: no_of_workers || 0,
+        no_of_workers: no_of_workers || 3,
         number_of_slabs: number_of_slabs || 0,
         total_sqft: total_sqft || 0,
         no_of_hours: no_of_hours || 0,
-        rate_per_hour: rate_per_hour || 0,
+        rate_per_hour: rate_per_hour || 250,
         debit_amount,
-        credit_amount: credit_amount || 0,
         remarks
       })
       .eq("id", id)
