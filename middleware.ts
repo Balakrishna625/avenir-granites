@@ -9,9 +9,12 @@ const PUBLIC_PATHS = ['/login', '/api/auth/login'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  
+  console.log('🛡️ Middleware checking path:', pathname);
 
   // Allow public paths
   if (PUBLIC_PATHS.some(path => pathname.startsWith(path))) {
+    console.log('✅ Public path allowed:', pathname);
     return NextResponse.next();
   }
 
@@ -26,8 +29,10 @@ export function middleware(request: NextRequest) {
 
   // Check for auth token
   const token = request.cookies.get('auth-token')?.value;
+  console.log('🍪 Token found:', token ? 'YES' : 'NO');
 
   if (!token) {
+    console.log('🚫 No token, redirecting to login');
     // Redirect to login if no token
     const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl);
@@ -36,8 +41,10 @@ export function middleware(request: NextRequest) {
   try {
     // Verify the token
     jwt.verify(token, JWT_SECRET);
+    console.log('✅ Token valid, allowing access to:', pathname);
     return NextResponse.next();
   } catch (error) {
+    console.log('❌ Invalid token, redirecting to login');
     // Invalid token, redirect to login
     const loginUrl = new URL('/login', request.url);
     const response = NextResponse.redirect(loginUrl);
@@ -46,8 +53,9 @@ export function middleware(request: NextRequest) {
     response.cookies.set('auth-token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 0
+      sameSite: 'lax', // Match other cookie settings
+      maxAge: 0,
+      path: '/' // Explicitly set path
     });
     
     return response;

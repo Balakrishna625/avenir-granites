@@ -36,9 +36,13 @@ export default function LoginPage() {
       console.log('📄 Response data:', data);
 
       if (response.ok) {
-        console.log('✅ Login successful, redirecting to home page');
-        // Try redirecting to home page first to test
-        window.location.href = '/';
+        console.log('✅ Login successful, waiting for cookie to be set...');
+        
+        // Add a small delay to ensure cookie is set, then redirect
+        setTimeout(() => {
+          console.log('🔄 Redirecting to customers page...');
+          window.location.href = '/customers';
+        }, 100);
       } else {
         console.log('❌ Login failed:', data.error);
         setError(data.error || 'Login failed');
