@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -11,28 +10,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [checking, setChecking] = useState(true);
-  const router = useRouter();
-
-  // Check if user is already authenticated
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/auth/me');
-        if (response.ok) {
-          // User is already authenticated, redirect to customers
-          router.replace('/customers');
-          return;
-        }
-      } catch (error) {
-        console.log('Not authenticated, staying on login page');
-      } finally {
-        setChecking(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,39 +25,17 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ username, password }),
-        credentials: 'include' // Ensure cookies are included
+        credentials: 'include'
       });
 
       console.log('📡 Response status:', response.status);
       console.log('📡 Response ok:', response.ok);
 
-      if (response.redirected) {
-        console.log('✅ Login successful, server redirected to:', response.url);
-        window.location.href = response.url;
-        return;
-      }
-
       if (response.ok) {
-        console.log('✅ Login successful, checking authentication...');
-        
-        // Wait a moment for cookie to be set, then check auth
-        setTimeout(async () => {
-          try {
-            const authCheck = await fetch('/api/auth/me', { credentials: 'include' });
-            if (authCheck.ok) {
-              console.log('🔄 Authentication confirmed, redirecting to customers...');
-              window.location.href = '/customers';
-            } else {
-              console.log('❌ Authentication failed after login');
-              setError('Authentication failed. Please try again.');
-              setLoading(false);
-            }
-          } catch (authError) {
-            console.error('❌ Auth check failed:', authError);
-            setError('Authentication check failed. Please try again.');
-            setLoading(false);
-          }
-        }, 500);
+        console.log('✅ Login successful, redirecting immediately...');
+        // Redirect immediately using full page navigation
+        // The cookie is set in the response headers and will be available
+        window.location.href = '/customers';
       } else {
         const data = await response.json();
         console.log('❌ Login failed:', data.error);
@@ -93,18 +48,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  // Show loading while checking authentication
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">

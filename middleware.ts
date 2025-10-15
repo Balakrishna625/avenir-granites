@@ -29,7 +29,7 @@ export function middleware(request: NextRequest) {
 
   // Check for auth token
   const token = request.cookies.get('auth-token')?.value;
-  console.log('🍪 Token found:', token ? 'YES' : 'NO');
+  console.log('🍪 Middleware - Path:', pathname, '| Token found:', token ? 'YES' : 'NO');
 
   if (!token) {
     console.log('🚫 No token, redirecting to login');
@@ -40,9 +40,22 @@ export function middleware(request: NextRequest) {
 
   try {
     // Verify the token
-    jwt.verify(token, JWT_SECRET);
-    console.log('✅ Token valid, allowing access to:', pathname);
-    return NextResponse.next();
+    const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('✅ Token valid for:', (decoded as any).username, '| Allowing access to:', pathname);
+    
+    // Create response and pass through
+    const response = NextResponse.next();
+    
+    // Re-set the cookie to ensure it persists (refresh the cookie)
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/'
+    });
+    
+    return response;
   } catch (error) {
     console.log('❌ Invalid token, redirecting to login');
     // Invalid token, redirect to login
@@ -53,9 +66,9 @@ export function middleware(request: NextRequest) {
     response.cookies.set('auth-token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', // Match other cookie settings
+      sameSite: 'lax',
       maxAge: 0,
-      path: '/' // Explicitly set path
+      path: '/'
     });
     
     return response;
