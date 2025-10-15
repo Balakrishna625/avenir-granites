@@ -18,6 +18,8 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    console.log('🔐 Login attempt:', { username, password: password ? '***' : 'empty' });
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -27,16 +29,22 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
+
       const data = await response.json();
+      console.log('📄 Response data:', data);
 
       if (response.ok) {
-        // Redirect to home page
-        router.push('/');
-        router.refresh();
+        console.log('✅ Login successful, redirecting to home page');
+        // Try redirecting to home page first to test
+        window.location.href = '/';
       } else {
+        console.log('❌ Login failed:', data.error);
         setError(data.error || 'Login failed');
       }
     } catch (error) {
+      console.error('🚨 Login error:', error);
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
