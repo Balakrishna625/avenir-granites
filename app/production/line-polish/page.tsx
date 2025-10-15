@@ -691,6 +691,21 @@ export default function LinePolishPage() {
             <div className="bg-white rounded-lg shadow-sm border p-5">
               <div className="flex items-center justify-between">
                 <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total SqFt</p>
+                  <p className="text-2xl font-bold text-indigo-600 mt-1">{(metrics.polishingSqft + metrics.grindingSqft).toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-500 mt-1">Polishing + Grinding</p>
+                </div>
+                <div className="h-12 w-12 bg-indigo-50 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm10-8a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border p-5">
+              <div className="flex items-center justify-between">
+                <div>
                   <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Amount</p>
                   <p className="text-2xl font-bold text-purple-600 mt-1">{fmt(metrics.totalAmount)}</p>
                   <p className="text-xs text-gray-500 mt-1">Work done this month</p>
@@ -953,12 +968,12 @@ export default function LinePolishPage() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Reference (Optional)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                     <Input
                       type="text"
-                      value={paymentForm.reference_number}
-                      onChange={(e) => setPaymentForm(prev => ({ ...prev, reference_number: e.target.value }))}
-                      placeholder="Reference number"
+                      value={paymentForm.remarks}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, remarks: e.target.value }))}
+                      placeholder="Add notes"
                     />
                   </div>
                   
@@ -1235,8 +1250,7 @@ export default function LinePolishPage() {
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
                       <th className="text-right py-3 px-4 font-medium text-gray-700">Amount (₹)</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Method</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Reference</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Remarks</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Notes</th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
                     </tr>
                   </thead>
@@ -1250,7 +1264,6 @@ export default function LinePolishPage() {
                             {payment.payment_method.replace('_', ' ')}
                           </span>
                         </td>
-                        <td className="py-3 px-4">{payment.reference_number || '-'}</td>
                         <td className="py-3 px-4">{payment.remarks || '-'}</td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-center gap-2">
