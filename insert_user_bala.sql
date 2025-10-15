@@ -21,7 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
 INSERT INTO users (username, password_hash, role, is_active) 
 VALUES (
   'Bala', 
-  '$2a$12$8rVvLkZxTwYKJYb4qJn0eOkAX8gJj6V3Nh9cP5iQ7sR2tU4oP6vWe',
+  '$2b$12$CdKW.yxtkuNsOJXsYq//tu65ELYKmzsGMuBD2Wz38pP8MsczvO2ra',
   'ADMIN', 
   true
 ) 
