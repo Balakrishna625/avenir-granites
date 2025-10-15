@@ -80,10 +80,14 @@ export default function CustomersPage() {
     .sort((a, b) => b.totalInvoiced - a.totalInvoiced)
     .slice(0, 5);
 
-  // Customers with high outstanding
+  // Customers with high outstanding (using totalReceivables)
   const highOutstanding = [...filteredCustomers]
-    .filter(c => c.totalPending > 0)
-    .sort((a, b) => b.totalPending - a.totalPending)
+    .filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) > 0)
+    .sort((a, b) => {
+      const aReceivables = a.totalReceivables !== undefined ? a.totalReceivables : a.totalPending;
+      const bReceivables = b.totalReceivables !== undefined ? b.totalReceivables : b.totalPending;
+      return bReceivables - aReceivables;
+    })
     .slice(0, 5);
 
   // Customers with payment delays
@@ -256,32 +260,55 @@ export default function CustomersPage() {
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center">
           <BarChart3 className="w-5 h-5 mr-2 text-blue-500" />
-          Outstanding Amounts by Customer
+          Total Receivables by Customer
         </h3>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filteredCustomers
-            .filter(c => c.totalPending > 0)
-            .sort((a, b) => b.totalPending - a.totalPending)
+            .filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) > 0)
+            .sort((a, b) => {
+              const aReceivables = a.totalReceivables !== undefined ? a.totalReceivables : a.totalPending;
+              const bReceivables = b.totalReceivables !== undefined ? b.totalReceivables : b.totalPending;
+              return bReceivables - aReceivables;
+            })
             .slice(0, 10)
             .map((customer) => {
-              const maxOutstanding = Math.max(...filteredCustomers.map(c => c.totalPending));
-              const barWidth = maxOutstanding > 0 ? (customer.totalPending / maxOutstanding) * 100 : 0;
+              const receivablesAmount = customer.totalReceivables !== undefined ? customer.totalReceivables : customer.totalPending;
+              const maxReceivables = Math.max(...filteredCustomers.map(c => 
+                c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending
+              ));
+              const barWidth = maxReceivables > 0 ? (receivablesAmount / maxReceivables) * 100 : 0;
+              
+              // Determine color based on amount ranges
+              let barColor = 'bg-gradient-to-r from-green-400 to-green-500'; // Low
+              if (receivablesAmount > maxReceivables * 0.6) {
+                barColor = 'bg-gradient-to-r from-red-400 to-red-500'; // High
+              } else if (receivablesAmount > maxReceivables * 0.3) {
+                barColor = 'bg-gradient-to-r from-orange-400 to-orange-500'; // Medium
+              }
               
               return (
-                <div key={customer.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium truncate">{customer.name}</span>
-                    <span className="text-red-600 font-semibold">{fmt(customer.totalPending)}</span>
+                <div key={customer.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-900 truncate flex-1 mr-4">{customer.name}</span>
+                    <span className="text-gray-700 font-semibold text-sm whitespace-nowrap">
+                      {fmt(receivablesAmount)}
+                    </span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-red-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${barWidth}%` }}
-                    ></div>
+                  <div className="relative">
+                    <div className="w-full bg-gray-100 rounded-lg h-3 shadow-inner">
+                      <div 
+                        className={`${barColor} h-3 rounded-lg transition-all duration-500 ease-out shadow-sm`}
+                        style={{ width: `${barWidth}%` }}
+                      ></div>
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-lg"></div>
                   </div>
                 </div>
               );
             })}
+          {filteredCustomers.filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) > 0).length === 0 && (
+            <p className="text-center text-gray-500 py-8">No outstanding receivables</p>
+          )}
         </div>
       </Card>
 
@@ -315,17 +342,20 @@ export default function CustomersPage() {
             High Outstanding
           </h3>
           <div className="space-y-3">
-            {highOutstanding.map((customer, index) => (
-              <div key={customer.id} className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="w-6 h-6 bg-red-100 text-red-800 rounded-full flex items-center justify-center text-xs font-medium mr-3">
-                    {index + 1}
-                  </span>
-                  <span className="font-medium">{customer.name}</span>
+            {highOutstanding.map((customer, index) => {
+              const receivablesAmount = customer.totalReceivables !== undefined ? customer.totalReceivables : customer.totalPending;
+              return (
+                <div key={customer.id} className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <span className="w-6 h-6 bg-red-100 text-red-800 rounded-full flex items-center justify-center text-xs font-medium mr-3">
+                      {index + 1}
+                    </span>
+                    <span className="font-medium">{customer.name}</span>
+                  </div>
+                  <span className="text-red-600 font-semibold">{fmt(receivablesAmount)}</span>
                 </div>
-                <span className="text-red-600 font-semibold">{fmt(customer.totalPending)}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
 
