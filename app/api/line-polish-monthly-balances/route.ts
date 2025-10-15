@@ -10,15 +10,17 @@ const supabase = createClient(
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const month = searchParams.get('month'); // Format: YYYY-MM
+    const monthParam = searchParams.get('month'); // Format: YYYY-MM
 
     let query = supabase
       .from('line_polish_monthly_balances')
       .select('*')
+      .order('year', { ascending: false })
       .order('month', { ascending: false });
 
-    if (month) {
-      query = query.eq('month', month);
+    if (monthParam) {
+      const [year, month] = monthParam.split('-');
+      query = query.eq('year', parseInt(year)).eq('month', parseInt(month));
     }
 
     const { data, error } = await query;
@@ -39,16 +41,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { month, opening_balance, total_work_amount, total_payments, closing_balance, notes } = body;
+    const { year, month, opening_balance } = body;
 
-    if (!month) {
-      return NextResponse.json({ error: 'Month is required (format: YYYY-MM)' }, { status: 400 });
+    if (!year || !month) {
+      return NextResponse.json({ error: 'Year and month are required' }, { status: 400 });
     }
 
     // Check if balance already exists for this month
     const { data: existing } = await supabase
       .from('line_polish_monthly_balances')
       .select('*')
+      .eq('year', year)
       .eq('month', month)
       .single();
 
@@ -59,12 +62,9 @@ export async function POST(request: NextRequest) {
         .from('line_polish_monthly_balances')
         .update({
           opening_balance: opening_balance ?? existing.opening_balance,
-          total_work_amount: total_work_amount ?? existing.total_work_amount,
-          total_payments: total_payments ?? existing.total_payments,
-          closing_balance: closing_balance ?? existing.closing_balance,
-          notes: notes ?? existing.notes,
           updated_at: new Date().toISOString(),
         })
+        .eq('year', year)
         .eq('month', month)
         .select()
         .single();
@@ -79,12 +79,12 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabase
         .from('line_polish_monthly_balances')
         .insert({
+          year,
           month,
           opening_balance: opening_balance || 0,
-          total_work_amount: total_work_amount || 0,
-          total_payments: total_payments || 0,
-          closing_balance: closing_balance || 0,
-          notes: notes || null,
+          total_debit: 0,
+          total_credit: 0,
+          closing_balance: opening_balance || 0,
         })
         .select()
         .single();

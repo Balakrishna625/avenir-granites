@@ -34,12 +34,14 @@ interface LinePolishPayment {
 
 interface MonthlyBalance {
   id?: string;
-  month: string; // Format: YYYY-MM
+  year: number;
+  month: number;
   opening_balance: number;
-  total_work_amount: number;
-  total_payments: number;
+  total_debit: number;
+  total_credit: number;
   closing_balance: number;
-  notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface FormData {
@@ -74,6 +76,12 @@ export default function LinePolishPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // Format: YYYY-MM
   const [showAllRecords, setShowAllRecords] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<'ALL' | 'POLISHING' | 'GRINDING'>('ALL');
+  
+  // Opening balance management
+  const [showOpeningBalanceForm, setShowOpeningBalanceForm] = useState(false);
+  const [openingBalanceMonth, setOpeningBalanceMonth] = useState<string>('');
+  const [openingBalanceAmount, setOpeningBalanceAmount] = useState<string>('');
+  const [savingBalance, setSavingBalance] = useState(false);
 
   const initialFormData: FormData = {
     date: new Date().toISOString().split('T')[0],
@@ -358,21 +366,42 @@ export default function LinePolishPage() {
     return Array.from(months).sort().reverse(); // Most recent first
   };
 
-  // Calculate metrics for the filtered reports
+  // Calculate metrics for the selected month
   const calculateMetrics = () => {
-    const filteredReports = filterReportsByMonth(reports);
+    // Filter reports for selected month only (not by activity for totals)
+    const monthReports = reports.filter(report => {
+      if (showAllRecords) return true;
+      const reportMonth = report.date.slice(0, 7);
+      return reportMonth === selectedMonth;
+    });
     
-    const polishingReports = filteredReports.filter(r => r.activity === 'POLISHING');
-    const grindingReports = filteredReports.filter(r => r.activity === 'GRINDING');
+    const polishingReports = monthReports.filter(r => r.activity === 'POLISHING');
+    const grindingReports = monthReports.filter(r => r.activity === 'GRINDING');
+    
+    // Calculate payments for selected month
+    const monthPayments = payments.filter(p => {
+      if (showAllRecords) return true;
+      return p.payment_date.slice(0, 7) === selectedMonth;
+    });
+    const totalPaid = monthPayments.reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0);
+    
+    // Calculate total work amount
+    const totalAmount = monthReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0);
+    
+    // Get opening balance (previous month's due)
+    const openingBalance = monthlyBalance?.opening_balance || 0;
+    
+    // Pending = Total Amount + Opening Balance - Paid This Month
+    const pending = totalAmount + openingBalance - totalPaid;
     
     return {
-      totalHours: filteredReports.reduce((sum, r) => sum + r.no_of_hours, 0),
+      totalHours: monthReports.reduce((sum, r) => sum + r.no_of_hours, 0),
       polishingSqft: polishingReports.reduce((sum, r) => sum + r.total_sqft, 0),
       grindingSqft: grindingReports.reduce((sum, r) => sum + r.total_sqft, 0),
-      polishingAmount: polishingReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0),
-      grindingAmount: grindingReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0),
-      totalSlabs: filteredReports.reduce((sum, r) => sum + r.number_of_slabs, 0),
-      totalAmount: filteredReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0),
+      totalAmount,
+      totalPaid,
+      pending,
+      openingBalance,
     };
   };
 
@@ -383,13 +412,117 @@ export default function LinePolishPage() {
       <div className="min-h-screen bg-gray-50 py-6">
         <div className="w-full max-w-none mx-auto px-6 space-y-6">
           
-          {/* Metrics Tiles */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Month Selector - Top Right */}
+          <div className="bg-white rounded-lg shadow-sm border p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Line Polish Reports</h2>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowOpeningBalanceForm(!showOpeningBalanceForm)}
+                  className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                >
+                  + Add Previous Month Due
+                </button>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"
+                >
+                  {getAvailableMonths().map(month => {
+                    const date = new Date(month + '-01');
+                    const monthName = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                    return (
+                      <option key={month} value={month}>{monthName}</option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {/* Opening Balance Form */}
+            {showOpeningBalanceForm && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="text-sm font-semibold text-blue-900 mb-3">Add/Update Previous Month Due</h3>
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Select Month</label>
+                    <select
+                      value={openingBalanceMonth}
+                      onChange={(e) => setOpeningBalanceMonth(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    >
+                      <option value="">Choose month...</option>
+                      {getAvailableMonths().map(month => {
+                        const date = new Date(month + '-01');
+                        const monthName = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                        return (
+                          <option key={month} value={month}>{monthName}</option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Previous Due Amount (₹)</label>
+                    <Input
+                      type="number"
+                      value={openingBalanceAmount}
+                      onChange={(e) => setOpeningBalanceAmount(e.target.value)}
+                      placeholder="Enter amount"
+                      className="text-sm"
+                    />
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      if (!openingBalanceMonth || !openingBalanceAmount) {
+                        alert('Please select month and enter amount');
+                        return;
+                      }
+                      setSavingBalance(true);
+                      try {
+                        const [year, month] = openingBalanceMonth.split('-');
+                        const response = await fetch('/api/line-polish-monthly-balances', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            year: parseInt(year),
+                            month: parseInt(month),
+                            opening_balance: parseFloat(openingBalanceAmount),
+                          })
+                        });
+                        if (response.ok) {
+                          alert('Opening balance saved successfully!');
+                          setOpeningBalanceMonth('');
+                          setOpeningBalanceAmount('');
+                          setShowOpeningBalanceForm(false);
+                          await fetchMonthlyBalance();
+                        } else {
+                          alert('Failed to save opening balance');
+                        }
+                      } catch (error) {
+                        console.error('Error saving opening balance:', error);
+                        alert('Error saving opening balance');
+                      } finally {
+                        setSavingBalance(false);
+                      }
+                    }}
+                    disabled={savingBalance}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {savingBalance ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Metrics Tiles - 6 Tiles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="bg-white rounded-lg shadow-sm border p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Hours Worked</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">{metrics.totalHours.toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-500 mt-1">This month</p>
                 </div>
                 <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -404,6 +537,7 @@ export default function LinePolishPage() {
                 <div>
                   <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">SqFt Polished</p>
                   <p className="text-2xl font-bold text-blue-600 mt-1">{metrics.polishingSqft.toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-500 mt-1">This month</p>
                 </div>
                 <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -411,7 +545,6 @@ export default function LinePolishPage() {
                   </svg>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">{fmt(metrics.polishingAmount)}</p>
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border p-5">
@@ -419,6 +552,7 @@ export default function LinePolishPage() {
                 <div>
                   <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">SqFt Ground</p>
                   <p className="text-2xl font-bold text-green-600 mt-1">{metrics.grindingSqft.toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-500 mt-1">This month</p>
                 </div>
                 <div className="h-12 w-12 bg-green-50 rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -426,7 +560,6 @@ export default function LinePolishPage() {
                   </svg>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">{fmt(metrics.grindingAmount)}</p>
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border p-5">
@@ -434,6 +567,7 @@ export default function LinePolishPage() {
                 <div>
                   <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Amount</p>
                   <p className="text-2xl font-bold text-purple-600 mt-1">{fmt(metrics.totalAmount)}</p>
+                  <p className="text-xs text-gray-500 mt-1">Work done this month</p>
                 </div>
                 <div className="h-12 w-12 bg-purple-50 rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -441,7 +575,38 @@ export default function LinePolishPage() {
                   </svg>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">{metrics.totalSlabs} slabs total</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Amount Paid</p>
+                  <p className="text-2xl font-bold text-green-600 mt-1">{fmt(metrics.totalPaid)}</p>
+                  <p className="text-xs text-gray-500 mt-1">Payments this month</p>
+                </div>
+                <div className="h-12 w-12 bg-green-50 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg shadow-md border-2 border-red-200 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Pending Amount</p>
+                  <p className="text-2xl font-bold text-red-600 mt-1">{fmt(metrics.pending)}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {metrics.openingBalance > 0 && `Includes ₹${metrics.openingBalance.toLocaleString('en-IN')} previous due`}
+                  </p>
+                </div>
+                <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -604,57 +769,6 @@ export default function LinePolishPage() {
               </form>
             </div>
           </div>
-
-          {/* Monthly Balance Summary */}
-          {!showAllRecords && monthlyBalance && (
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg shadow-sm border border-purple-200">
-              <div className="px-6 py-4 border-b border-purple-200 bg-white/50">
-                <h2 className="text-lg font-semibold text-purple-900">
-                  Monthly Balance - {new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
-                </h2>
-              </div>
-              
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm text-gray-600 mb-1">Opening Balance</div>
-                    <div className="text-2xl font-bold text-blue-600">
-                      {fmt(monthlyBalance.opening_balance)}
-                    </div>
-                    {monthlyBalance.opening_balance > 0 && (
-                      <div className="text-xs text-gray-500 mt-1">Carried from previous month</div>
-                    )}
-                  </div>
-                  
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm text-gray-600 mb-1">Work Done (Debit)</div>
-                    <div className="text-2xl font-bold text-red-600">
-                      +{fmt(monthlyBalance.total_work_amount)}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">Amount to be paid</div>
-                  </div>
-                  
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="text-sm text-gray-600 mb-1">Payments Made (Credit)</div>
-                    <div className="text-2xl font-bold text-green-600">
-                      -{fmt(monthlyBalance.total_payments)}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">Amount paid</div>
-                  </div>
-                  
-                  <div className="bg-white p-4 rounded-lg border-2 border-purple-300">
-                    <div className="text-sm text-gray-600 mb-1">Closing Balance</div>
-                    <div className={`text-2xl font-bold ${monthlyBalance.closing_balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {fmt(Math.abs(monthlyBalance.closing_balance))}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {monthlyBalance.closing_balance > 0 ? 'Due to pay' : monthlyBalance.closing_balance < 0 ? 'Advance paid' : 'Settled'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Payment Recording Section */}
           <div className="bg-white rounded-lg shadow-sm border">
