@@ -36,13 +36,10 @@ export default function LoginPage() {
       console.log('📄 Response data:', data);
 
       if (response.ok) {
-        console.log('✅ Login successful, waiting for cookie to be set...');
+        console.log('✅ Login successful, redirecting...');
         
-        // Add a small delay to ensure cookie is set, then redirect
-        setTimeout(() => {
-          console.log('🔄 Redirecting to customers page...');
-          window.location.href = '/customers';
-        }, 100);
+        // Redirect to intermediate page that will handle the final redirect
+        window.location.href = '/login-success';
       } else {
         console.log('❌ Login failed:', data.error);
         setError(data.error || 'Login failed');

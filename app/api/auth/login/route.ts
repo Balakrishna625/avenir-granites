@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
     // Create response and set httpOnly cookie
     const response = NextResponse.json({
       message: 'Login successful',
+      redirect: '/customers', // Add redirect URL to response
       user: {
         id: user.id,
         username: user.username,
