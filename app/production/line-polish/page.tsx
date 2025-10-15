@@ -22,6 +22,26 @@ interface LinePolishReport {
   updated_at: string;
 }
 
+interface LinePolishPayment {
+  id: string;
+  payment_date: string;
+  amount: number;
+  payment_method: 'CASH' | 'BANK_TRANSFER' | 'UPI' | 'CHEQUE';
+  reference_number?: string;
+  remarks?: string;
+  created_at: string;
+}
+
+interface MonthlyBalance {
+  id?: string;
+  month: string; // Format: YYYY-MM
+  opening_balance: number;
+  total_work_amount: number;
+  total_payments: number;
+  closing_balance: number;
+  notes?: string;
+}
+
 interface FormData {
   date: string;
   shift: 'MORNING' | 'NIGHT';
@@ -42,8 +62,11 @@ const fmt = (value: string | number): string => {
 
 export default function LinePolishPage() {
   const [reports, setReports] = useState<LinePolishReport[]>([]);
+  const [payments, setPayments] = useState<LinePolishPayment[]>([]);
+  const [monthlyBalance, setMonthlyBalance] = useState<MonthlyBalance | null>(null);
   const [loading, setLoading] = useState(false);
   const [reportsLoading, setReportsLoading] = useState(true);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -66,9 +89,24 @@ export default function LinePolishPage() {
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
 
+  // Payment form state
+  const [paymentForm, setPaymentForm] = useState({
+    payment_date: new Date().toISOString().split('T')[0],
+    amount: '',
+    payment_method: 'CASH' as 'CASH' | 'BANK_TRANSFER' | 'UPI' | 'CHEQUE',
+    reference_number: '',
+    remarks: ''
+  });
+
   useEffect(() => {
     fetchReports();
+    fetchPayments();
   }, []);
+
+  useEffect(() => {
+    // Fetch monthly balance when month changes
+    fetchMonthlyBalance();
+  }, [selectedMonth]);
 
   useEffect(() => {
     // Auto-calculate total amount based on hours * rate
@@ -109,6 +147,47 @@ export default function LinePolishPage() {
     }
   };
 
+  const fetchPayments = async () => {
+    try {
+      const response = await fetch('/api/line-polish-payments');
+      if (response.ok) {
+        const data = await response.json();
+        setPayments(data.sort((a: LinePolishPayment, b: LinePolishPayment) => 
+          new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+        ));
+      }
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+    }
+  };
+
+  const fetchMonthlyBalance = async () => {
+    try {
+      const response = await fetch(`/api/line-polish-monthly-balances?month=${selectedMonth}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMonthlyBalance(data[0] || null);
+      }
+    } catch (error) {
+      console.error('Error fetching monthly balance:', error);
+    }
+  };
+
+  const updateMonthlyBalance = async (month: string) => {
+    try {
+      const response = await fetch('/api/line-polish-monthly-balances', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month })
+      });
+      if (response.ok) {
+        await fetchMonthlyBalance();
+      }
+    } catch (error) {
+      console.error('Error updating monthly balance:', error);
+    }
+  };
+
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -145,6 +224,10 @@ export default function LinePolishPage() {
         setIsEditing(false);
         setEditingId(null);
         await fetchReports();
+        
+        // Update monthly balance for the report's month
+        const reportMonth = submitData.date.slice(0, 7);
+        await updateMonthlyBalance(reportMonth);
       } else {
         console.error('Failed to save report');
       }
@@ -177,15 +260,66 @@ export default function LinePolishPage() {
     if (!confirm('Are you sure you want to delete this report?')) return;
 
     try {
+      // Find the report to get its date before deleting
+      const report = reports.find(r => r.id === id);
+      
       const response = await fetch(`/api/line-polish-reports/${id}`, {
         method: 'DELETE'
       });
 
       if (response.ok) {
         await fetchReports();
+        
+        // Update monthly balance for the deleted report's month
+        if (report) {
+          const reportMonth = report.date.slice(0, 7);
+          await updateMonthlyBalance(reportMonth);
+        }
       }
     } catch (error) {
       console.error('Error deleting report:', error);
+    }
+  };
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPaymentLoading(true);
+
+    try {
+      const submitData = {
+        payment_date: paymentForm.payment_date,
+        amount: parseFloat(paymentForm.amount) || 0,
+        payment_method: paymentForm.payment_method,
+        reference_number: paymentForm.reference_number.trim() || null,
+        remarks: paymentForm.remarks.trim() || null
+      };
+
+      const response = await fetch('/api/line-polish-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submitData)
+      });
+
+      if (response.ok) {
+        setPaymentForm({
+          payment_date: new Date().toISOString().split('T')[0],
+          amount: '',
+          payment_method: 'CASH',
+          reference_number: '',
+          remarks: ''
+        });
+        await fetchPayments();
+        
+        // Update monthly balance for the payment's month
+        const paymentMonth = submitData.payment_date.slice(0, 7);
+        await updateMonthlyBalance(paymentMonth);
+      } else {
+        console.error('Failed to record payment');
+      }
+    } catch (error) {
+      console.error('Error recording payment:', error);
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -373,6 +507,57 @@ export default function LinePolishPage() {
             </div>
           </div>
 
+          {/* Monthly Balance Summary */}
+          {!showAllRecords && monthlyBalance && (
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg shadow-sm border border-purple-200">
+              <div className="px-6 py-4 border-b border-purple-200 bg-white/50">
+                <h2 className="text-lg font-semibold text-purple-900">
+                  Monthly Balance - {new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                </h2>
+              </div>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm text-gray-600 mb-1">Opening Balance</div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {fmt(monthlyBalance.opening_balance)}
+                    </div>
+                    {monthlyBalance.opening_balance > 0 && (
+                      <div className="text-xs text-gray-500 mt-1">Carried from previous month</div>
+                    )}
+                  </div>
+                  
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm text-gray-600 mb-1">Work Done (Debit)</div>
+                    <div className="text-2xl font-bold text-red-600">
+                      +{fmt(monthlyBalance.total_work_amount)}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">Amount to be paid</div>
+                  </div>
+                  
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="text-sm text-gray-600 mb-1">Payments Made (Credit)</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      -{fmt(monthlyBalance.total_payments)}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">Amount paid</div>
+                  </div>
+                  
+                  <div className="bg-white p-4 rounded-lg border-2 border-purple-300">
+                    <div className="text-sm text-gray-600 mb-1">Closing Balance</div>
+                    <div className={`text-2xl font-bold ${monthlyBalance.closing_balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {fmt(Math.abs(monthlyBalance.closing_balance))}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {monthlyBalance.closing_balance > 0 ? 'Due to pay' : monthlyBalance.closing_balance < 0 ? 'Advance paid' : 'Settled'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Payment Recording Section */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b bg-green-50">
@@ -380,13 +565,16 @@ export default function LinePolishPage() {
             </div>
             
             <div className="p-6">
-              <form className="space-y-4">
+              <form onSubmit={handlePaymentSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Payment Date</label>
                     <Input
                       type="date"
+                      value={paymentForm.payment_date}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, payment_date: e.target.value }))}
                       placeholder="dd/mm/yyyy"
+                      required
                     />
                   </div>
                   
@@ -395,13 +583,22 @@ export default function LinePolishPage() {
                     <Input
                       type="number"
                       min="0"
+                      step="0.01"
+                      value={paymentForm.amount}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
                       placeholder="Enter amount paid"
+                      required
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white">
+                    <select 
+                      value={paymentForm.payment_method}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, payment_method: e.target.value as any }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                      required
+                    >
                       <option value="CASH">Cash</option>
                       <option value="BANK_TRANSFER">Bank Transfer</option>
                       <option value="UPI">UPI</option>
@@ -413,6 +610,8 @@ export default function LinePolishPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Reference (Optional)</label>
                     <Input
                       type="text"
+                      value={paymentForm.reference_number}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, reference_number: e.target.value }))}
                       placeholder="Reference number"
                     />
                   </div>
@@ -420,9 +619,14 @@ export default function LinePolishPage() {
                   <div className="flex items-end">
                     <Button 
                       type="submit"
+                      disabled={paymentLoading}
                       className="bg-green-600 text-white hover:bg-green-700 flex items-center w-full"
                     >
-                      <Plus className="w-4 h-4 mr-2" />
+                      {paymentLoading ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      ) : (
+                        <Plus className="w-4 h-4 mr-2" />
+                      )}
                       Record Payment
                     </Button>
                   </div>
@@ -601,6 +805,55 @@ export default function LinePolishPage() {
                             </Button>
                           </div>
                         </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {/* Payments History Table */}
+          <div className="bg-white rounded-lg shadow-sm border">
+            <div className="px-6 py-4 border-b bg-emerald-50">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-emerald-900">
+                  Payment History
+                </h3>
+              </div>
+              <p className="text-sm text-emerald-700">
+                {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total Paid: ₹{payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0).toLocaleString('en-IN')} ({payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length} payments)
+              </p>
+            </div>
+            
+            <div className="overflow-x-auto">
+              {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">No payments recorded for {showAllRecords ? 'this period' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}.</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-gray-50">
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
+                      <th className="text-right py-3 px-4 font-medium text-gray-700">Amount (₹)</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Method</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Reference</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).map((payment) => (
+                      <tr key={payment.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4">{new Date(payment.payment_date).toLocaleDateString('en-IN')}</td>
+                        <td className="py-3 px-4 text-right font-semibold text-green-600">₹{parseFloat(payment.amount.toString()).toLocaleString('en-IN')}</td>
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {payment.payment_method.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">{payment.reference_number || '-'}</td>
+                        <td className="py-3 px-4">{payment.remarks || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
