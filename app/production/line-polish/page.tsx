@@ -44,6 +44,15 @@ interface MonthlyBalance {
   updated_at?: string;
 }
 
+interface LinePolishPreviousDue {
+  id: string;
+  current_month: string; // Format: YYYY-MM
+  previous_month: string; // Format: YYYY-MM
+  amount: number;
+  remarks?: string;
+  created_at: string;
+}
+
 interface FormData {
   date: string;
   shift: 'MORNING' | 'NIGHT';
@@ -65,6 +74,7 @@ const fmt = (value: string | number): string => {
 export default function LinePolishPage() {
   const [reports, setReports] = useState<LinePolishReport[]>([]);
   const [payments, setPayments] = useState<LinePolishPayment[]>([]);
+  const [previousDues, setPreviousDues] = useState<LinePolishPreviousDue[]>([]);
   const [monthlyBalance, setMonthlyBalance] = useState<MonthlyBalance | null>(null);
   const [loading, setLoading] = useState(false);
   const [reportsLoading, setReportsLoading] = useState(true);
@@ -77,11 +87,14 @@ export default function LinePolishPage() {
   const [showAllRecords, setShowAllRecords] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<'ALL' | 'POLISHING' | 'GRINDING'>('ALL');
   
-  // Opening balance management
-  const [showOpeningBalanceForm, setShowOpeningBalanceForm] = useState(false);
-  const [openingBalanceMonth, setOpeningBalanceMonth] = useState<string>('');
-  const [openingBalanceAmount, setOpeningBalanceAmount] = useState<string>('');
-  const [savingBalance, setSavingBalance] = useState(false);
+  // Previous due management
+  const [showPreviousDueForm, setShowPreviousDueForm] = useState(false);
+  const [previousDueForm, setPreviousDueForm] = useState({
+    previous_month: '',
+    amount: '',
+    remarks: ''
+  });
+  const [savingPreviousDue, setSavingPreviousDue] = useState(false);
 
   const initialFormData: FormData = {
     date: new Date().toISOString().split('T')[0],
@@ -115,8 +128,9 @@ export default function LinePolishPage() {
   }, []);
 
   useEffect(() => {
-    // Fetch monthly balance when month changes
+    // Fetch monthly balance and previous dues when month changes
     fetchMonthlyBalance();
+    fetchPreviousDues();
   }, [selectedMonth]);
 
   useEffect(() => {
@@ -173,6 +187,18 @@ export default function LinePolishPage() {
       }
     } catch (error) {
       console.error('Error fetching payments:', error);
+    }
+  };
+
+  const fetchPreviousDues = async () => {
+    try {
+      const response = await fetch(`/api/line-polish-previous-dues?current_month=${selectedMonth}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPreviousDues(data);
+      }
+    } catch (error) {
+      console.error('Error fetching previous dues:', error);
     }
   };
 
@@ -464,11 +490,11 @@ export default function LinePolishPage() {
     // Calculate total work amount
     const totalAmount = monthReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0);
     
-    // Get opening balance (previous month's due)
-    const openingBalance = monthlyBalance?.opening_balance || 0;
+    // Sum all previous dues for the selected month
+    const totalPreviousDues = previousDues.reduce((sum, due) => sum + parseFloat(due.amount.toString()), 0);
     
-    // Pending = Total Amount + Opening Balance - Paid This Month
-    const pending = totalAmount + openingBalance - totalPaid;
+    // Pending = Total Amount + Total Previous Dues - Paid This Month
+    const pending = totalAmount + totalPreviousDues - totalPaid;
     
     return {
       totalHours: monthReports.reduce((sum, r) => sum + r.no_of_hours, 0),
@@ -477,7 +503,7 @@ export default function LinePolishPage() {
       totalAmount,
       totalPaid,
       pending,
-      openingBalance,
+      totalPreviousDues,
     };
   };
 
@@ -494,7 +520,7 @@ export default function LinePolishPage() {
               <h2 className="text-xl font-bold text-gray-900">Line Polish Reports</h2>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setShowOpeningBalanceForm(!showOpeningBalanceForm)}
+                  onClick={() => setShowPreviousDueForm(!showPreviousDueForm)}
                   className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
                 >
                   + Add Previous Month Due
@@ -515,20 +541,25 @@ export default function LinePolishPage() {
               </div>
             </div>
 
-            {/* Opening Balance Form */}
-            {showOpeningBalanceForm && (
-              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h3 className="text-sm font-semibold text-blue-900 mb-3">Add/Update Previous Month Due</h3>
-                <div className="flex gap-3 items-end">
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Select Month (Last 6 Months)</label>
+            {/* Previous Due Form */}
+            {showPreviousDueForm && (
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-300 rounded-lg">
+                <h3 className="text-sm font-semibold text-amber-900 mb-3">
+                  Add Previous Month Due to {new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                </h3>
+                <p className="text-xs text-amber-700 mb-3">
+                  Carry forward dues from previous months to the current month ({new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'short' })})
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">From Which Month?</label>
                     <select
-                      value={openingBalanceMonth}
-                      onChange={(e) => setOpeningBalanceMonth(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      value={previousDueForm.previous_month}
+                      onChange={(e) => setPreviousDueForm(prev => ({ ...prev, previous_month: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                     >
-                      <option value="">Choose month...</option>
-                      {getLastSixMonths().map(month => {
+                      <option value="">Select month...</option>
+                      {getLastSixMonths().slice(1).map(month => {
                         const date = new Date(month + '-01');
                         const monthName = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
                         return (
@@ -537,59 +568,74 @@ export default function LinePolishPage() {
                       })}
                     </select>
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Previous Due Amount (₹)</label>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Amount (₹)</label>
                     <Input
                       type="number"
-                      value={openingBalanceAmount}
-                      onChange={(e) => setOpeningBalanceAmount(e.target.value)}
+                      min="0"
+                      step="0.01"
+                      value={previousDueForm.amount}
+                      onChange={(e) => setPreviousDueForm(prev => ({ ...prev, amount: e.target.value }))}
                       placeholder="Enter amount"
                       className="text-sm"
                     />
                   </div>
-                  <Button
-                    onClick={async () => {
-                      if (!openingBalanceMonth || !openingBalanceAmount) {
-                        alert('Please select month and enter amount');
-                        return;
-                      }
-                      setSavingBalance(true);
-                      try {
-                        const [year, month] = openingBalanceMonth.split('-');
-                        const response = await fetch('/api/line-polish-monthly-balances', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            year: parseInt(year),
-                            month: parseInt(month),
-                            opening_balance: parseFloat(openingBalanceAmount),
-                          })
-                        });
-                        if (response.ok) {
-                          alert('Opening balance saved successfully!');
-                          const savedMonth = openingBalanceMonth;
-                          setOpeningBalanceMonth('');
-                          setOpeningBalanceAmount('');
-                          setShowOpeningBalanceForm(false);
-                          
-                          // Switch to the saved month to show the opening balance
-                          setSelectedMonth(savedMonth);
-                          await fetchMonthlyBalance();
-                        } else {
-                          alert('Failed to save opening balance');
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Remarks (Optional)</label>
+                    <Input
+                      type="text"
+                      value={previousDueForm.remarks}
+                      onChange={(e) => setPreviousDueForm(prev => ({ ...prev, remarks: e.target.value }))}
+                      placeholder="Add note"
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={async () => {
+                        if (!previousDueForm.previous_month || !previousDueForm.amount) {
+                          alert('Please select month and enter amount');
+                          return;
                         }
-                      } catch (error) {
-                        console.error('Error saving opening balance:', error);
-                        alert('Error saving opening balance');
-                      } finally {
-                        setSavingBalance(false);
-                      }
-                    }}
-                    disabled={savingBalance}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {savingBalance ? 'Saving...' : 'Save'}
-                  </Button>
+                        setSavingPreviousDue(true);
+                        try {
+                          const response = await fetch('/api/line-polish-previous-dues', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              current_month: selectedMonth,
+                              previous_month: previousDueForm.previous_month,
+                              amount: parseFloat(previousDueForm.amount),
+                              remarks: previousDueForm.remarks.trim() || null
+                            })
+                          });
+                          if (response.ok) {
+                            alert('Previous due added successfully!');
+                            setPreviousDueForm({ previous_month: '', amount: '', remarks: '' });
+                            await fetchPreviousDues();
+                          } else {
+                            alert('Failed to add previous due');
+                          }
+                        } catch (error) {
+                          console.error('Error adding previous due:', error);
+                          alert('Error adding previous due');
+                        } finally {
+                          setSavingPreviousDue(false);
+                        }
+                      }}
+                      disabled={savingPreviousDue}
+                      className="bg-amber-600 hover:bg-amber-700 text-white flex-1"
+                    >
+                      {savingPreviousDue ? 'Adding...' : 'Add Due'}
+                    </Button>
+                    <Button
+                      onClick={() => setShowPreviousDueForm(false)}
+                      variant="outline"
+                      className="text-gray-600"
+                    >
+                      Close
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -678,9 +724,9 @@ export default function LinePolishPage() {
                   <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Pending Amount</p>
                   <p className="text-2xl font-bold text-red-600 mt-1">{fmt(metrics.pending)}</p>
                   <p className="text-xs text-red-500 mt-1">
-                    {metrics.openingBalance > 0 
-                      ? `Total (${fmt(metrics.totalAmount)}) + Prev Due (${fmt(metrics.openingBalance)}) - Paid (${fmt(metrics.totalPaid)})`
-                      : `Total - Paid this month`
+                    {metrics.totalPreviousDues > 0 
+                      ? `Work (${fmt(metrics.totalAmount)}) + Prev Dues (${fmt(metrics.totalPreviousDues)}) - Paid (${fmt(metrics.totalPaid)})`
+                      : `Work - Paid this month`
                     }
                   </p>
                 </div>
@@ -1107,16 +1153,78 @@ export default function LinePolishPage() {
             <div className="px-6 py-4 border-b bg-emerald-50">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-lg font-semibold text-emerald-900">
-                  Payment History
+                  Payment History & Previous Dues
                 </h3>
               </div>
-              <p className="text-sm text-emerald-700">
-                {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total Paid: ₹{payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0).toLocaleString('en-IN')} ({payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length} payments)
-              </p>
+              <div className="flex gap-4 text-sm">
+                <p className="text-emerald-700">
+                  <span className="font-semibold">Paid:</span> ₹{payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0).toLocaleString('en-IN')} ({payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length} payments)
+                </p>
+                {!showAllRecords && previousDues.length > 0 && (
+                  <p className="text-amber-700">
+                    <span className="font-semibold">Previous Dues:</span> ₹{previousDues.reduce((sum, d) => sum + parseFloat(d.amount.toString()), 0).toLocaleString('en-IN')} ({previousDues.length} entries)
+                  </p>
+                )}
+              </div>
             </div>
             
+            {/* Previous Dues Section */}
+            {!showAllRecords && previousDues.length > 0 && (
+              <div className="p-4 bg-amber-25 border-b">
+                <h4 className="text-sm font-semibold text-amber-900 mb-3">Previous Month Dues Carried Forward</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-amber-50">
+                        <th className="text-left py-2 px-3 font-medium text-amber-800">From Month</th>
+                        <th className="text-right py-2 px-3 font-medium text-amber-800">Amount (₹)</th>
+                        <th className="text-left py-2 px-3 font-medium text-amber-800">Remarks</th>
+                        <th className="text-center py-2 px-3 font-medium text-amber-800">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previousDues.map((due) => (
+                        <tr key={due.id} className="border-b hover:bg-amber-50">
+                          <td className="py-2 px-3">
+                            {new Date(due.previous_month + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                          </td>
+                          <td className="py-2 px-3 text-right font-semibold text-amber-700">
+                            ₹{parseFloat(due.amount.toString()).toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-2 px-3 text-gray-600">{due.remarks || '-'}</td>
+                          <td className="py-2 px-3">
+                            <div className="flex justify-center">
+                              <button
+                                onClick={async () => {
+                                  if (!confirm('Remove this previous due entry?')) return;
+                                  try {
+                                    const response = await fetch(`/api/line-polish-previous-dues/${due.id}`, {
+                                      method: 'DELETE'
+                                    });
+                                    if (response.ok) {
+                                      await fetchPreviousDues();
+                                    }
+                                  } catch (error) {
+                                    console.error('Error deleting previous due:', error);
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            
             <div className="overflow-x-auto">
-              {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length === 0 && !monthlyBalance ? (
+              {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-600">No payments recorded for {showAllRecords ? 'this period' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}.</p>
                 </div>
@@ -1133,20 +1241,6 @@ export default function LinePolishPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Opening Balance Row - Show only for selected month, not for "Show All" */}
-                    {!showAllRecords && monthlyBalance && monthlyBalance.opening_balance > 0 && (
-                      <tr className="border-b bg-amber-50 font-semibold">
-                        <td className="py-3 px-4 text-amber-900">Opening Balance</td>
-                        <td className="py-3 px-4 text-right text-amber-700 font-bold">
-                          ₹{parseFloat(monthlyBalance.opening_balance.toString()).toLocaleString('en-IN')}
-                        </td>
-                        <td className="py-3 px-4 text-amber-700">Previous Due</td>
-                        <td className="py-3 px-4 text-amber-700">-</td>
-                        <td className="py-3 px-4 text-amber-700 italic">Previous month's pending amount</td>
-                        <td className="py-3 px-4 text-center text-amber-700">-</td>
-                      </tr>
-                    )}
-                    
                     {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).map((payment) => (
                       <tr key={payment.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4">{new Date(payment.payment_date).toLocaleDateString('en-IN')}</td>
