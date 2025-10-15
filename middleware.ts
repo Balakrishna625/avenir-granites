@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
 
 // Paths that don't require authentication
-const PUBLIC_PATHS = ['/login', '/login-success', '/api/auth/login'];
+const PUBLIC_PATHS = ['/login', '/api/auth/login'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
