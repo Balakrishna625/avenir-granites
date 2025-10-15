@@ -67,6 +67,17 @@ export default function LinePolishPage() {
   }, []);
 
   useEffect(() => {
+    // Auto-calculate total amount based on hours * rate
+    const hours = parseFloat(formData.no_of_hours) || 0;
+    const rate = parseFloat(formData.rate_per_hour) || 0;
+    const calculatedAmount = hours * rate;
+    setFormData(prev => ({
+      ...prev,
+      debit_amount: calculatedAmount.toString()
+    }));
+  }, [formData.no_of_hours, formData.rate_per_hour]);
+
+  useEffect(() => {
     // Auto-calculate debit amount
     const hours = parseFloat(formData.no_of_hours) || 0;
     const rate = parseFloat(formData.rate_per_hour) || 0;
@@ -177,7 +188,7 @@ export default function LinePolishPage() {
   return (
     <AppLayout>
       <div className="min-h-screen bg-gray-50 py-6">
-        <div className="max-w-7xl mx-auto px-4 space-y-6">
+        <div className="w-full max-w-none mx-auto px-6 space-y-6">
           {/* Add Polish Report */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b">
@@ -208,8 +219,8 @@ export default function LinePolishPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                       required
                     >
-                      <option value="MORNING">Morning</option>
-                      <option value="NIGHT">Night</option>
+                      <option value="MORNING">A (Morning)</option>
+                      <option value="NIGHT">B (Night)</option>
                     </select>
                   </div>
                   
@@ -290,7 +301,7 @@ export default function LinePolishPage() {
                     <Input
                       type="text"
                       value={fmt(formData.debit_amount)}
-                      className="bg-gray-50"
+                      className="bg-gray-50 font-semibold text-blue-700"
                       readOnly
                     />
                   </div>
@@ -338,6 +349,64 @@ export default function LinePolishPage() {
             </div>
           </div>
 
+          {/* Payment Recording Section */}
+          <div className="bg-white rounded-lg shadow-sm border">
+            <div className="px-6 py-4 border-b bg-green-50">
+              <h2 className="text-lg font-semibold text-green-900">Record Payment</h2>
+            </div>
+            
+            <div className="p-6">
+              <form className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Date</label>
+                    <Input
+                      type="date"
+                      placeholder="dd/mm/yyyy"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Enter amount paid"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white">
+                      <option value="CASH">Cash</option>
+                      <option value="BANK_TRANSFER">Bank Transfer</option>
+                      <option value="UPI">UPI</option>
+                      <option value="CHEQUE">Cheque</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Reference (Optional)</label>
+                    <Input
+                      type="text"
+                      placeholder="Reference number"
+                    />
+                  </div>
+                  
+                  <div className="flex items-end">
+                    <Button 
+                      type="submit"
+                      className="bg-green-600 text-white hover:bg-green-700 flex items-center w-full"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Record Payment
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+
           {/* Polish Reports Table */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b bg-blue-50">
@@ -376,7 +445,7 @@ export default function LinePolishPage() {
                     {reports.filter(r => r.activity === 'POLISHING').map((report) => (
                       <tr key={report.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4">{new Date(report.date).toLocaleDateString('en-IN')}</td>
-                        <td className="py-3 px-4">{report.shift}</td>
+                        <td className="py-3 px-4">{report.shift === 'MORNING' ? 'A (Morning)' : 'B (Night)'}</td>
                         <td className="py-3 px-4">{report.no_of_workers}</td>
                         <td className="py-3 px-4 text-right">{report.number_of_slabs}</td>
                         <td className="py-3 px-4 text-right">{report.total_sqft}</td>
@@ -444,7 +513,7 @@ export default function LinePolishPage() {
                     {reports.filter(r => r.activity === 'GRINDING').map((report) => (
                       <tr key={report.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4">{new Date(report.date).toLocaleDateString('en-IN')}</td>
-                        <td className="py-3 px-4">{report.shift}</td>
+                        <td className="py-3 px-4">{report.shift === 'MORNING' ? 'A (Morning)' : 'B (Night)'}</td>
                         <td className="py-3 px-4">{report.no_of_workers}</td>
                         <td className="py-3 px-4 text-right">{report.number_of_slabs}</td>
                         <td className="py-3 px-4 text-right">{report.total_sqft}</td>
