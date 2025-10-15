@@ -78,6 +78,7 @@ export default function ImportDataPage() {
       
       let currentMonth = '';
       let previousShift: 'MORNING' | 'NIGHT' = 'MORNING';
+      let lastDate = ''; // Track the last valid date for rows without dates
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -138,21 +139,35 @@ export default function ImportDataPage() {
         const remarksStr = row[9]?.toString().trim();
 
         // Debug: Log the parsed row
+        console.log(`Row ${i}:`, { dateStr, shiftRaw, workersStr, slabsStr, sqftStr, hoursStr, rateStr, debitStr });
+
+        // Determine the date to use
+        let fullDate = '';
+        
+        // If this row has a date, parse it and save it as lastDate
         if (dateStr && dateStr.includes('.')) {
-          console.log(`Row ${i}:`, { dateStr, shiftRaw, workersStr, slabsStr, sqftStr, hoursStr, rateStr, debitStr });
+          const dateParts = dateStr.split('.');
+          if (dateParts.length === 3) {
+            const day = dateParts[0].padStart(2, '0');
+            const month = dateParts[1].padStart(2, '0');
+            let year = dateParts[2];
+            if (year.length === 2) year = '20' + year;
+            fullDate = `${year}-${month}-${day}`;
+            lastDate = fullDate; // Save for next row
+          }
+        } else if (lastDate && shiftRaw) {
+          // No date but has shift data - use the last date (B shift rows)
+          fullDate = lastDate;
         }
 
-        // Skip if no valid date
-        if (!dateStr || !dateStr.includes('.')) continue;
+        // Skip if we still don't have a valid date
+        if (!fullDate) continue;
 
-        // Parse date (format: 1.09.25 or 01.09.25)
-        const dateParts = dateStr.split('.');
-        if (dateParts.length === 3) {
-          const day = dateParts[0].padStart(2, '0');
-          const month = dateParts[1].padStart(2, '0');
-          let year = dateParts[2];
-          if (year.length === 2) year = '20' + year;
-          const fullDate = `${year}-${month}-${day}`;
+        // Skip if no shift indicator
+        if (!shiftRaw) continue;
+
+        // Process the row with fullDate
+        {
 
           // Determine shift and activity
           let shift: 'MORNING' | 'NIGHT' = 'MORNING';
@@ -214,7 +229,7 @@ export default function ImportDataPage() {
               remarks: 'Payment from Excel import'
             });
           }
-        }
+        } // End of processing block
       }
 
       console.log('========================================');
