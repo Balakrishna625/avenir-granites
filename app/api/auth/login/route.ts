@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check environment variables
+    // Check environment variables.
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE) {
       console.error('❌ Missing Supabase environment variables!');
       return NextResponse.json(
