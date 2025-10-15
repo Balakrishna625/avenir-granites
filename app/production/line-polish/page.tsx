@@ -366,6 +366,20 @@ export default function LinePolishPage() {
     return Array.from(months).sort().reverse(); // Most recent first
   };
 
+  // Get last 6 months for previous due dropdown
+  const getLastSixMonths = () => {
+    const months: string[] = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 6; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.push(yearMonth);
+    }
+    
+    return months;
+  };
+
   // Calculate metrics for the selected month
   const calculateMetrics = () => {
     // Filter reports for selected month only (not by activity for totals)
@@ -445,14 +459,14 @@ export default function LinePolishPage() {
                 <h3 className="text-sm font-semibold text-blue-900 mb-3">Add/Update Previous Month Due</h3>
                 <div className="flex gap-3 items-end">
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Select Month</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Select Month (Last 6 Months)</label>
                     <select
                       value={openingBalanceMonth}
                       onChange={(e) => setOpeningBalanceMonth(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     >
                       <option value="">Choose month...</option>
-                      {getAvailableMonths().map(month => {
+                      {getLastSixMonths().map(month => {
                         const date = new Date(month + '-01');
                         const monthName = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
                         return (
