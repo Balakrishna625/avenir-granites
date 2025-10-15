@@ -1,623 +1,466 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { AppLayout } from '@/components/AppLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AppLayout } from '@/components/AppLayout';
-import { 
-  ArrowLeft,
-  Save,
-  Plus,
-  Edit3,
-  Trash2,
-  Users,
-  Layers,
-  BarChart3,
-  Clock,
-  DollarSign,
-  FileText,
-  Factory,
-  Wrench,
-  Calendar
-} from 'lucide-react';
-import Link from 'next/link';
-import { useToast } from '@/components/ui/toast';
-
-const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
-const fmt = (n: number) => INR.format(n || 0);
+import { Plus, Save, Edit3, Trash2, BarChart3, FileText } from 'lucide-react';
 
 interface LinePolishReport {
-  id?: string;
+  id: string;
   date: string;
   shift: 'MORNING' | 'NIGHT';
   activity: 'GRINDING' | 'POLISHING';
-  no_of_workers: number | string;
-  number_of_slabs: number | string;
-  total_sqft: number | string;
-  no_of_hours: number | string;
-  rate_per_hour: number | string;
+  no_of_workers: number;
+  number_of_slabs: number;
+  total_sqft: number;
+  no_of_hours: number;
+  rate_per_hour: number;
   debit_amount: number;
-  credit_amount: number | string;
+  credit_amount: number;
+  remarks?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface FormData {
+  date: string;
+  shift: 'MORNING' | 'NIGHT';
+  activity: 'GRINDING' | 'POLISHING';
+  no_of_workers: string;
+  number_of_slabs: string;
+  total_sqft: string;
+  no_of_hours: string;
+  rate_per_hour: string;
+  debit_amount: string;
+  credit_amount: string;
   remarks: string;
 }
 
-const initialFormData: LinePolishReport = {
-  date: new Date().toISOString().split('T')[0],
-  shift: 'MORNING',
-  activity: 'POLISHING',
-  no_of_workers: '',
-  number_of_slabs: '',
-  total_sqft: '',
-  no_of_hours: '',
-  rate_per_hour: '',
-  debit_amount: 0,
-  credit_amount: '',
-  remarks: ''
+const fmt = (value: string | number): string => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return isNaN(num) ? '₹0' : `₹${num.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 };
 
-export default function LinePolishReportsPage() {
+export default function LinePolishPage() {
   const [reports, setReports] = useState<LinePolishReport[]>([]);
-  const [formData, setFormData] = useState<LinePolishReport>(initialFormData);
-  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [reportsLoading, setReportsLoading] = useState(true);
-  const { showToast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const initialFormData: FormData = {
+    date: new Date().toISOString().split('T')[0],
+    shift: 'MORNING',
+    activity: 'GRINDING',
+    no_of_workers: '',
+    number_of_slabs: '',
+    total_sqft: '',
+    no_of_hours: '',
+    rate_per_hour: '',
+    debit_amount: '',
+    credit_amount: '',
+    remarks: ''
+  };
+
+  const [formData, setFormData] = useState<FormData>(initialFormData);
 
   useEffect(() => {
-    loadReports();
+    fetchReports();
   }, []);
 
-  // Auto-calculate debit amount when hours or rate changes
   useEffect(() => {
-    const hours = typeof formData.no_of_hours === 'string' ? parseFloat(formData.no_of_hours) || 0 : formData.no_of_hours || 0;
-    const rate = typeof formData.rate_per_hour === 'string' ? parseFloat(formData.rate_per_hour) || 0 : formData.rate_per_hour || 0;
-    const debitAmount = hours * rate;
-    setFormData(prev => ({ ...prev, debit_amount: debitAmount }));
+    // Auto-calculate debit amount
+    const hours = parseFloat(formData.no_of_hours) || 0;
+    const rate = parseFloat(formData.rate_per_hour) || 0;
+    const calculatedAmount = hours * rate;
+    setFormData(prev => ({
+      ...prev,
+      debit_amount: calculatedAmount.toString()
+    }));
   }, [formData.no_of_hours, formData.rate_per_hour]);
 
-  async function loadReports() {
+  const fetchReports = async () => {
     try {
-      const response = await fetch('/api/line-polish-reports');
-      const data = await response.json();
-      setReports(data);
+      setReportsLoading(true);
+      const response = await fetch('/api/slab-processing');
+      if (response.ok) {
+        const data = await response.json();
+        setReports(data.sort((a: LinePolishReport, b: LinePolishReport) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        ));
+      }
     } catch (error) {
-      console.error('Failed to load reports:', error);
-      showToast('error', 'Failed to load reports');
+      console.error('Error fetching reports:', error);
     } finally {
       setReportsLoading(false);
     }
-  }
+  };
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Convert string values to numbers for API submission
       const submitData = {
-        ...formData,
-        no_of_workers: typeof formData.no_of_workers === 'string' ? parseFloat(formData.no_of_workers) || 0 : formData.no_of_workers,
-        number_of_slabs: typeof formData.number_of_slabs === 'string' ? parseFloat(formData.number_of_slabs) || 0 : formData.number_of_slabs,
-        total_sqft: typeof formData.total_sqft === 'string' ? parseFloat(formData.total_sqft) || 0 : formData.total_sqft,
-        no_of_hours: typeof formData.no_of_hours === 'string' ? parseFloat(formData.no_of_hours) || 0 : formData.no_of_hours,
-        rate_per_hour: typeof formData.rate_per_hour === 'string' ? parseFloat(formData.rate_per_hour) || 0 : formData.rate_per_hour,
-        credit_amount: typeof formData.credit_amount === 'string' ? parseFloat(formData.credit_amount) || 0 : formData.credit_amount,
+        date: formData.date,
+        shift: formData.shift,
+        activity: formData.activity,
+        no_of_workers: parseInt(formData.no_of_workers) || 0,
+        number_of_slabs: parseInt(formData.number_of_slabs) || 0,
+        total_sqft: parseFloat(formData.total_sqft) || 0,
+        no_of_hours: parseFloat(formData.no_of_hours) || 0,
+        rate_per_hour: parseFloat(formData.rate_per_hour) || 0,
+        debit_amount: parseFloat(formData.debit_amount) || 0,
+        credit_amount: parseFloat(formData.credit_amount) || 0,
+        remarks: formData.remarks.trim() || null
       };
-      
-      const url = '/api/line-polish-reports';
+
+      const url = isEditing && editingId ? `/api/slab-processing/${editingId}` : '/api/slab-processing';
       const method = isEditing ? 'PUT' : 'POST';
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to save report');
+      if (response.ok) {
+        setFormData(initialFormData);
+        setIsEditing(false);
+        setEditingId(null);
+        await fetchReports();
+      } else {
+        console.error('Failed to save report');
       }
-
-      showToast(
-        'success',
-        isEditing ? 'Report updated successfully' : 'Report created successfully'
-      );
-      
-      setFormData(initialFormData);
-      setIsEditing(false);
-      loadReports();
-    } catch (error: any) {
-      showToast('error', error.message || 'Failed to save report');
+    } catch (error) {
+      console.error('Error saving report:', error);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function handleDelete(id: string) {
+  const handleEdit = (report: LinePolishReport) => {
+    setFormData({
+      date: report.date,
+      shift: report.shift,
+      activity: report.activity,
+      no_of_workers: report.no_of_workers.toString(),
+      number_of_slabs: report.number_of_slabs.toString(),
+      total_sqft: report.total_sqft.toString(),
+      no_of_hours: report.no_of_hours.toString(),
+      rate_per_hour: report.rate_per_hour.toString(),
+      debit_amount: report.debit_amount.toString(),
+      credit_amount: report.credit_amount.toString(),
+      remarks: report.remarks || ''
+    });
+    setIsEditing(true);
+    setEditingId(report.id);
+    document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this report?')) return;
 
     try {
-      const response = await fetch('/api/line-polish-reports', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
+      const response = await fetch(`/api/slab-processing/${id}`, {
+        method: 'DELETE'
       });
 
-      if (!response.ok) throw new Error('Failed to delete report');
-
-      showToast('success', 'Report deleted successfully');
-      loadReports();
+      if (response.ok) {
+        await fetchReports();
+      }
     } catch (error) {
-      showToast('error', 'Failed to delete report');
+      console.error('Error deleting report:', error);
     }
-  }
-
-  function handleEdit(report: LinePolishReport) {
-    setFormData(report);
-    setIsEditing(true);
-  }
-
-  function handleCancel() {
-    setFormData(initialFormData);
-    setIsEditing(false);
-  }
-
-  function handleInputChange(field: keyof LinePolishReport, value: any) {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  }
-
-  const groupedReports = reports.reduce((acc, report) => {
-    const date = report.date;
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(report);
-    return acc;
-  }, {} as Record<string, LinePolishReport[]>);
+  };
 
   return (
     <AppLayout>
-      <div className="min-h-screen w-full bg-gray-50">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/production">
-                <Button variant="outline" size="sm">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Production
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Line Polish Reports</h1>
-                <p className="text-sm text-gray-600">Add and manage daily production reports</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-          {/* Form Card */}
-          <Card className="bg-white shadow-xl border-0 rounded-2xl overflow-hidden">
-            {/* Form Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6">
-              <h2 className="text-2xl font-bold text-white flex items-center">
+      <div className="min-h-screen bg-gray-50 py-6">
+        <div className="max-w-6xl mx-auto px-4 space-y-6">
+          {/* Compact Form Card */}
+          <Card className="bg-white shadow-md border-0 rounded-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
+              <h2 className="text-lg font-bold text-white flex items-center">
                 {isEditing ? (
                   <>
-                    <Edit3 className="w-6 h-6 mr-3" />
-                    Edit Line Polish Report
+                    <Edit3 className="w-4 h-4 mr-2" />
+                    Edit Report
                   </>
                 ) : (
                   <>
-                    <Plus className="w-6 h-6 mr-3" />
-                    Create New Line Polish Report
+                    <Plus className="w-4 h-4 mr-2" />
+                    Quick Add Report
                   </>
                 )}
               </h2>
-              <p className="text-blue-100 mt-1">
-                {isEditing ? 'Update production details and worker information' : 'Add daily production details and track worker performance'}
-              </p>
             </div>
             
-            <div className="p-8">
-              <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Basic Information Section */}
-                <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Calendar className="w-5 h-5 mr-2 text-blue-600" />
-                    Basic Information
-                  </h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Production Date
-                      </label>
-                      <div className="relative">
-                        <Input
-                          type="date"
-                          value={formData.date}
-                          onChange={(e) => handleInputChange('date', e.target.value)}
-                          className="w-full h-12 text-base border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
-                          required
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Work Shift
-                      </label>
-                      <select
-                        value={formData.shift}
-                        onChange={(e) => handleInputChange('shift', e.target.value)}
-                        className="w-full h-12 text-base border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white"
-                        required
-                      >
-                        <option value="MORNING">🌅 Morning Shift (A)</option>
-                        <option value="NIGHT">🌙 Night Shift (B)</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Activity Type
-                      </label>
-                      <select
-                        value={formData.activity}
-                        onChange={(e) => handleInputChange('activity', e.target.value)}
-                        className="w-full h-12 text-base border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white"
-                        required
-                      >
-                        <option value="GRINDING">⚙️ Grinding</option>
-                        <option value="POLISHING">✨ Polishing</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Production Metrics Section */}
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Factory className="w-5 h-5 mr-2 text-green-600" />
-                    Production Metrics
-                  </h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <Users className="w-4 h-4 inline mr-1 text-blue-600" />
-                        Number of Workers
-                      </label>
-                      <Input
-                        type="number"
-                        min="1"
-                        placeholder="Enter worker count"
-                        value={formData.no_of_workers}
-                        onChange={(e) => handleInputChange('no_of_workers', e.target.value)}
-                        className="w-full h-12 text-base border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-green-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <Layers className="w-4 h-4 inline mr-1 text-purple-600" />
-                        Number of Slabs
-                      </label>
-                      <Input
-                        type="number"
-                        min="1"
-                        placeholder="Enter slab count"
-                        value={formData.number_of_slabs}
-                        onChange={(e) => handleInputChange('number_of_slabs', e.target.value)}
-                        className="w-full h-12 text-base border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-green-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <BarChart3 className="w-4 h-4 inline mr-1 text-orange-600" />
-                        Total Square Feet
-                      </label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Enter total sq ft"
-                        value={formData.total_sqft}
-                        onChange={(e) => handleInputChange('total_sqft', e.target.value)}
-                        className="w-full h-12 text-base border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-green-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Payment Details Section */}
-                <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl p-6 border border-amber-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <DollarSign className="w-5 h-5 mr-2 text-amber-600" />
-                    Payment & Time Details
-                  </h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <Clock className="w-4 h-4 inline mr-1 text-blue-600" />
-                        Hours Worked
-                      </label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        placeholder="Enter hours"
-                        value={formData.no_of_hours}
-                        onChange={(e) => handleInputChange('no_of_hours', e.target.value)}
-                        className="w-full h-12 text-base border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring-amber-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        <DollarSign className="w-4 h-4 inline mr-1 text-green-600" />
-                        Rate per Hour (₹)
-                      </label>
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="Enter rate/hour"
-                        value={formData.rate_per_hour}
-                        onChange={(e) => handleInputChange('rate_per_hour', e.target.value)}
-                        className="w-full h-12 text-base border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring-amber-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Total Amount Due (₹)
-                      </label>
-                      <div className="relative">
-                        <Input
-                          type="text"
-                          value={fmt(formData.debit_amount)}
-                          disabled
-                          className="w-full h-12 text-base bg-blue-50 border-2 border-blue-200 rounded-lg font-semibold text-blue-800"
-                        />
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                          <span className="text-xs text-blue-600 font-medium">Auto-calculated</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Amount Paid (₹)
-                      </label>
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="Enter paid amount"
-                        value={formData.credit_amount}
-                        onChange={(e) => handleInputChange('credit_amount', e.target.value)}
-                        className="w-full h-12 text-base border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring-amber-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Remarks Section */}
-                <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <FileText className="w-5 h-5 mr-2 text-gray-600" />
-                    Additional Notes
-                  </h3>
+            <div className="p-4">
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {/* Row 1: Basic Info */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Remarks & Comments
-                    </label>
-                    <textarea
-                      value={formData.remarks}
-                      onChange={(e) => handleInputChange('remarks', e.target.value)}
-                      placeholder="Add any additional notes, comments, or observations..."
-                      rows={4}
-                      className="w-full text-base border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500 p-4 resize-none"
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
+                    <Input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => handleInputChange('date', e.target.value)}
+                      className="h-8 text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Shift</label>
+                    <select
+                      value={formData.shift}
+                      onChange={(e) => handleInputChange('shift', e.target.value)}
+                      className="w-full h-8 px-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-blue-500 bg-white"
+                      required
+                    >
+                      <option value="MORNING">🌅 Morning</option>
+                      <option value="NIGHT">🌙 Night</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Activity</label>
+                    <select
+                      value={formData.activity}
+                      onChange={(e) => handleInputChange('activity', e.target.value)}
+                      className="w-full h-8 px-2 border border-gray-300 rounded text-sm focus:border-blue-500 focus:ring-blue-500 bg-white"
+                      required
+                    >
+                      <option value="GRINDING">⚙️ Grinding</option>
+                      <option value="POLISHING">✨ Polishing</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 2: Production & Payment */}
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Workers</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="Count"
+                      value={formData.no_of_workers}
+                      onChange={(e) => handleInputChange('no_of_workers', e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Slabs</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="Count"
+                      value={formData.number_of_slabs}
+                      onChange={(e) => handleInputChange('number_of_slabs', e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Sq Ft</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Area"
+                      value={formData.total_sqft}
+                      onChange={(e) => handleInputChange('total_sqft', e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Hours</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      placeholder="Time"
+                      value={formData.no_of_hours}
+                      onChange={(e) => handleInputChange('no_of_hours', e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Rate/Hr</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Rate"
+                      value={formData.rate_per_hour}
+                      onChange={(e) => handleInputChange('rate_per_hour', e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Paid</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Amount"
+                      value={formData.credit_amount}
+                      onChange={(e) => handleInputChange('credit_amount', e.target.value)}
+                      className="h-8 text-sm"
                     />
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => {
-                      setFormData(initialFormData);
-                      setIsEditing(false);
-                    }}
-                    className="h-12 px-8 text-base font-medium border-2 border-gray-300 hover:border-gray-400"
-                  >
-                    {isEditing ? 'Cancel Edit' : 'Reset Form'}
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={loading}
-                    className="h-12 px-8 text-base font-medium bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border-0"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        {isEditing ? 'Updating...' : 'Saving...'}
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        {isEditing ? 'Update Report' : 'Save Report'}
-                      </>
+                {/* Row 3: Due Amount, Remarks & Submit */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Total Due</label>
+                    <div className="h-8 px-2 bg-blue-50 border border-blue-200 rounded flex items-center text-sm font-semibold text-blue-800">
+                      {fmt(formData.debit_amount)}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
+                    <Input
+                      type="text"
+                      placeholder="Optional notes"
+                      value={formData.remarks}
+                      onChange={(e) => handleInputChange('remarks', e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    {isEditing && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => {
+                          setFormData(initialFormData);
+                          setIsEditing(false);
+                          setEditingId(null);
+                        }}
+                        className="h-8 px-3 text-sm"
+                      >
+                        Cancel
+                      </Button>
                     )}
-                  </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={loading}
+                      className="h-8 px-4 text-sm bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                    >
+                      {loading ? (
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <>
+                          <Save className="w-3 h-3 mr-1" />
+                          {isEditing ? 'Update' : 'Save'}
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </div>
           </Card>
 
-          {/* Reports List */}
-          <Card className="bg-white shadow-xl border-0 rounded-2xl overflow-hidden">
-            {/* Reports Header */}
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-8 py-6">
-              <h2 className="text-2xl font-bold text-white flex items-center">
-                <Factory className="w-6 h-6 mr-3" />
-                Recent Production Reports
-              </h2>
-              <p className="text-green-100 mt-1">Track daily line polish activities and worker performance</p>
+          {/* Compact Reports Table */}
+          <Card className="bg-white shadow-md border-0 rounded-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white flex items-center">
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Recent Reports ({reports.length})
+                </h3>
+                <div className="text-emerald-100 text-xs">Latest entries</div>
+              </div>
             </div>
             
-            <div className="p-8">
+            <div className="p-4">
               {reportsLoading ? (
-                <div className="text-center py-16">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                    <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                  <p className="text-lg text-gray-600">Loading production reports...</p>
+                <div className="text-center py-6">
+                  <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <p className="text-gray-600 text-sm">Loading reports...</p>
                 </div>
-              ) : Object.keys(groupedReports).length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-                    <FileText className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Reports Yet</h3>
-                  <p className="text-gray-600 mb-6">Start by adding your first production report using the form above</p>
-                  <Button 
-                    onClick={() => document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add First Report
-                  </Button>
+              ) : reports.length === 0 ? (
+                <div className="text-center py-6">
+                  <FileText className="w-6 h-6 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600 text-sm">No reports yet. Add your first report above.</p>
                 </div>
               ) : (
-                <div className="space-y-8">
-                  {Object.entries(groupedReports)
-                    .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
-                    .slice(0, 10)
-                    .map(([date, dateReports]) => (
-                      <div key={date} className="border border-gray-200 rounded-xl overflow-hidden">
-                        {/* Date Header */}
-                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                          <h3 className="text-lg font-bold text-gray-900 flex items-center">
-                            <Calendar className="w-5 h-5 mr-2 text-blue-600" />
-                            {new Date(date).toLocaleDateString('en-IN', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                            <span className="ml-auto text-sm font-medium text-gray-600">
-                              {dateReports.length} report{dateReports.length !== 1 ? 's' : ''}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50">
+                        <th className="text-left py-2 px-2 font-medium text-gray-700">Date</th>
+                        <th className="text-left py-2 px-2 font-medium text-gray-700">Shift</th>
+                        <th className="text-left py-2 px-2 font-medium text-gray-700">Activity</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">Workers</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">Slabs</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">Sq Ft</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">Hours</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">Due</th>
+                        <th className="text-right py-2 px-2 font-medium text-gray-700">Paid</th>
+                        <th className="text-center py-2 px-2 font-medium text-gray-700">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reports.slice(0, 20).map((report) => (
+                        <tr key={report.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-2 px-2 text-gray-900">
+                            {new Date(report.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                          </td>
+                          <td className="py-2 px-2">
+                            <span className={`px-1 py-0.5 rounded text-xs font-medium ${
+                              report.shift === 'MORNING' 
+                                ? 'bg-yellow-100 text-yellow-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {report.shift === 'MORNING' ? '🌅' : '🌙'}
                             </span>
-                          </h3>
-                        </div>
-                        
-                        <div className="p-6">
-                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {dateReports.map((report) => (
-                              <div key={report.id} className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                                {/* Report Header */}
-                                <div className="flex items-center justify-between mb-4">
-                                  <div className="flex items-center space-x-3">
-                                    <div className={`w-3 h-3 rounded-full ${report.shift === 'MORNING' ? 'bg-yellow-400' : 'bg-blue-500'}`}></div>
-                                    <span className="font-semibold text-gray-900">
-                                      {report.shift === 'MORNING' ? '🌅 Morning' : '🌙 Night'} Shift
-                                    </span>
-                                  </div>
-                                  <span className={`text-xs font-medium px-3 py-1 rounded-full ${
-                                    report.activity === 'GRINDING' 
-                                      ? 'bg-orange-100 text-orange-800' 
-                                      : 'bg-purple-100 text-purple-800'
-                                  }`}>
-                                    {report.activity === 'GRINDING' ? '⚙️ Grinding' : '✨ Polishing'}
-                                  </span>
-                                </div>
-
-                                {/* Production Metrics */}
-                                <div className="space-y-3 mb-4">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600 flex items-center">
-                                      <Users className="w-4 h-4 mr-1" />
-                                      Workers:
-                                    </span>
-                                    <span className="font-semibold text-gray-900">{report.no_of_workers}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600 flex items-center">
-                                      <Layers className="w-4 h-4 mr-1" />
-                                      Slabs:
-                                    </span>
-                                    <span className="font-semibold text-gray-900">{report.number_of_slabs}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600 flex items-center">
-                                      <BarChart3 className="w-4 h-4 mr-1" />
-                                      Sq Ft:
-                                    </span>
-                                    <span className="font-semibold text-gray-900">{report.total_sqft}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600 flex items-center">
-                                      <Clock className="w-4 h-4 mr-1" />
-                                      Hours:
-                                    </span>
-                                    <span className="font-semibold text-gray-900">{report.no_of_hours}h</span>
-                                  </div>
-                                </div>
-
-                                {/* Financial Summary */}
-                                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm text-gray-600">Rate/Hour:</span>
-                                    <span className="font-medium text-gray-900">{fmt(typeof report.rate_per_hour === 'string' ? parseFloat(report.rate_per_hour) || 0 : report.rate_per_hour)}/hr</span>
-                                  </div>
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm text-gray-600">Total Due:</span>
-                                    <span className="font-semibold text-blue-600">{fmt(report.debit_amount)}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600">Paid:</span>
-                                    <span className="font-semibold text-green-600">{fmt(typeof report.credit_amount === 'string' ? parseFloat(report.credit_amount) || 0 : report.credit_amount)}</span>
-                                  </div>
-                                </div>
-
-                                {/* Remarks */}
-                                {report.remarks && (
-                                  <div className="mb-4">
-                                    <p className="text-xs text-gray-500 mb-1">Remarks:</p>
-                                    <p className="text-sm text-gray-700 italic bg-blue-50 p-2 rounded border-l-2 border-blue-300">
-                                      "{report.remarks}"
-                                    </p>
-                                  </div>
-                                )}
-
-                                {/* Action Buttons */}
-                                <div className="flex items-center space-x-2 pt-3 border-t border-gray-200">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleEdit(report)}
-                                    className="flex-1 h-9 text-xs font-medium border-blue-300 text-blue-700 hover:bg-blue-50"
-                                  >
-                                    <Edit3 className="w-3 h-3 mr-1" />
-                                    Edit
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleDelete(report.id!)}
-                                    className="flex-1 h-9 text-xs font-medium border-red-300 text-red-700 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="w-3 h-3 mr-1" />
-                                    Delete
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                          </td>
+                          <td className="py-2 px-2">
+                            <span className={`px-1 py-0.5 rounded text-xs font-medium ${
+                              report.activity === 'GRINDING' 
+                                ? 'bg-orange-100 text-orange-800' 
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {report.activity === 'GRINDING' ? '⚙️' : '✨'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-2 text-right text-gray-900">{report.no_of_workers}</td>
+                          <td className="py-2 px-2 text-right text-gray-900">{report.number_of_slabs}</td>
+                          <td className="py-2 px-2 text-right text-gray-900">{report.total_sqft}</td>
+                          <td className="py-2 px-2 text-right text-gray-900">{report.no_of_hours}</td>
+                          <td className="py-2 px-2 text-right font-medium text-red-600">{fmt(report.debit_amount)}</td>
+                          <td className="py-2 px-2 text-right font-medium text-green-600">{fmt(report.credit_amount)}</td>
+                          <td className="py-2 px-2">
+                            <div className="flex items-center justify-center space-x-1">
+                              <Button
+                                onClick={() => handleEdit(report)}
+                                size="sm"
+                                variant="outline"
+                                className="h-6 w-6 p-0"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                onClick={() => handleDelete(report.id)}
+                                size="sm"
+                                variant="outline"
+                                className="h-6 w-6 p-0 hover:bg-red-50 hover:border-red-200"
+                              >
+                                <Trash2 className="w-3 h-3 text-red-500" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
