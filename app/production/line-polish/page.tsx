@@ -106,6 +106,8 @@ export default function LinePolishPage() {
     reference_number: '',
     remarks: ''
   });
+  const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReports();
@@ -307,8 +309,14 @@ export default function LinePolishPage() {
         remarks: paymentForm.remarks.trim() || null
       };
 
-      const response = await fetch('/api/line-polish-payments', {
-        method: 'POST',
+      const url = isEditingPayment && editingPaymentId 
+        ? `/api/line-polish-payments/${editingPaymentId}`
+        : '/api/line-polish-payments';
+      
+      const method = isEditingPayment ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)
       });
@@ -321,6 +329,8 @@ export default function LinePolishPage() {
           reference_number: '',
           remarks: ''
         });
+        setIsEditingPayment(false);
+        setEditingPaymentId(null);
         await fetchPayments();
         
         // Update monthly balance for the payment's month
@@ -333,6 +343,58 @@ export default function LinePolishPage() {
       console.error('Error recording payment:', error);
     } finally {
       setPaymentLoading(false);
+    }
+  };
+
+  const handleEditPayment = (payment: LinePolishPayment) => {
+    setIsEditingPayment(true);
+    setEditingPaymentId(payment.id);
+    setPaymentForm({
+      payment_date: payment.payment_date,
+      amount: payment.amount.toString(),
+      payment_method: payment.payment_method,
+      reference_number: payment.reference_number || '',
+      remarks: payment.remarks || ''
+    });
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEditPayment = () => {
+    setIsEditingPayment(false);
+    setEditingPaymentId(null);
+    setPaymentForm({
+      payment_date: new Date().toISOString().split('T')[0],
+      amount: '',
+      payment_method: 'CASH',
+      reference_number: '',
+      remarks: ''
+    });
+  };
+
+  const handleDeletePayment = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this payment?')) {
+      return;
+    }
+
+    try {
+      const payment = payments.find(p => p.id === id);
+      
+      const response = await fetch(`/api/line-polish-payments/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        await fetchPayments();
+        
+        // Update monthly balance for the deleted payment's month
+        if (payment) {
+          const paymentMonth = payment.payment_date.slice(0, 7);
+          await updateMonthlyBalance(paymentMonth);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting payment:', error);
     }
   };
 
@@ -787,7 +849,12 @@ export default function LinePolishPage() {
           {/* Payment Recording Section */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b bg-green-50">
-              <h2 className="text-lg font-semibold text-green-900">Record Payment</h2>
+              <h2 className="text-lg font-semibold text-green-900">
+                {isEditingPayment ? 'Edit Payment' : 'Record Payment'}
+              </h2>
+              {isEditingPayment && (
+                <p className="text-sm text-green-700 mt-1">Editing payment record</p>
+              )}
             </div>
             
             <div className="p-6">
@@ -842,18 +909,28 @@ export default function LinePolishPage() {
                     />
                   </div>
                   
-                  <div className="flex items-end">
+                  <div className="flex items-end gap-2">
+                    {isEditingPayment && (
+                      <Button 
+                        type="button"
+                        variant="outline" 
+                        onClick={handleCancelEditPayment}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    )}
                     <Button 
                       type="submit"
                       disabled={paymentLoading}
-                      className="bg-green-600 text-white hover:bg-green-700 flex items-center w-full"
+                      className="bg-green-600 text-white hover:bg-green-700 flex items-center flex-1"
                     >
                       {paymentLoading ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                       ) : (
                         <Plus className="w-4 h-4 mr-2" />
                       )}
-                      Record Payment
+                      {isEditingPayment ? 'Update Payment' : 'Record Payment'}
                     </Button>
                   </div>
                 </div>
@@ -1045,6 +1122,7 @@ export default function LinePolishPage() {
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Method</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Reference</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Remarks</th>
+                      <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1059,6 +1137,24 @@ export default function LinePolishPage() {
                         </td>
                         <td className="py-3 px-4">{payment.reference_number || '-'}</td>
                         <td className="py-3 px-4">{payment.remarks || '-'}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleEditPayment(payment)}
+                              className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
+                              title="Edit payment"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePayment(payment.id)}
+                              className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
+                              title="Delete payment"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
