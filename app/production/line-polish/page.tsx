@@ -46,6 +46,10 @@ export default function LinePolishPage() {
   const [reportsLoading, setReportsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // Month/Year filter states
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // Format: YYYY-MM
+  const [showAllRecords, setShowAllRecords] = useState(false);
 
   const initialFormData: FormData = {
     date: new Date().toISOString().split('T')[0],
@@ -183,6 +187,26 @@ export default function LinePolishPage() {
     } catch (error) {
       console.error('Error deleting report:', error);
     }
+  };
+
+  // Filter reports by selected month
+  const filterReportsByMonth = (reportsToFilter: LinePolishReport[]) => {
+    if (showAllRecords) return reportsToFilter;
+    
+    return reportsToFilter.filter(report => {
+      const reportMonth = report.date.slice(0, 7); // Get YYYY-MM from date
+      return reportMonth === selectedMonth;
+    });
+  };
+
+  // Get unique months from all reports for the dropdown
+  const getAvailableMonths = () => {
+    const months = new Set<string>();
+    reports.forEach(report => {
+      const month = report.date.slice(0, 7);
+      months.add(month);
+    });
+    return Array.from(months).sort().reverse(); // Most recent first
   };
 
   return (
@@ -410,10 +434,43 @@ export default function LinePolishPage() {
           {/* Polish Reports Table */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b bg-blue-50">
-              <h3 className="text-lg font-semibold text-blue-900">
-                Polishing Reports
-              </h3>
-              <p className="text-sm text-blue-700">Total: ₹{reports.filter(r => r.activity === 'POLISHING').reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({reports.filter(r => r.activity === 'POLISHING').length} transactions)</p>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-blue-900">
+                  Polishing Reports
+                </h3>
+                
+                {/* Month Filter */}
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={showAllRecords}
+                      onChange={(e) => setShowAllRecords(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="font-medium">Show All</span>
+                  </label>
+                  
+                  {!showAllRecords && (
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                    >
+                      {getAvailableMonths().map(month => {
+                        const date = new Date(month + '-01');
+                        const monthName = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                        return (
+                          <option key={month} value={month}>{monthName}</option>
+                        );
+                      })}
+                    </select>
+                  )}
+                </div>
+              </div>
+              <p className="text-sm text-blue-700">
+                {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total: ₹{filterReportsByMonth(reports.filter(r => r.activity === 'POLISHING')).reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({filterReportsByMonth(reports.filter(r => r.activity === 'POLISHING')).length} transactions)
+              </p>
             </div>
             
             <div className="overflow-x-auto">
@@ -422,9 +479,9 @@ export default function LinePolishPage() {
                   <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                   <p className="text-gray-600">Loading reports...</p>
                 </div>
-              ) : reports.filter(r => r.activity === 'POLISHING').length === 0 ? (
+              ) : filterReportsByMonth(reports.filter(r => r.activity === 'POLISHING')).length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-600">No polishing reports yet.</p>
+                  <p className="text-gray-600">No polishing reports for {showAllRecords ? 'this period' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}.</p>
                 </div>
               ) : (
                 <table className="w-full">
@@ -442,7 +499,7 @@ export default function LinePolishPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {reports.filter(r => r.activity === 'POLISHING').map((report) => (
+                    {filterReportsByMonth(reports.filter(r => r.activity === 'POLISHING')).map((report) => (
                       <tr key={report.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4">{new Date(report.date).toLocaleDateString('en-IN')}</td>
                         <td className="py-3 px-4">{report.shift === 'MORNING' ? 'A (Morning)' : 'B (Night)'}</td>
@@ -483,16 +540,20 @@ export default function LinePolishPage() {
           {/* Grinding Reports Table */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b bg-green-50">
-              <h3 className="text-lg font-semibold text-green-900">
-                Grinding Reports
-              </h3>
-              <p className="text-sm text-green-700">Total: ₹{reports.filter(r => r.activity === 'GRINDING').reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({reports.filter(r => r.activity === 'GRINDING').length} transactions)</p>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-green-900">
+                  Grinding Reports
+                </h3>
+              </div>
+              <p className="text-sm text-green-700">
+                {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total: ₹{filterReportsByMonth(reports.filter(r => r.activity === 'GRINDING')).reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({filterReportsByMonth(reports.filter(r => r.activity === 'GRINDING')).length} transactions)
+              </p>
             </div>
             
             <div className="overflow-x-auto">
-              {reports.filter(r => r.activity === 'GRINDING').length === 0 ? (
+              {filterReportsByMonth(reports.filter(r => r.activity === 'GRINDING')).length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-600">No grinding reports yet.</p>
+                  <p className="text-gray-600">No grinding reports for {showAllRecords ? 'this period' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}.</p>
                 </div>
               ) : (
                 <table className="w-full">
@@ -510,7 +571,7 @@ export default function LinePolishPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {reports.filter(r => r.activity === 'GRINDING').map((report) => (
+                    {filterReportsByMonth(reports.filter(r => r.activity === 'GRINDING')).map((report) => (
                       <tr key={report.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4">{new Date(report.date).toLocaleDateString('en-IN')}</td>
                         <td className="py-3 px-4">{report.shift === 'MORNING' ? 'A (Morning)' : 'B (Night)'}</td>
