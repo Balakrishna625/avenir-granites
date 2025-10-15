@@ -1,4 +1,5 @@
-/** @type {import('next').NextConfig} */
+/** @type {import(              // keep inline styles for Tailwind's injected styles and our UI
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",ext').NextConfig} */
 const nextConfig = {
   async headers() {
     return [
@@ -21,7 +22,7 @@ const nextConfig = {
               "img-src 'self' data:",
               // allow fetching from our own API routes and (future) Supabase if used client-side
               "connect-src 'self' https://*.supabase.co https://*.supabase.in",
-              "font-src 'self' data:",
+              "font-src 'self' data: https://fonts.gstatic.com",
             ].join("; "),
           },
         ],

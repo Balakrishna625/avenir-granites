@@ -48,27 +48,48 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ username, password }),
+        credentials: 'include' // Ensure cookies are included
       });
 
       console.log('📡 Response status:', response.status);
       console.log('📡 Response ok:', response.ok);
 
-      const data = await response.json();
-      console.log('📄 Response data:', data);
+      if (response.redirected) {
+        console.log('✅ Login successful, server redirected to:', response.url);
+        window.location.href = response.url;
+        return;
+      }
 
       if (response.ok) {
-        console.log('✅ Login successful, redirecting...');
+        console.log('✅ Login successful, checking authentication...');
         
-        // Use router to navigate after successful login
-        router.replace('/customers');
+        // Wait a moment for cookie to be set, then check auth
+        setTimeout(async () => {
+          try {
+            const authCheck = await fetch('/api/auth/me', { credentials: 'include' });
+            if (authCheck.ok) {
+              console.log('🔄 Authentication confirmed, redirecting to customers...');
+              window.location.href = '/customers';
+            } else {
+              console.log('❌ Authentication failed after login');
+              setError('Authentication failed. Please try again.');
+              setLoading(false);
+            }
+          } catch (authError) {
+            console.error('❌ Auth check failed:', authError);
+            setError('Authentication check failed. Please try again.');
+            setLoading(false);
+          }
+        }, 500);
       } else {
+        const data = await response.json();
         console.log('❌ Login failed:', data.error);
         setError(data.error || 'Login failed');
+        setLoading(false);
       }
     } catch (error) {
       console.error('🚨 Login error:', error);
       setError('An error occurred. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

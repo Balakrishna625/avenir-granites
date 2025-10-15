@@ -76,10 +76,9 @@ export async function POST(request: NextRequest) {
       { expiresIn: '7d' } // 7 days
     );
 
-    // Create response and set httpOnly cookie
+    // Create JSON response
     const response = NextResponse.json({
       message: 'Login successful',
-      redirect: '/customers', // Add redirect URL to response
       user: {
         id: user.id,
         username: user.username,
@@ -91,9 +90,9 @@ export async function POST(request: NextRequest) {
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/' // Explicitly set path
+      path: '/'
     });
 
     console.log('🍪 Cookie set for user:', user.username);
