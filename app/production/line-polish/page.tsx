@@ -567,9 +567,13 @@ export default function LinePolishPage() {
                         });
                         if (response.ok) {
                           alert('Opening balance saved successfully!');
+                          const savedMonth = openingBalanceMonth;
                           setOpeningBalanceMonth('');
                           setOpeningBalanceAmount('');
                           setShowOpeningBalanceForm(false);
+                          
+                          // Switch to the saved month to show the opening balance
+                          setSelectedMonth(savedMonth);
                           await fetchMonthlyBalance();
                         } else {
                           alert('Failed to save opening balance');
@@ -674,7 +678,10 @@ export default function LinePolishPage() {
                   <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Pending Amount</p>
                   <p className="text-2xl font-bold text-red-600 mt-1">{fmt(metrics.pending)}</p>
                   <p className="text-xs text-red-500 mt-1">
-                    {metrics.openingBalance > 0 && `Includes ₹${metrics.openingBalance.toLocaleString('en-IN')} previous due`}
+                    {metrics.openingBalance > 0 
+                      ? `Total (${fmt(metrics.totalAmount)}) + Prev Due (${fmt(metrics.openingBalance)}) - Paid (${fmt(metrics.totalPaid)})`
+                      : `Total - Paid this month`
+                    }
                   </p>
                 </div>
                 <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -1109,7 +1116,7 @@ export default function LinePolishPage() {
             </div>
             
             <div className="overflow-x-auto">
-              {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length === 0 ? (
+              {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length === 0 && !monthlyBalance ? (
                 <div className="text-center py-8">
                   <p className="text-gray-600">No payments recorded for {showAllRecords ? 'this period' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}.</p>
                 </div>
@@ -1126,6 +1133,20 @@ export default function LinePolishPage() {
                     </tr>
                   </thead>
                   <tbody>
+                    {/* Opening Balance Row - Show only for selected month, not for "Show All" */}
+                    {!showAllRecords && monthlyBalance && monthlyBalance.opening_balance > 0 && (
+                      <tr className="border-b bg-amber-50 font-semibold">
+                        <td className="py-3 px-4 text-amber-900">Opening Balance</td>
+                        <td className="py-3 px-4 text-right text-amber-700 font-bold">
+                          ₹{parseFloat(monthlyBalance.opening_balance.toString()).toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-4 text-amber-700">Previous Due</td>
+                        <td className="py-3 px-4 text-amber-700">-</td>
+                        <td className="py-3 px-4 text-amber-700 italic">Previous month's pending amount</td>
+                        <td className="py-3 px-4 text-center text-amber-700">-</td>
+                      </tr>
+                    )}
+                    
                     {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).map((payment) => (
                       <tr key={payment.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4">{new Date(payment.payment_date).toLocaleDateString('en-IN')}</td>
