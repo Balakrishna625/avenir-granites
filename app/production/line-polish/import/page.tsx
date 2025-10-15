@@ -183,6 +183,9 @@ export default function ImportDataPage() {
           const rate = parseFloat(rateStr) || 250;
           const debit = parseFloat(debitStr) || (hours * rate);
 
+          // Debug: Log what we determined
+          console.log(`Parsed: Date=${fullDate}, ShiftRaw="${shiftRaw}", DeterminedShift=${shift}, Activity=${activity}, Hours=${hours}, Slabs=${slabs}`);
+
           // Only add if we have valid data
           if (hours > 0 || slabs > 0) {
             reports.push({
@@ -197,6 +200,9 @@ export default function ImportDataPage() {
               debit_amount: debit,
               remarks: remarksStr || undefined
             });
+            console.log(`✓ Added report: ${shift} ${activity} on ${fullDate}`);
+          } else {
+            console.log(`✗ Skipped (no hours/slabs): ${shift} ${activity} on ${fullDate}`);
           }
 
           // Check for credit (payment)
@@ -211,11 +217,21 @@ export default function ImportDataPage() {
         }
       }
 
-      console.log('Parsed reports:', reports.length);
+      console.log('========================================');
+      console.log('PARSING COMPLETE');
+      console.log('========================================');
+      console.log('Total reports parsed:', reports.length);
       console.log('Reports by shift:', {
         morning: reports.filter(r => r.shift === 'MORNING').length,
         night: reports.filter(r => r.shift === 'NIGHT').length
       });
+      console.log('Reports by activity:', {
+        polishing: reports.filter(r => r.activity === 'POLISHING').length,
+        grinding: reports.filter(r => r.activity === 'GRINDING').length
+      });
+      console.log('Total payments:', payments.length);
+      console.log('Total opening balances:', balances.length);
+      console.log('========================================');
 
       setParsedReports(reports);
       setParsedPayments(payments);
