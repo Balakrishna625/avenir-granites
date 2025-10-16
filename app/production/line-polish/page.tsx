@@ -119,8 +119,10 @@ export default function LinePolishPage() {
     reference_number: '',
     remarks: ''
   });
-  const [isEditingPayment, setIsEditingPayment] = useState(false);
-  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  
+  // Inline remarks editing
+  const [editingRemarksId, setEditingRemarksId] = useState<string | null>(null);
+  const [editingRemarksText, setEditingRemarksText] = useState<string>('');
 
   useEffect(() => {
     fetchReports();
@@ -335,14 +337,8 @@ export default function LinePolishPage() {
         remarks: paymentForm.remarks.trim() || null
       };
 
-      const url = isEditingPayment && editingPaymentId 
-        ? `/api/line-polish-payments/${editingPaymentId}`
-        : '/api/line-polish-payments';
-      
-      const method = isEditingPayment ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
+      const response = await fetch('/api/line-polish-payments', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)
       });
@@ -355,8 +351,6 @@ export default function LinePolishPage() {
           reference_number: '',
           remarks: ''
         });
-        setIsEditingPayment(false);
-        setEditingPaymentId(null);
         await fetchPayments();
         
         // Update monthly balance for the payment's month
@@ -372,30 +366,44 @@ export default function LinePolishPage() {
     }
   };
 
-  const handleEditPayment = (payment: LinePolishPayment) => {
-    setIsEditingPayment(true);
-    setEditingPaymentId(payment.id);
-    setPaymentForm({
-      payment_date: payment.payment_date,
-      amount: payment.amount.toString(),
-      payment_method: payment.payment_method,
-      reference_number: payment.reference_number || '',
-      remarks: payment.remarks || ''
-    });
-    // Scroll to form
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleStartEditRemarks = (payment: LinePolishPayment) => {
+    setEditingRemarksId(payment.id);
+    setEditingRemarksText(payment.remarks || '');
   };
 
-  const handleCancelEditPayment = () => {
-    setIsEditingPayment(false);
-    setEditingPaymentId(null);
-    setPaymentForm({
-      payment_date: new Date().toISOString().split('T')[0],
-      amount: '',
-      payment_method: 'CASH',
-      reference_number: '',
-      remarks: ''
-    });
+  const handleCancelEditRemarks = () => {
+    setEditingRemarksId(null);
+    setEditingRemarksText('');
+  };
+
+  const handleSaveRemarks = async (paymentId: string) => {
+    try {
+      const payment = payments.find(p => p.id === paymentId);
+      if (!payment) return;
+
+      const response = await fetch(`/api/line-polish-payments/${paymentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_date: payment.payment_date,
+          amount: payment.amount,
+          payment_method: payment.payment_method,
+          reference_number: payment.reference_number,
+          remarks: editingRemarksText.trim() || null
+        })
+      });
+
+      if (response.ok) {
+        await fetchPayments();
+        setEditingRemarksId(null);
+        setEditingRemarksText('');
+      } else {
+        alert('Failed to update notes');
+      }
+    } catch (error) {
+      console.error('Error updating notes:', error);
+      alert('Error updating notes');
+    }
   };
 
   const handleDeletePayment = async (id: string) => {
@@ -917,12 +925,7 @@ export default function LinePolishPage() {
           {/* Payment Recording Section */}
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b bg-green-50">
-              <h2 className="text-lg font-semibold text-green-900">
-                {isEditingPayment ? 'Edit Payment' : 'Record Payment'}
-              </h2>
-              {isEditingPayment && (
-                <p className="text-sm text-green-700 mt-1">Editing payment record</p>
-              )}
+              <h2 className="text-lg font-semibold text-green-900">Record Payment</h2>
             </div>
             
             <div className="p-6">
@@ -977,28 +980,18 @@ export default function LinePolishPage() {
                     />
                   </div>
                   
-                  <div className="flex items-end gap-2">
-                    {isEditingPayment && (
-                      <Button 
-                        type="button"
-                        variant="outline" 
-                        onClick={handleCancelEditPayment}
-                        className="flex-1"
-                      >
-                        Cancel
-                      </Button>
-                    )}
+                  <div className="flex items-end">
                     <Button 
                       type="submit"
                       disabled={paymentLoading}
-                      className="bg-green-600 text-white hover:bg-green-700 flex items-center flex-1"
+                      className="bg-green-600 text-white hover:bg-green-700 flex items-center w-full"
                     >
                       {paymentLoading ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                       ) : (
                         <Plus className="w-4 h-4 mr-2" />
                       )}
-                      {isEditingPayment ? 'Update Payment' : 'Record Payment'}
+                      Record Payment
                     </Button>
                   </div>
                 </div>
@@ -1264,13 +1257,47 @@ export default function LinePolishPage() {
                             {payment.payment_method.replace('_', ' ')}
                           </span>
                         </td>
-                        <td className="py-3 px-4">{payment.remarks || '-'}</td>
+                        <td className="py-3 px-4">
+                          {editingRemarksId === payment.id ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="text"
+                                value={editingRemarksText}
+                                onChange={(e) => setEditingRemarksText(e.target.value)}
+                                placeholder="Add notes"
+                                className="text-sm"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => handleSaveRemarks(payment.id)}
+                                className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded transition-colors"
+                                title="Save"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={handleCancelEditRemarks}
+                                className="text-gray-600 hover:text-gray-800 p-1 hover:bg-gray-100 rounded transition-colors"
+                                title="Cancel"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <span>{payment.remarks || '-'}</span>
+                          )}
+                        </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => handleEditPayment(payment)}
+                              onClick={() => handleStartEditRemarks(payment)}
                               className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
-                              title="Edit payment"
+                              title="Edit notes"
+                              disabled={editingRemarksId === payment.id}
                             >
                               <Edit3 className="w-4 h-4" />
                             </button>
