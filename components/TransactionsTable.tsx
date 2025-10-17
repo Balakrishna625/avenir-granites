@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar, PlusCircle, Edit, Trash2, Save, X, Check } from "lucide-react";
+import { Calendar, PlusCircle, Edit, Trash2, Save, X, Check, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
@@ -31,6 +31,8 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Transaction>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rtgsSortOrder, setRtgsSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
+  const [cashSortOrder, setCashSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
   const formRef = useRef<HTMLFormElement>(null);
 
   const handleEdit = (transaction: Transaction) => {
@@ -82,8 +84,20 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
     setEditValues({});
   };
 
-  const rtgsTransactions = transactions.filter(t => t.mode === 'RTGS');
-  const cashTransactions = transactions.filter(t => t.mode === 'CASH');
+  // Sort transactions by date
+  const sortByDate = (a: Transaction, b: Transaction, order: 'asc' | 'desc') => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    return order === 'asc' ? dateA - dateB : dateB - dateA;
+  };
+
+  const rtgsTransactions = transactions
+    .filter(t => t.mode === 'RTGS')
+    .sort((a, b) => sortByDate(a, b, rtgsSortOrder));
+  
+  const cashTransactions = transactions
+    .filter(t => t.mode === 'CASH')
+    .sort((a, b) => sortByDate(a, b, cashSortOrder));
 
   return (
     <Card className="rounded-2xl shadow-sm">
@@ -167,11 +181,29 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
           {/* RTGS Transactions */}
           <div className="border-r">
             <div className="p-4 bg-blue-50 border-b">
-              <h3 className="text-lg font-semibold text-blue-800">RTGS Transactions</h3>
-              <p className="text-sm text-blue-600">
-                Total: {fmt(rtgsTransactions.reduce((sum, t) => sum + (t.amount || 0), 0))} 
-                ({rtgsTransactions.length} transactions)
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-800">RTGS Transactions</h3>
+                  <p className="text-sm text-blue-600">
+                    Total: {fmt(rtgsTransactions.reduce((sum, t) => sum + (t.amount || 0), 0))} 
+                    ({rtgsTransactions.length} transactions)
+                  </p>
+                </div>
+                <button
+                  onClick={() => setRtgsSortOrder(rtgsSortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="flex items-center gap-2 px-3 py-2 bg-white border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors"
+                  title={rtgsSortOrder === 'asc' ? 'Sort by newest first' : 'Sort by oldest first'}
+                >
+                  {rtgsSortOrder === 'asc' ? (
+                    <ArrowUp className="w-4 h-4 text-blue-600" />
+                  ) : (
+                    <ArrowDown className="w-4 h-4 text-blue-600" />
+                  )}
+                  <span className="text-sm font-medium text-blue-800">
+                    {rtgsSortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
+                  </span>
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto max-h-96 overflow-y-auto">
               <table className="min-w-full">
@@ -287,11 +319,29 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
           {/* Cash Transactions */}
           <div>
             <div className="p-4 bg-green-50 border-b">
-              <h3 className="text-lg font-semibold text-green-800">Cash Transactions</h3>
-              <p className="text-sm text-green-600">
-                Total: {fmt(cashTransactions.reduce((sum, t) => sum + (t.amount || 0), 0))} 
-                ({cashTransactions.length} transactions)
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-green-800">Cash Transactions</h3>
+                  <p className="text-sm text-green-600">
+                    Total: {fmt(cashTransactions.reduce((sum, t) => sum + (t.amount || 0), 0))} 
+                    ({cashTransactions.length} transactions)
+                  </p>
+                </div>
+                <button
+                  onClick={() => setCashSortOrder(cashSortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="flex items-center gap-2 px-3 py-2 bg-white border border-green-300 rounded-lg hover:bg-green-100 transition-colors"
+                  title={cashSortOrder === 'asc' ? 'Sort by newest first' : 'Sort by oldest first'}
+                >
+                  {cashSortOrder === 'asc' ? (
+                    <ArrowUp className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <ArrowDown className="w-4 h-4 text-green-600" />
+                  )}
+                  <span className="text-sm font-medium text-green-800">
+                    {cashSortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
+                  </span>
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto max-h-96 overflow-y-auto">
               <table className="min-w-full">
