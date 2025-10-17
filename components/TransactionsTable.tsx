@@ -178,9 +178,9 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
           {/* RTGS Transactions */}
-          <div className="border-r lg:col-span-1">
+          <div className="border-r">
             <div className="p-4 bg-blue-50 border-b">
               <div className="flex items-center justify-between">
                 <div>
@@ -318,7 +318,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
           </div>
 
           {/* Cash Transactions */}
-          <div className="lg:col-span-2">
+          <div>
             <div className="p-4 bg-green-50 border-b">
               <div className="flex items-center justify-between">
                 <div>
@@ -344,7 +344,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                 </button>
               </div>
             </div>
-            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="min-w-full">
                 <thead className="sticky top-0 bg-gray-100">
                   <tr>
