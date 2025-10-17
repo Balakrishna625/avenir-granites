@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/AppLayout";
+import { formatDisplayDate } from "@/lib/date-utils";
 import { 
   Plus, 
   Search, 
@@ -334,7 +335,7 @@ export default function ExpensesPage() {
                               {expense.expense_number}
                             </div>
                             <div className="text-sm text-gray-500">{expense.description}</div>
-                            <div className="text-xs text-gray-400">{expense.date}</div>
+                            <div className="text-xs text-gray-400">{formatDisplayDate(expense.date)}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4">

@@ -31,6 +31,7 @@ interface CustomerSummary {
   totalReceived: number;
   totalPending: number;
   oldDueAmount: number;
+  waivedAmount: number;
   totalReceivables: number;
   consignmentCount: number;
   lastPaymentDate: string | null;
@@ -44,6 +45,7 @@ export default function CustomersPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingWaivedAmount, setEditingWaivedAmount] = useState<{ id: string; amount: string } | null>(null);
 
   useEffect(() => {
     loadCustomerSummaries();
@@ -65,6 +67,27 @@ export default function CustomersPage() {
     }
   }
 
+  async function handleUpdateWaivedAmount(customerId: string, newAmount: number) {
+    try {
+      const response = await fetch('/api/customers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: customerId, waived_amount: newAmount }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update waived amount');
+      }
+
+      // Reload summaries to reflect changes
+      await loadCustomerSummaries();
+      setEditingWaivedAmount(null);
+    } catch (error) {
+      console.error('Error updating waived amount:', error);
+      alert('Failed to update waived amount');
+    }
+  }
+
   const filteredCustomers = customerSummaries.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -73,6 +96,7 @@ export default function CustomersPage() {
   const totalCustomers = filteredCustomers.length;
   const totalOutstanding = filteredCustomers.reduce((sum, c) => sum + c.totalPending, 0);
   const totalInvoiced = filteredCustomers.reduce((sum, c) => sum + c.totalInvoiced, 0);
+  const totalWaivedAmount = filteredCustomers.reduce((sum, c) => sum + (c.waivedAmount || 0), 0);
   const avgCollectionEfficiency = totalCustomers > 0 
     ? filteredCustomers.reduce((sum, c) => sum + c.collectionEfficiency, 0) / totalCustomers 
     : 0;
@@ -159,7 +183,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Overview KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -187,6 +211,16 @@ export default function CustomersPage() {
               <p className="text-2xl font-bold text-gray-900">{fmt(totalOutstanding)}</p>
             </div>
             <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Total Waived</p>
+              <p className="text-2xl font-bold text-gray-900">{fmt(totalWaivedAmount)}</p>
+            </div>
+            <TrendingDown className="w-8 h-8 text-orange-500" />
           </div>
         </Card>
         
@@ -241,6 +275,43 @@ export default function CustomersPage() {
                     <p className="font-semibold text-orange-600">
                       {fmt(customer.totalReceivables !== undefined ? customer.totalReceivables : customer.totalPending)}
                     </p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-gray-600 mb-1">Amount Waived</p>
+                    {editingWaivedAmount?.id === customer.id ? (
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editingWaivedAmount.amount}
+                          onChange={(e) => setEditingWaivedAmount({ id: customer.id, amount: e.target.value })}
+                          className="flex-1"
+                          autoFocus
+                        />
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleUpdateWaivedAmount(customer.id, parseFloat(editingWaivedAmount.amount) || 0)}
+                        >
+                          Save
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          onClick={() => setEditingWaivedAmount(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="font-semibold text-orange-500 cursor-pointer hover:text-orange-600 flex items-center"
+                        onClick={() => setEditingWaivedAmount({ id: customer.id, amount: (customer.waivedAmount || 0).toString() })}
+                      >
+                        {fmt(customer.waivedAmount || 0)}
+                        <span className="ml-2 text-xs text-gray-400">(click to edit)</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 

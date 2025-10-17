@@ -25,20 +25,37 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   const body = await req.json();
-  const { id, old_due_amount } = body;
+  const { id, old_due_amount, waived_amount } = body;
   
   if (!id) {
     return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
   }
   
-  if (old_due_amount === undefined || old_due_amount < 0) {
-    return NextResponse.json({ error: "Old due amount must be 0 or greater" }, { status: 400 });
+  // Build update object dynamically
+  const updateData: any = {};
+  
+  if (old_due_amount !== undefined) {
+    if (old_due_amount < 0) {
+      return NextResponse.json({ error: "Old due amount must be 0 or greater" }, { status: 400 });
+    }
+    updateData.old_due_amount = old_due_amount;
+  }
+  
+  if (waived_amount !== undefined) {
+    if (waived_amount < 0) {
+      return NextResponse.json({ error: "Waived amount must be 0 or greater" }, { status: 400 });
+    }
+    updateData.waived_amount = waived_amount;
+  }
+  
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
   
   try {
     const { data, error } = await supabaseAdmin
       .from("customers")
-      .update({ old_due_amount })
+      .update(updateData)
       .eq("id", id)
       .select()
       .single();

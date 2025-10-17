@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppLayout } from '@/components/AppLayout';
+import { formatDisplayDate } from '@/lib/date-utils';
 import { 
   BarChart3, 
   Factory, 
@@ -376,7 +377,7 @@ export default function ProductionPage() {
                 {dailyTrends.slice(0, 10).map((trend, index) => (
                   <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-2 px-3 text-sm font-medium">
-                      {new Date(trend.date).toLocaleDateString()}
+                      {formatDisplayDate(trend.date)}
                     </td>
                     <td className="py-2 px-3 text-sm text-right">{trend.workers}</td>
                     <td className="py-2 px-3 text-sm text-right">{trend.slabs}</td>

@@ -10,6 +10,7 @@ import { TransactionsTable } from "@/components/TransactionsTable";
 import { CustomerAnalytics } from "@/components/CustomerAnalytics";
 import { useToast } from "@/components/ui/toast";
 import * as XLSX from "xlsx";
+import { formatDisplayDate } from "@/lib/date-utils";
 
 declare global {
   interface Window { XLSX?: any; }
@@ -232,13 +233,13 @@ export default function Page() {
         
         return {
           Customer: customer.name,
-          'Created Date': new Date(customer.created_at).toLocaleDateString(),
+          'Created Date': formatDisplayDate(customer.created_at),
           'Total Consignments': customerConsignments.length,
           'Total Transactions': customerTransactions.length,
           'Last Consignment': customerConsignments.length > 0 ? 
-            Math.max(...customerConsignments.map(c => new Date(c.date).getTime())) : 'None',
+            formatDisplayDate(new Date(Math.max(...customerConsignments.map(c => new Date(c.date).getTime())))) : 'None',
           'Last Transaction': customerTransactions.length > 0 ? 
-            Math.max(...customerTransactions.map(t => new Date(t.date).getTime())) : 'None'
+            formatDisplayDate(new Date(Math.max(...customerTransactions.map(t => new Date(t.date).getTime())))) : 'None'
         };
       }).filter(Boolean);
 

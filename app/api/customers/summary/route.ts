@@ -7,10 +7,10 @@ export async function GET(req: Request) {
   const to = url.searchParams.get("to");
 
   try {
-    // Get all customers with their old due amounts
+    // Get all customers with their old due amounts and waived amounts
     const { data: customers, error: customersError } = await supabaseAdmin
       .from("customers")
-      .select("id, name, old_due_amount")
+      .select("id, name, old_due_amount, waived_amount")
       .order("name");
 
     if (customersError) {
@@ -86,16 +86,19 @@ export async function GET(req: Request) {
         }
       }
 
-      // Calculate total receivables (total invoiced + old due - total received)
-      const totalReceivables = totalInvoiced + (customer.old_due_amount || 0) - totalReceived;
+      // Calculate total receivables (total invoiced + old due - total received - waived amount)
+      // Waived amount is subtracted because customer won't pay it
+      const waivedAmount = customer.waived_amount || 0;
+      const totalReceivables = totalInvoiced + (customer.old_due_amount || 0) - totalReceived - waivedAmount;
 
       return {
         id: customer.id,
         name: customer.name,
         totalInvoiced,
         totalReceived,
-        totalPending: Math.max(0, totalPending), // Ensure non-negative
+        totalPending: Math.max(0, totalPending - waivedAmount), // Subtract waived amount from pending
         oldDueAmount: customer.old_due_amount || 0,
+        waivedAmount: waivedAmount,
         totalReceivables: Math.max(0, totalReceivables), // Ensure non-negative
         consignmentCount: customerConsignments.length,
         lastPaymentDate,

@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar, PlusCircle, Edit, Trash2, Save, X, Check } from "lucide-react";
+import { formatDisplayDate } from "@/lib/date-utils";
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
@@ -212,7 +213,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
                             className="w-32 p-1 text-sm"
                           />
                         ) : (
-                          c.date
+                          formatDisplayDate(c.date)
                         )}
                       </td>
                       
