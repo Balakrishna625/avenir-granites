@@ -681,27 +681,29 @@ export default function Page() {
           {accountSummary.length > 0 && (
             <div className="mt-8 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Account-wise Collection Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {accountSummary.map((account, index) => (
-                  <div key={account.name} className="bg-white rounded-xl p-4 border shadow-sm">
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-700 truncate" title={account.name}>
-                        {account.name}
-                      </div>
-                      <div className="text-xl font-bold text-gray-900">{fmt(account.total)}</div>
-                      <div className="space-y-1 text-xs text-gray-600">
-                        <div className="flex justify-between">
-                          <span>RTGS:</span>
-                          <span className="font-medium text-blue-600">{fmt(account.rtgs)}</span>
+              <div className="overflow-x-auto">
+                <div className="flex gap-4 pb-2 min-w-min">
+                  {accountSummary.map((account, index) => (
+                    <div key={account.name} className="bg-white rounded-xl p-4 border shadow-sm flex-shrink-0 w-64">
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium text-gray-700 truncate" title={account.name}>
+                          {account.name}
                         </div>
-                        <div className="flex justify-between">
-                          <span>Cash:</span>
-                          <span className="font-medium text-green-600">{fmt(account.cash)}</span>
+                        <div className="text-xl font-bold text-gray-900">{fmt(account.total)}</div>
+                        <div className="space-y-1 text-xs text-gray-600">
+                          <div className="flex justify-between">
+                            <span>RTGS:</span>
+                            <span className="font-medium text-blue-600">{fmt(account.rtgs)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Cash:</span>
+                            <span className="font-medium text-green-600">{fmt(account.cash)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           )}
