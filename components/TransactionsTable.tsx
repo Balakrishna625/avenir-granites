@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar, PlusCircle, Edit, Trash2, Save, X, Check, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { formatDisplayDate } from "@/lib/date-utils";
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
@@ -232,7 +233,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                       
                       return (
                         <tr key={t.id} className="hover:bg-blue-25 transition-colors">
-                          <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{t.date}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDisplayDate(t.date)}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{customer?.name || 'Unknown'}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{account?.name || 'Unknown'}</td>
                           
@@ -370,7 +371,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                       
                       return (
                         <tr key={t.id} className="hover:bg-green-25 transition-colors">
-                          <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{t.date}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDisplayDate(t.date)}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{customer?.name || 'Unknown'}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{account?.name || 'Unknown'}</td>
                           

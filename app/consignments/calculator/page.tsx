@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calculator, Save, Trash2, Plus, Edit3 } from 'lucide-react';
+import { formatDisplayDate } from '@/lib/date-utils';
 
 interface ConsignmentCalculation {
   id?: string;
@@ -1114,7 +1115,7 @@ export default function ConsignmentCalculatorPage() {
                 </div>
                 
                 <div className="mt-3 text-xs text-gray-500">
-                  Created: {calc.created_at ? new Date(calc.created_at).toLocaleDateString() : 'Unknown'}
+                  Created: {calc.created_at ? formatDisplayDate(calc.created_at) : 'Unknown'}
                 </div>
               </Card>
             ))}

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Plus, Search, Package, TrendingUp, DollarSign, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
+import { formatDisplayDate } from '@/lib/date-utils';
 
 interface Supplier {
   id: string;
@@ -288,7 +289,7 @@ export default function ConsignmentsPage() {
                     <div className="text-sm text-gray-500">{consignment.supplier?.contact_person}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                    {new Date(consignment.arrival_date).toLocaleDateString()}
+                    {formatDisplayDate(consignment.arrival_date)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-900">
                     {consignment.total_blocks || 0}

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Upload, FileSpreadsheet, Check, AlertCircle, Trash2 } from 'lucide-react';
+import { formatDisplayDate } from '@/lib/date-utils';
 
 interface ParsedReport {
   date: string;
@@ -531,7 +532,7 @@ export default function ImportDataPage() {
                   <tbody>
                     {parsedReports.slice(0, 10).map((report, idx) => (
                       <tr key={idx} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">{new Date(report.date).toLocaleDateString('en-IN')}</td>
+                        <td className="py-3 px-4">{formatDisplayDate(report.date)}</td>
                         <td className="py-3 px-4">{report.shift === 'MORNING' ? 'A (Morning)' : 'B (Night)'}</td>
                         <td className="py-3 px-4">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -580,7 +581,7 @@ export default function ImportDataPage() {
                   <tbody>
                     {parsedPayments.map((payment, idx) => (
                       <tr key={idx} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">{new Date(payment.payment_date).toLocaleDateString('en-IN')}</td>
+                        <td className="py-3 px-4">{formatDisplayDate(payment.payment_date)}</td>
                         <td className="py-3 px-4 text-right font-semibold text-green-600">
                           ₹{payment.amount.toLocaleString('en-IN')}
                         </td>

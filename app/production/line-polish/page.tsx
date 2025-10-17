@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Edit3, Trash2 } from 'lucide-react';
+import { formatDisplayDate } from '@/lib/date-utils';
 
 interface LinePolishReport {
   id: string;
@@ -1113,7 +1114,7 @@ export default function LinePolishPage() {
                   <tbody>
                     {filterReportsByMonth(reports).map((report) => (
                       <tr key={report.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">{new Date(report.date).toLocaleDateString('en-IN')}</td>
+                        <td className="py-3 px-4">{formatDisplayDate(report.date)}</td>
                         <td className="py-3 px-4">{report.shift === 'MORNING' ? 'A (Morning)' : 'B (Night)'}</td>
                         <td className="py-3 px-4">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -1250,7 +1251,7 @@ export default function LinePolishPage() {
                   <tbody>
                     {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).map((payment) => (
                       <tr key={payment.id} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4">{new Date(payment.payment_date).toLocaleDateString('en-IN')}</td>
+                        <td className="py-3 px-4">{formatDisplayDate(payment.payment_date)}</td>
                         <td className="py-3 px-4 text-right font-semibold text-green-600">₹{parseFloat(payment.amount.toString()).toLocaleString('en-IN')}</td>
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">

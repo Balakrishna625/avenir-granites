@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
 import { Menu, LogOut, User } from 'lucide-react';
+import { formatDisplayDate } from '@/lib/date-utils';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -119,7 +120,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="flex items-center space-x-4">
               <div className="hidden md:flex items-center space-x-2 text-sm">
                 <span className="text-gray-600">Today:</span>
-                <span className="font-medium">{new Date().toLocaleDateString()}</span>
+                <span className="font-medium">{formatDisplayDate(new Date())}</span>
               </div>
               
               {/* User Menu */}

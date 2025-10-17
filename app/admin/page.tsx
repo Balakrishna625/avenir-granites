@@ -8,6 +8,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { PlusCircle, Users, CreditCard, ArrowLeft, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
+import { formatDisplayDate } from "@/lib/date-utils";
 
 interface Customer {
   id: string;
@@ -289,7 +290,7 @@ export default function AdminPage() {
                     <div>
                       <div className="font-medium text-gray-900">{customer.name}</div>
                       <div className="text-sm text-gray-500">
-                        Created: {new Date(customer.created_at).toLocaleDateString()}
+                        Created: {formatDisplayDate(customer.created_at)}
                       </div>
                     </div>
                     <Button

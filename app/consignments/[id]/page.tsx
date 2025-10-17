@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { ArrowLeft, Plus, Edit, Trash2, Package, Calculator } from 'lucide-react';
 import Link from 'next/link';
+import { formatDisplayDate } from '@/lib/date-utils';
 import { AppLayout } from '@/components/AppLayout';
 
 interface Block {
@@ -235,7 +236,7 @@ export default function ConsignmentDetailPage() {
               {consignment.consignment_number}
             </h1>
             <p className="text-gray-600 mt-1">
-              {consignment.supplier?.name} • {new Date(consignment.arrival_date).toLocaleDateString()}
+              {consignment.supplier?.name} • {formatDisplayDate(consignment.arrival_date)}
             </p>
           </div>
         </div>
