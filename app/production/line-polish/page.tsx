@@ -945,11 +945,11 @@ export default function LinePolishPage() {
 
           {/* Add Polish Report */}
           <div className="bg-white rounded-lg shadow-sm border">
-            <div className="px-6 py-4 border-b">
-              <h2 className="text-lg font-semibold text-gray-900">
+            <div className="px-6 py-4 border-b bg-indigo-50">
+              <h2 className="text-lg font-semibold text-indigo-900">
                 {isEditing ? 'Edit Line Polish Report' : 'Add Line Polish Report'}
               </h2>
-              <p className="text-sm text-gray-600 mt-1">Enter common details and add multiple activities for the same shift</p>
+              <p className="text-sm text-indigo-600 mt-1">Enter common details and add multiple activities for the same shift</p>
             </div>
             
             <div className="p-6">
