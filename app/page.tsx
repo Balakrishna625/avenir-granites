@@ -50,6 +50,8 @@ export default function Page() {
   const [transactionSubmitted, setTransactionSubmitted] = useState(false);
   const [editingOldDue, setEditingOldDue] = useState(false);
   const [oldDueInput, setOldDueInput] = useState("");
+  const [editingWaivedAmount, setEditingWaivedAmount] = useState(false);
+  const [waivedAmountInput, setWaivedAmountInput] = useState("");
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -82,12 +84,15 @@ export default function Page() {
     
     // Calculate old due amount for the selected customer
     let oldDueAmount = 0;
+    let waivedAmount = 0;
     if (customerId !== "all") {
       const selectedCustomer = customers.find(c => c.id === customerId);
       oldDueAmount = selectedCustomer?.old_due_amount || 0;
+      waivedAmount = selectedCustomer?.waived_amount || 0;
     } else {
       // For "all customers", sum up all old due amounts
       oldDueAmount = customers.reduce((sum, customer) => sum + (customer.old_due_amount || 0), 0);
+      waivedAmount = customers.reduce((sum, customer) => sum + (customer.waived_amount || 0), 0);
     }
     
     return { 
@@ -98,6 +103,7 @@ export default function Page() {
       receivedCASH, 
       receivedTotal: receivedRTGS + receivedCASH,
       oldDueAmount,
+      waivedAmount,
       totalReceivables: expectedTotal + oldDueAmount - (receivedRTGS + receivedCASH)
     };
   }, [consignments, txns, customers, customerId]);
@@ -421,6 +427,65 @@ export default function Page() {
     setOldDueInput("");
   }
 
+  async function updateWaivedAmount() {
+    if (customerId === "all") {
+      alert("Please select a specific customer to update waived amount.");
+      return;
+    }
+
+    const amount = parseFloat(waivedAmountInput);
+    if (isNaN(amount) || amount < 0) {
+      alert("Please enter a valid amount (0 or greater).");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/customers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: customerId, waived_amount: amount }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Update failed");
+        return;
+      }
+
+      // Update local state
+      setCustomers(prevCustomers =>
+        prevCustomers.map(customer =>
+          customer.id === customerId
+            ? { ...customer, waived_amount: amount }
+            : customer
+        )
+      );
+
+      setEditingWaivedAmount(false);
+      setWaivedAmountInput("");
+      showToast("success", "Waived amount updated successfully!");
+    } catch (error) {
+      alert("Failed to update waived amount");
+      console.error("Error updating waived amount:", error);
+    }
+  }
+
+  function startEditingWaivedAmount() {
+    if (customerId === "all") {
+      alert("Please select a specific customer to manage waived amount.");
+      return;
+    }
+    
+    const selectedCustomer = customers.find(c => c.id === customerId);
+    setWaivedAmountInput(String(selectedCustomer?.waived_amount || 0));
+    setEditingWaivedAmount(true);
+  }
+
+  function cancelEditingWaivedAmount() {
+    setEditingWaivedAmount(false);
+    setWaivedAmountInput("");
+  }
+
   async function editConsignment(consignmentId: string, updatedData: any) {
     const rtgs = updatedData.rtgs_expected || 0;
     const cash = updatedData.cash_expected || 0;
@@ -638,6 +703,65 @@ export default function Page() {
                   </Button>
                   <Button 
                     onClick={cancelEditingOldDue}
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Waived Amount Section - Similar to Previous Due */}
+      {customerId !== "all" && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
+                <span className="text-amber-600 text-sm">₹</span>
+              </div>
+              <div>
+                <span className="text-gray-700 font-medium">Amount Waived: </span>
+                <span className="text-lg font-semibold text-amber-900">{fmt(kpi.waivedAmount)}</span>
+                {kpi.waivedAmount > 0 && (
+                  <span className="text-xs text-gray-500 ml-2">(negotiated off the bill)</span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              {!editingWaivedAmount ? (
+                <Button 
+                  onClick={startEditingWaivedAmount}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-7 px-3 border-amber-300 text-amber-700 hover:bg-amber-100"
+                >
+                  {kpi.waivedAmount > 0 ? 'Edit' : 'Add'}
+                </Button>
+              ) : (
+                <>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={waivedAmountInput}
+                    onChange={(e) => setWaivedAmountInput(e.target.value)}
+                    placeholder="Amount"
+                    className="w-24 h-7 text-xs text-right"
+                  />
+                  <Button 
+                    onClick={updateWaivedAmount}
+                    size="sm"
+                    className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                  >
+                    Save
+                  </Button>
+                  <Button 
+                    onClick={cancelEditingWaivedAmount}
                     size="sm"
                     variant="outline"
                     className="h-7 px-2 text-xs"
