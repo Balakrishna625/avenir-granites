@@ -156,7 +156,7 @@ export default function ProductionPage() {
     : 0;
   
   // 4. Utilization & Efficiency
-  const targetHoursPerDay = 12; // Assume 12-hour shift target
+  const targetHoursPerDay = 24; // 24-hour production target (2 shifts: morning + night)
   const utilizationRate = avgHoursPerDay > 0 ? (avgHoursPerDay / targetHoursPerDay) * 100 : 0;
   
   // 5. Best & Worst Days
