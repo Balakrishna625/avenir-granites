@@ -522,15 +522,22 @@ export default function MultiCutterAnalyticsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {machineBreakdown.map((machine, index) => {
               const colors = [
-                { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900', badge: 'bg-blue-100 text-blue-800' },
-                { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-900', badge: 'bg-green-100 text-green-800' },
-                { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-900', badge: 'bg-purple-100 text-purple-800' }
+                { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900', badge: 'bg-blue-100 text-blue-800', progressColor: '#1e40af' },
+                { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-900', badge: 'bg-green-100 text-green-800', progressColor: '#15803d' },
+                { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-900', badge: 'bg-purple-100 text-purple-800', progressColor: '#7e22ce' }
               ];
               const color = colors[index % 3];
               
+              // Monthly target: 40,000 sqft per machine
+              const monthlyTarget = 40000;
+              const progressPercentage = Math.min((machine.sqft / monthlyTarget) * 100, 100);
+              const radius = 60;
+              const circumference = 2 * Math.PI * radius;
+              const strokeDashoffset = circumference - (progressPercentage / 100) * circumference;
+              
               return (
                 <div key={machine.machine} className={`${color.bg} border ${color.border} p-4 rounded-lg`}>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-4">
                     <h4 className={`font-semibold ${color.text}`}>
                       {machine.machine}
                     </h4>
@@ -538,10 +545,62 @@ export default function MultiCutterAnalyticsPage() {
                       {machine.working_days} days
                     </span>
                   </div>
+                  
+                  {/* Circular Progress - Cutter Disc Style */}
+                  <div className="flex justify-center mb-4">
+                    <div className="relative">
+                      <svg width="140" height="140" className="transform -rotate-90">
+                        {/* Background circle (light gray) */}
+                        <circle
+                          cx="70"
+                          cy="70"
+                          r={radius}
+                          stroke="#e5e7eb"
+                          strokeWidth="12"
+                          fill="white"
+                          className="drop-shadow-sm"
+                        />
+                        {/* Progress circle (colored) */}
+                        <circle
+                          cx="70"
+                          cy="70"
+                          r={radius}
+                          stroke={color.progressColor}
+                          strokeWidth="12"
+                          fill="none"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={strokeDashoffset}
+                          strokeLinecap="round"
+                          className="transition-all duration-1000 ease-out"
+                        />
+                        {/* Inner cutting disc detail circles */}
+                        <circle cx="70" cy="70" r="20" fill="#f9fafb" stroke="#d1d5db" strokeWidth="1" />
+                        <circle cx="70" cy="70" r="8" fill="white" stroke={color.progressColor} strokeWidth="2" />
+                      </svg>
+                      {/* Center text */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className={`text-2xl font-bold ${color.text}`}>
+                          {Math.round(progressPercentage)}%
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">of target</div>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between items-center py-1 border-b border-gray-200">
                       <span className="text-gray-600">Production:</span>
-                      <span className={`font-bold ${color.text}`}>{machine.slabs} slabs / {fmt(machine.sqft)} sqft</span>
+                      <span className={`font-bold ${color.text}`}>{fmt(machine.sqft)} sqft</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-200">
+                      <span className="text-gray-600">Target:</span>
+                      <span className="font-medium text-gray-700">{fmt(monthlyTarget)} sqft</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-200">
+                      <span className="text-gray-600">Remaining:</span>
+                      <span className={`font-medium ${machine.sqft >= monthlyTarget ? 'text-green-600' : 'text-amber-600'}`}>
+                        {fmt(Math.max(0, monthlyTarget - machine.sqft))} sqft
+                      </span>
                     </div>
                     <div className="flex justify-between items-center py-1 border-b border-gray-200">
                       <span className="text-gray-600">Daily Avg:</span>
