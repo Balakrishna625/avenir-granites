@@ -133,39 +133,26 @@ export default function ProductionPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen w-full bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link href="/">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
+      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
+        <div className="space-y-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-semibold">Production Management</h1>
+              <p className="text-gray-600">Line polish reports and analytics</p>
+            </div>
+            <Link href="/production/line-polish">
+              <Button className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Line Polish Report
               </Button>
             </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Production Management</h1>
-              <p className="text-sm text-gray-600">Line polish reports and analytics</p>
-            </div>
           </div>
-          <Link href="/production/line-polish">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Line Polish Report
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* Filters */}
-        <Card className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
               <select 
-                className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
               >
@@ -177,7 +164,7 @@ export default function ProductionPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
               <select 
-                className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
               >
@@ -192,7 +179,7 @@ export default function ProductionPage() {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="text-sm"
+                placeholder="dd/mm/yyyy"
               />
             </div>
             <div>
@@ -201,25 +188,23 @@ export default function ProductionPage() {
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="text-sm"
+                placeholder="dd/mm/yyyy"
               />
             </div>
-            <div className="flex items-end">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setDateFrom("");
-                  setDateTo("");
-                  setSelectedMonth("");
-                  setSelectedYear(new Date().getFullYear().toString());
-                }}
-                className="w-full"
-              >
-                Clear Filters
-              </Button>
-            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+                setSelectedMonth("");
+                setSelectedYear(new Date().getFullYear().toString());
+              }}
+              className="w-full"
+            >
+              Clear Filters
+            </Button>
           </div>
-        </Card>
+        </div>
 
         {/* Summary KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -400,7 +385,6 @@ export default function ProductionPage() {
           </div>
         </Card>
       </div>
-    </div>
     </AppLayout>
   );
 }
