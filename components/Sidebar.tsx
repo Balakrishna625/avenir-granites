@@ -83,14 +83,24 @@ const menuItems: MenuItem[] = [
     icon: <Factory className="w-5 h-5" />,
     children: [
       {
-        title: 'Production Analytics',
+        title: 'Line Polish Analytics',
         href: '/production',
         icon: <BarChart3 className="w-4 h-4" />
       },
       {
-        title: 'Line Polish Reports',
+        title: 'Line Polish Data',
         href: '/production/line-polish',
         icon: <Wrench className="w-4 h-4" />
+      },
+      {
+        title: 'Multi Cutter Analytics',
+        href: '/production/multi-cutter-analytics',
+        icon: <BarChart3 className="w-4 h-4" />
+      },
+      {
+        title: 'Multi Cutter Data',
+        href: '/production/multi-cutter',
+        icon: <Scissors className="w-4 h-4" />
       }
     ]
   },
