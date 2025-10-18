@@ -1667,11 +1667,8 @@ export default function LinePolishPage() {
                         <thead>
                           <tr className="border-b bg-gray-50">
                             <th className="text-left py-3 px-4 font-medium text-gray-700">Activity Type</th>
-                            <th className="text-center py-3 px-4 font-medium text-gray-700">Times Done</th>
                             <th className="text-right py-3 px-4 font-medium text-gray-700">Total Slabs</th>
                             <th className="text-right py-3 px-4 font-medium text-gray-700">Total Sqft</th>
-                            <th className="text-right py-3 px-4 font-medium text-gray-700">Avg Slabs/Time</th>
-                            <th className="text-right py-3 px-4 font-medium text-gray-700">Avg Sqft/Time</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1680,37 +1677,23 @@ export default function LinePolishPage() {
                               <td className="py-3 px-4">
                                 <span className="font-medium text-gray-900">{activity}</span>
                               </td>
-                              <td className="py-3 px-4 text-center text-gray-600">
-                                {stats.count}
-                              </td>
-                              <td className="py-3 px-4 text-right font-semibold text-indigo-600">
+                              <td className="py-3 px-4 text-right font-semibold text-indigo-600 text-lg">
                                 {stats.slabs.toLocaleString('en-IN')}
                               </td>
-                              <td className="py-3 px-4 text-right font-semibold text-indigo-600">
+                              <td className="py-3 px-4 text-right font-semibold text-indigo-600 text-lg">
                                 {stats.sqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                              </td>
-                              <td className="py-3 px-4 text-right text-gray-600">
-                                {(stats.slabs / stats.count).toFixed(1)}
-                              </td>
-                              <td className="py-3 px-4 text-right text-gray-600">
-                                {(stats.sqft / stats.count).toFixed(2)}
                               </td>
                             </tr>
                           ))}
                           {/* Total Row */}
-                          <tr className="border-t-2 bg-indigo-50 font-semibold">
-                            <td className="py-3 px-4 text-gray-900">TOTAL</td>
-                            <td className="py-3 px-4 text-center text-gray-900">
-                              {sortedActivities.reduce((sum, [, stats]) => sum + stats.count, 0)}
-                            </td>
-                            <td className="py-3 px-4 text-right text-indigo-700">
+                          <tr className="border-t-2 bg-indigo-50 font-bold">
+                            <td className="py-3 px-4 text-gray-900 text-lg">TOTAL</td>
+                            <td className="py-3 px-4 text-right text-indigo-700 text-lg">
                               {sortedActivities.reduce((sum, [, stats]) => sum + stats.slabs, 0).toLocaleString('en-IN')}
                             </td>
-                            <td className="py-3 px-4 text-right text-indigo-700">
+                            <td className="py-3 px-4 text-right text-indigo-700 text-lg">
                               {sortedActivities.reduce((sum, [, stats]) => sum + stats.sqft, 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                             </td>
-                            <td className="py-3 px-4"></td>
-                            <td className="py-3 px-4"></td>
                           </tr>
                         </tbody>
                       </table>
