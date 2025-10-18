@@ -43,6 +43,7 @@ export default function Page() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [consignments, setConsignments] = useState<any[]>([]);
   const [txns, setTxns] = useState<any[]>([]);
+  const [waivedTransactions, setWaivedTransactions] = useState<any[]>([]);
   const [customerId, setCustomerId] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -52,6 +53,8 @@ export default function Page() {
   const [oldDueInput, setOldDueInput] = useState("");
   const [editingWaivedAmount, setEditingWaivedAmount] = useState(false);
   const [waivedAmountInput, setWaivedAmountInput] = useState("");
+  const [waivedDateInput, setWaivedDateInput] = useState("");
+  const [waivedNotesInput, setWaivedNotesInput] = useState("");
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -73,6 +76,15 @@ export default function Page() {
     if (dateTo) p.set("to", dateTo);
     fetch(`/api/consignments?${p.toString()}`).then((r) => r.json()).then(setConsignments);
     fetch(`/api/transactions?${p.toString()}`).then((r) => r.json()).then(setTxns);
+    
+    // Load waived transactions for the selected customer
+    if (customerId && customerId !== "all") {
+      fetch(`/api/waived-transactions?customerId=${customerId}`)
+        .then((r) => r.json())
+        .then(setWaivedTransactions);
+    } else {
+      setWaivedTransactions([]);
+    }
   }, [customerId, dateFrom, dateTo]);
 
   const kpi = useMemo(() => {
@@ -82,17 +94,18 @@ export default function Page() {
     const receivedRTGS = txns.filter((t) => t.mode === "RTGS").reduce((s, t) => s + (t.amount || 0), 0);
     const receivedCASH = txns.filter((t) => t.mode === "CASH").reduce((s, t) => s + (t.amount || 0), 0);
     
-    // Calculate old due amount for the selected customer
+    // Calculate old due amount and waived amount for the selected customer
     let oldDueAmount = 0;
     let waivedAmount = 0;
     if (customerId !== "all") {
       const selectedCustomer = customers.find(c => c.id === customerId);
       oldDueAmount = selectedCustomer?.old_due_amount || 0;
-      waivedAmount = selectedCustomer?.waived_amount || 0;
+      // Calculate waived amount from waived_transactions
+      waivedAmount = waivedTransactions.reduce((sum, wt) => sum + (wt.amount || 0), 0);
     } else {
       // For "all customers", sum up all old due amounts
       oldDueAmount = customers.reduce((sum, customer) => sum + (customer.old_due_amount || 0), 0);
-      waivedAmount = customers.reduce((sum, customer) => sum + (customer.waived_amount || 0), 0);
+      waivedAmount = 0; // Can't calculate for "all" without loading all transactions
     }
     
     return { 
@@ -106,7 +119,7 @@ export default function Page() {
       waivedAmount,
       totalReceivables: expectedTotal + oldDueAmount - (receivedRTGS + receivedCASH) - waivedAmount
     };
-  }, [consignments, txns, customers, customerId]);
+  }, [consignments, txns, customers, customerId, waivedTransactions]);
 
   // Calculate account-wise totals
   const accountSummary = useMemo(() => {
@@ -429,61 +442,74 @@ export default function Page() {
 
   async function updateWaivedAmount() {
     if (customerId === "all") {
-      alert("Please select a specific customer to update waived amount.");
+      alert("Please select a specific customer to add waived amount.");
       return;
     }
 
     const amount = parseFloat(waivedAmountInput);
-    if (isNaN(amount) || amount < 0) {
-      alert("Please enter a valid amount (0 or greater).");
+    if (isNaN(amount) || amount <= 0) {
+      alert("Please enter a valid amount (must be greater than 0).");
+      return;
+    }
+
+    if (!waivedDateInput) {
+      alert("Please enter the date when amount was waived.");
       return;
     }
 
     try {
-      const res = await fetch("/api/customers", {
-        method: "PUT",
+      const res = await fetch("/api/waived-transactions", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: customerId, waived_amount: amount }),
+        body: JSON.stringify({ 
+          customer_id: customerId, 
+          amount: amount,
+          waived_date: waivedDateInput,
+          notes: waivedNotesInput || null
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Update failed");
+        alert(data.error || "Failed to save waived amount");
         return;
       }
 
-      // Update local state
-      setCustomers(prevCustomers =>
-        prevCustomers.map(customer =>
-          customer.id === customerId
-            ? { ...customer, waived_amount: amount }
-            : customer
-        )
-      );
+      // Reload waived transactions
+      const updatedTransactions = await fetch(`/api/waived-transactions?customerId=${customerId}`)
+        .then((r) => r.json());
+      setWaivedTransactions(updatedTransactions);
 
       setEditingWaivedAmount(false);
       setWaivedAmountInput("");
-      showToast("success", "Waived amount updated successfully!");
+      setWaivedDateInput("");
+      setWaivedNotesInput("");
+      showToast("success", "Waived amount saved successfully!");
     } catch (error) {
-      alert("Failed to update waived amount");
-      console.error("Error updating waived amount:", error);
+      alert("Failed to save waived amount");
+      console.error("Error saving waived amount:", error);
     }
   }
 
   function startEditingWaivedAmount() {
     if (customerId === "all") {
-      alert("Please select a specific customer to manage waived amount.");
+      alert("Please select a specific customer to add waived amount.");
       return;
     }
     
-    const selectedCustomer = customers.find(c => c.id === customerId);
-    setWaivedAmountInput(String(selectedCustomer?.waived_amount || 0));
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    setWaivedDateInput(today);
+    setWaivedAmountInput("");
+    setWaivedNotesInput("");
     setEditingWaivedAmount(true);
   }
 
   function cancelEditingWaivedAmount() {
     setEditingWaivedAmount(false);
     setWaivedAmountInput("");
+    setWaivedDateInput("");
+    setWaivedNotesInput("");
   }
 
   async function editConsignment(consignmentId: string, updatedData: any) {
@@ -622,7 +648,7 @@ export default function Page() {
       </div>
 
             {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-gray-600 uppercase tracking-wide">Total Invoiced</div>
           <div className="text-2xl font-bold text-gray-900">{fmt(kpi.expectedTotal)}</div>
@@ -650,14 +676,6 @@ export default function Page() {
             <div className="text-xs text-amber-600 mt-1">After waived amount</div>
           )}
         </div>
-        {/* Show Waived Amount tile */}
-        {kpi.waivedAmount > 0 && (
-          <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 shadow-sm">
-            <div className="text-xs text-amber-700 uppercase tracking-wide">Amount Waived</div>
-            <div className="text-2xl font-bold text-amber-700">{fmt(kpi.waivedAmount)}</div>
-            <div className="text-xs text-amber-600 mt-1">Negotiated off</div>
-          </div>
-        )}
         {/* Only show Total Receivables if there's an old due amount */}
         {kpi.oldDueAmount > 0 && (
           <div className="bg-white rounded-xl p-4 border shadow-sm">
@@ -727,47 +745,62 @@ export default function Page() {
         </div>
       )}
 
-      {/* Waived Amount Section - Similar to Previous Due */}
+      {/* Waived Amount Section - With date, notes, and history */}
       {customerId !== "all" && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
                 <span className="text-amber-600 text-sm">₹</span>
               </div>
               <div>
-                <span className="text-gray-700 font-medium">Amount Waived: </span>
+                <span className="text-gray-700 font-medium">Total Amount Waived: </span>
                 <span className="text-lg font-semibold text-amber-900">{fmt(kpi.waivedAmount)}</span>
                 {kpi.waivedAmount > 0 && (
-                  <span className="text-xs text-gray-500 ml-2">(negotiated off the bill)</span>
+                  <span className="text-xs text-gray-500 ml-2">({waivedTransactions.length} {waivedTransactions.length === 1 ? 'entry' : 'entries'})</span>
                 )}
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              {!editingWaivedAmount ? (
-                <Button 
-                  onClick={startEditingWaivedAmount}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-7 px-3 border-amber-300 text-amber-700 hover:bg-amber-100"
-                >
-                  {kpi.waivedAmount > 0 ? 'Edit' : 'Add'}
-                </Button>
-              ) : (
-                <>
+            <Button 
+              onClick={startEditingWaivedAmount}
+              size="sm"
+              variant="outline"
+              className="text-xs h-7 px-3 border-amber-300 text-amber-700 hover:bg-amber-100"
+            >
+              Add Waived Amount
+            </Button>
+          </div>
+
+          {/* Add Waived Amount Form */}
+          {editingWaivedAmount && (
+            <div className="bg-white border border-amber-300 rounded-lg p-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-gray-600 block mb-1">Amount *</label>
                   <Input
                     type="number"
                     step="0.01"
                     min="0"
                     value={waivedAmountInput}
                     onChange={(e) => setWaivedAmountInput(e.target.value)}
-                    placeholder="Amount"
-                    className="w-24 h-7 text-xs text-right"
+                    placeholder="Amount waived"
+                    className="h-8 text-sm"
                   />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 block mb-1">Date *</label>
+                  <Input
+                    type="date"
+                    value={waivedDateInput}
+                    onChange={(e) => setWaivedDateInput(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="md:col-span-1 flex items-end gap-2">
                   <Button 
                     onClick={updateWaivedAmount}
                     size="sm"
-                    className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                    className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
                   >
                     Save
                   </Button>
@@ -775,14 +808,46 @@ export default function Page() {
                     onClick={cancelEditingWaivedAmount}
                     size="sm"
                     variant="outline"
-                    className="h-7 px-2 text-xs"
+                    className="h-8 px-3 text-xs"
                   >
                     Cancel
                   </Button>
-                </>
-              )}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-600 block mb-1">Notes (Optional)</label>
+                <Input
+                  type="text"
+                  value={waivedNotesInput}
+                  onChange={(e) => setWaivedNotesInput(e.target.value)}
+                  placeholder="Reason for waiving amount..."
+                  className="h-8 text-sm"
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Waived Transactions History */}
+          {waivedTransactions.length > 0 && (
+            <div className="bg-white border border-amber-200 rounded-lg p-3">
+              <h4 className="text-xs font-semibold text-gray-700 mb-2">Waived Amount History:</h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {waivedTransactions.map((wt) => (
+                  <div key={wt.id} className="flex items-start justify-between text-xs border-b border-gray-100 pb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-amber-700">{fmt(wt.amount)}</span>
+                        <span className="text-gray-500">on {formatDisplayDate(wt.waived_date)}</span>
+                      </div>
+                      {wt.notes && (
+                        <div className="text-gray-600 mt-1 italic">{wt.notes}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

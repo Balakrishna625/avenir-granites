@@ -7,14 +7,23 @@ export async function GET(req: Request) {
   const to = url.searchParams.get("to");
 
   try {
-    // Get all customers with their old due amounts and waived amounts
+    // Get all customers with their old due amounts
     const { data: customers, error: customersError } = await supabaseAdmin
       .from("customers")
-      .select("id, name, old_due_amount, waived_amount")
+      .select("id, name, old_due_amount")
       .order("name");
 
     if (customersError) {
       return NextResponse.json({ error: customersError.message }, { status: 500 });
+    }
+
+    // Get waived transactions (no date filtering - we want total waived amount across all time)
+    const { data: waivedTransactions, error: waivedError } = await supabaseAdmin
+      .from("waived_transactions")
+      .select("customer_id, amount");
+
+    if (waivedError) {
+      return NextResponse.json({ error: waivedError.message }, { status: 500 });
     }
 
     // Get consignments data with date filtering
@@ -50,6 +59,10 @@ export async function GET(req: Request) {
       // Filter consignments and transactions for this customer
       const customerConsignments = consignments.filter(c => c.customer_id === customer.id);
       const customerTransactions = transactions.filter(t => t.customer_id === customer.id);
+      
+      // Calculate total waived amount for this customer from waived_transactions
+      const customerWaivedTransactions = waivedTransactions.filter(w => w.customer_id === customer.id);
+      const waivedAmount = customerWaivedTransactions.reduce((sum, w) => sum + (w.amount || 0), 0);
 
       // Calculate totals
       const totalInvoiced = customerConsignments.reduce((sum, c) => sum + (c.total || 0), 0);
@@ -88,7 +101,6 @@ export async function GET(req: Request) {
 
       // Calculate total receivables (total invoiced + old due - total received - waived amount)
       // Waived amount is subtracted because customer won't pay it
-      const waivedAmount = customer.waived_amount || 0;
       const totalReceivables = totalInvoiced + (customer.old_due_amount || 0) - totalReceived - waivedAmount;
 
       return {
