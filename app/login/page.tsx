@@ -35,7 +35,7 @@ export default function LoginPage() {
         console.log('✅ Login successful, redirecting immediately...');
         // Redirect immediately using full page navigation
         // The cookie is set in the response headers and will be available
-        window.location.href = '/customers';
+        window.location.href = '/';
       } else {
         const data = await response.json();
         console.log('❌ Login failed:', data.error);
