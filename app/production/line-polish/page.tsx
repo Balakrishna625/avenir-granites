@@ -528,7 +528,7 @@ export default function LinePolishPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
+      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-4">
         <div className="space-y-4">
           <div className="flex justify-between items-start">
             <div>
@@ -804,7 +804,6 @@ export default function LinePolishPage() {
               </div>
             </Card>
           </div>
-        </div>
 
           {/* Add Polish Report */}
           <div className="bg-white rounded-lg shadow-sm border">
@@ -1361,6 +1360,7 @@ export default function LinePolishPage() {
               )}
             </div>
           </div>
+      </div>
     </AppLayout>
   );
 }
