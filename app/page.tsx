@@ -104,7 +104,7 @@ export default function Page() {
       receivedTotal: receivedRTGS + receivedCASH,
       oldDueAmount,
       waivedAmount,
-      totalReceivables: expectedTotal + oldDueAmount - (receivedRTGS + receivedCASH)
+      totalReceivables: expectedTotal + oldDueAmount - (receivedRTGS + receivedCASH) - waivedAmount
     };
   }, [consignments, txns, customers, customerId]);
 
@@ -622,7 +622,7 @@ export default function Page() {
       </div>
 
             {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-gray-600 uppercase tracking-wide">Total Invoiced</div>
           <div className="text-2xl font-bold text-gray-900">{fmt(kpi.expectedTotal)}</div>
@@ -645,8 +645,19 @@ export default function Page() {
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-purple-600 uppercase tracking-wide">Total Pending</div>
-          <div className="text-2xl font-bold text-purple-600">{fmt(Math.max(0, kpi.expectedTotal - kpi.receivedTotal))}</div>
+          <div className="text-2xl font-bold text-purple-600">{fmt(Math.max(0, kpi.expectedTotal - kpi.receivedTotal - kpi.waivedAmount))}</div>
+          {kpi.waivedAmount > 0 && (
+            <div className="text-xs text-amber-600 mt-1">After waived amount</div>
+          )}
         </div>
+        {/* Show Waived Amount tile */}
+        {kpi.waivedAmount > 0 && (
+          <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 shadow-sm">
+            <div className="text-xs text-amber-700 uppercase tracking-wide">Amount Waived</div>
+            <div className="text-2xl font-bold text-amber-700">{fmt(kpi.waivedAmount)}</div>
+            <div className="text-xs text-amber-600 mt-1">Negotiated off</div>
+          </div>
+        )}
         {/* Only show Total Receivables if there's an old due amount */}
         {kpi.oldDueAmount > 0 && (
           <div className="bg-white rounded-xl p-4 border shadow-sm">
