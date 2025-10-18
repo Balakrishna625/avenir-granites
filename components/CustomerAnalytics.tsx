@@ -83,6 +83,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
   const totalCustomers = filteredCustomers.length;
   const totalOutstanding = filteredCustomers.reduce((sum, c) => sum + c.totalPending, 0);
   const totalInvoiced = filteredCustomers.reduce((sum, c) => sum + c.totalInvoiced, 0);
+  const totalPreviousDues = filteredCustomers.reduce((sum, c) => sum + (c.oldDueAmount || 0), 0);
   const totalWaived = filteredCustomers.reduce((sum, c) => sum + (c.waivedAmount || 0), 0);
   const avgCollectionEfficiency = totalCustomers > 0 
     ? filteredCustomers.reduce((sum, c) => sum + c.collectionEfficiency, 0) / totalCustomers 
@@ -130,7 +131,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
       </div>
 
       {/* Overview KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -154,10 +155,20 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Outstanding</p>
+              <p className="text-sm text-gray-600">Total Pending</p>
               <p className="text-2xl font-bold text-gray-900">{fmt(totalOutstanding)}</p>
             </div>
-            <AlertCircle className="w-8 h-8 text-red-500" />
+            <AlertCircle className="w-8 h-8 text-purple-500" />
+          </div>
+        </Card>
+
+        <Card className="p-4 bg-orange-50 border-orange-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-orange-700">Total Previous Dues</p>
+              <p className="text-2xl font-bold text-orange-900">{fmt(totalPreviousDues)}</p>
+            </div>
+            <AlertCircle className="w-8 h-8 text-orange-600" />
           </div>
         </Card>
 
