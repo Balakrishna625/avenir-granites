@@ -29,16 +29,23 @@ interface LinePolishReport {
   id: string;
   date: string;
   shift: 'MORNING' | 'NIGHT';
-  activity: ActivityType;
+  activity: string; // Summary text: "S/G Polishing, B/P Grinding"
+  activities?: Array<{
+    activity: ActivityType;
+    slabs: number;
+    sqft: number;
+  }>; // JSONB array of detailed activities
   no_of_workers: number;
-  number_of_slabs: number;
-  total_sqft: number;
-  no_of_hours: number;
+  number_of_slabs: number; // Legacy - for old data
+  total_slabs?: number; // New - total across all activities
+  total_sqft: number; // Total across all activities
+  no_of_hours: number; // Total hours for entire shift
   rate_per_hour: number;
-  debit_amount: number;
+  debit_amount: number; // Total amount for entire shift
   remarks?: string;
   created_at: string;
   updated_at: string;
+  entry_group_id?: string; // No longer needed but kept for compatibility
 }
 
 interface LinePolishPayment {
@@ -324,30 +331,49 @@ export default function LinePolishPage() {
         return;
       }
 
-      // Generate a group ID for all entries
-      const entryGroupId = crypto.randomUUID();
-      const debitAmount = (parseFloat(formData.no_of_hours) || 0) * (parseFloat(formData.rate_per_hour) || 0);
+      // Calculate totals
+      const totalSlabs = formData.activityRows.reduce(
+        (sum, row) => sum + (parseInt(row.number_of_slabs) || 0), 
+        0
+      );
+      const totalSqft = formData.activityRows.reduce(
+        (sum, row) => sum + (parseFloat(row.total_sqft) || 0), 
+        0
+      );
+      const totalAmount = (parseFloat(formData.no_of_hours) || 0) * (parseFloat(formData.rate_per_hour) || 0);
 
-      // Create an array of entries, one for each activity row
-      const entries = formData.activityRows.map(row => ({
-        date: formData.date,
-        shift: formData.shift,
+      // Create activities array for JSONB storage
+      const activities = formData.activityRows.map(row => ({
         activity: row.activity,
-        no_of_workers: parseInt(formData.no_of_workers) || 3,
-        number_of_slabs: parseInt(row.number_of_slabs) || 0,
-        total_sqft: parseFloat(row.total_sqft) || 0,
-        no_of_hours: parseFloat(formData.no_of_hours) || 0,
-        rate_per_hour: parseFloat(formData.rate_per_hour) || 0,
-        debit_amount: debitAmount, // Same for all entries in the group
-        remarks: formData.remarks.trim() || null,
-        entry_group_id: entryGroupId
+        slabs: parseInt(row.number_of_slabs) || 0,
+        sqft: parseFloat(row.total_sqft) || 0
       }));
 
-      // Submit all entries
-      const response = await fetch('/api/line-polish-reports/bulk', {
+      // Create summary text for the activity column (for display/search)
+      const activitySummary = formData.activityRows
+        .map(row => row.activity)
+        .join(', ');
+
+      // Create ONE entry for the entire shift
+      const entry = {
+        date: formData.date,
+        shift: formData.shift,
+        activity: activitySummary, // "S/G Polishing, B/P Grinding"
+        activities: activities, // JSONB array with details
+        no_of_workers: parseInt(formData.no_of_workers) || 3,
+        total_slabs: totalSlabs, // Total across all activities
+        total_sqft: totalSqft, // Total across all activities
+        no_of_hours: parseFloat(formData.no_of_hours) || 0, // Total for entire shift
+        rate_per_hour: parseFloat(formData.rate_per_hour) || 0,
+        debit_amount: totalAmount, // Total amount for entire shift (NOT split)
+        remarks: formData.remarks.trim() || null
+      };
+
+      // Submit the single entry
+      const response = await fetch('/api/line-polish-reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries })
+        body: JSON.stringify(entry)
       });
 
       if (response.ok) {
@@ -361,12 +387,12 @@ export default function LinePolishPage() {
         await updateMonthlyBalance(reportMonth);
       } else {
         const error = await response.json();
-        console.error('Failed to save reports:', error);
-        alert('Failed to save reports: ' + (error.error || 'Unknown error'));
+        console.error('Failed to save report:', error);
+        alert('Failed to save report: ' + (error.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error saving reports:', error);
-      alert('Error saving reports. Please try again.');
+      console.error('Error saving report:', error);
+      alert('Error saving report. Please try again.');
     } finally {
       setLoading(false);
     }

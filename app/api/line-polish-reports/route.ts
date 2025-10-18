@@ -39,12 +39,14 @@ export async function POST(req: Request) {
     const {
       date,
       shift,
-      activity,
+      activity, // Summary text like "S/G Polishing, B/P Grinding"
+      activities, // JSONB array: [{ activity, slabs, sqft }]
       no_of_workers,
-      number_of_slabs,
-      total_sqft,
-      no_of_hours,
+      total_slabs, // Aggregate across all activities
+      total_sqft, // Aggregate across all activities
+      no_of_hours, // Total hours for entire shift
       rate_per_hour,
+      debit_amount, // Pre-calculated: no_of_hours * rate_per_hour
       remarks
     } = body;
 
@@ -56,21 +58,27 @@ export async function POST(req: Request) {
       );
     }
 
-    // Calculate debit amount
-    const debit_amount = (no_of_hours || 0) * (rate_per_hour || 0);
+    // Validate activities array
+    if (!activities || !Array.isArray(activities) || activities.length === 0) {
+      return NextResponse.json(
+        { error: "At least one activity is required in activities array" },
+        { status: 400 }
+      );
+    }
 
     const { data, error } = await supabaseAdmin
       .from("line_polish_reports")
       .insert({
         date,
         shift,
-        activity,
-        no_of_workers: no_of_workers || 3, // Default to 3
-        number_of_slabs: number_of_slabs || 0,
-        total_sqft: total_sqft || 0,
-        no_of_hours: no_of_hours || 0,
-        rate_per_hour: rate_per_hour || 250, // Default to 250
-        debit_amount,
+        activity, // Summary text for display
+        activities, // JSONB array with detailed breakdown
+        no_of_workers: no_of_workers || 3,
+        total_slabs: total_slabs || 0, // Sum of all activities' slabs
+        total_sqft: total_sqft || 0, // Sum of all activities' sqft
+        no_of_hours: no_of_hours || 0, // Total hours for ENTIRE shift
+        rate_per_hour: rate_per_hour || 250,
+        debit_amount: debit_amount || 0, // Total amount for ENTIRE shift (not split per activity)
         remarks
       })
       .select()
