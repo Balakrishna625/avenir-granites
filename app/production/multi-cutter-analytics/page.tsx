@@ -199,76 +199,83 @@ export default function MultiCutterAnalyticsPage() {
     <AppLayout>
       <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
         {/* Header */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Multi-Cutter Analytics</h1>
-              <p className="text-gray-600 mt-1">Production Performance & Machine Efficiency Tracking</p>
-            </div>
-            <Link href="/production/multi-cutter">
-              <Button className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Multi Cutter Report
-              </Button>
-            </Link>
-          </div>
-          
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-              <select 
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-              >
-                {years.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-              <select 
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-              >
-                {months.map(month => (
-                  <option key={month.value} value={month.value}>{month.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-            </div>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setDateFrom("");
-                setDateTo("");
-                setSelectedMonth("");
-                setSelectedYear(new Date().getFullYear().toString());
-              }}
-              className="w-full"
-            >
-              Clear Filters
-            </Button>
-          </div>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Multi-Cutter Analytics</h1>
+          <p className="text-gray-600 mt-1">Production Performance & Machine Efficiency Tracking</p>
         </div>
+          
+        {/* Filters Section */}
+        <Card className="p-4 bg-white border-gray-200">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            {/* Left side: Date filters */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 flex-1">
+              <div className="flex-1 min-w-[140px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex-1 min-w-[140px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                  setSelectedMonth("");
+                  setSelectedYear(new Date().getFullYear().toString());
+                }}
+                className="whitespace-nowrap"
+              >
+                Clear Filters
+              </Button>
+            </div>
+            
+            {/* Right side: Month selector */}
+            <div className="flex items-end gap-2">
+              <div className="min-w-[100px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                >
+                  {years.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="min-w-[140px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                >
+                  {months.map(month => (
+                    <option key={month.value} value={month.value}>{month.label}</option>
+                  ))}
+                </select>
+              </div>
+              <Link href="/production/multi-cutter">
+                <Button className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Report
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
 
         {/* ========== KEY PRODUCTION METRICS (ROW 1) ========== */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

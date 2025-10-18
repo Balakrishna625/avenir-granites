@@ -345,23 +345,79 @@ export default function MultiCutterPage() {
     <AppLayout>
       <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Multi Cutter Production Data</h1>
-            <p className="text-gray-600 mt-1">Track daily granite block cutting from 3 machines</p>
-          </div>
-          <Button 
-            onClick={() => {
-              resetForm();
-              setEditingId(null);
-              setShowForm(true);
-            }}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Multi Cutter Report
-          </Button>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Multi Cutter Production Data</h1>
+          <p className="text-gray-600 mt-1">Track daily granite block cutting from 3 machines</p>
         </div>
+
+        {/* Filters Section */}
+        <Card className="p-4 bg-white border-gray-200">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <label className="text-sm font-medium text-gray-700">From</label>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">To</label>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-40"
+                />
+              </div>
+              {(dateFrom || dateTo) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Month</label>
+              <select
+                value={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+                onChange={(e) => {
+                  const [year, month] = e.target.value.split('-');
+                  const firstDay = `${year}-${month}-01`;
+                  const lastDay = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+                  setDateFrom(firstDay);
+                  setDateTo(lastDay);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                {Array.from({ length: 12 }, (_, i) => {
+                  const year = new Date().getFullYear();
+                  const currentMonth = new Date().getMonth();
+                  const monthIndex = (currentMonth - i + 12) % 12;
+                  const displayYear = currentMonth - i < 0 ? year - 1 : year;
+                  const date = new Date(displayYear, monthIndex, 1);
+                  const value = `${displayYear}-${String(monthIndex + 1).padStart(2, '0')}`;
+                  const label = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                  return (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+        </Card>
 
         {/* Summary Tiles */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -444,6 +500,21 @@ export default function MultiCutterPage() {
               <Factory className="w-8 h-8 text-purple-600" />
             </div>
           </Card>
+        </div>
+
+        {/* Add Report Button */}
+        <div className="flex justify-center">
+          <Button 
+            onClick={() => {
+              resetForm();
+              setEditingId(null);
+              setShowForm(true);
+            }}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-md hover:shadow-lg"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add Multi Cutter Report
+          </Button>
         </div>
 
         {/* Add/Edit Form */}
