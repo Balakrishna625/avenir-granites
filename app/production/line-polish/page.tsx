@@ -369,11 +369,14 @@ export default function LinePolishPage() {
         remarks: formData.remarks.trim() || null
       };
 
-      // Submit the single entry
-      const response = await fetch('/api/line-polish-reports', {
-        method: 'POST',
+      // Submit the single entry (POST for new, PUT for edit)
+      const url = isEditing ? `/api/line-polish-reports?id=${editingId}` : '/api/line-polish-reports';
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry)
+        body: JSON.stringify(isEditing ? { ...entry, id: editingId } : entry)
       });
 
       if (response.ok) {
@@ -399,8 +402,29 @@ export default function LinePolishPage() {
   };
 
   const handleEdit = (report: LinePolishReport) => {
-    // For now, editing is simplified - creates a new single-row entry with the report's data
-    // TODO: Future enhancement - support editing grouped entries
+    // Reconstruct activity rows from JSONB activities array
+    let activityRows: ActivityRow[];
+    
+    if (report.activities && Array.isArray(report.activities) && report.activities.length > 0) {
+      // New format: Use activities JSONB array
+      activityRows = report.activities.map(act => ({
+        id: crypto.randomUUID(),
+        activity: act.activity as ActivityType,
+        number_of_slabs: act.slabs.toString(),
+        total_sqft: act.sqft.toString()
+      }));
+    } else {
+      // Fallback for old format: Use the old fields
+      activityRows = [
+        {
+          id: crypto.randomUUID(),
+          activity: 'S/G Polishing' as ActivityType, // Default to a valid type
+          number_of_slabs: (report.number_of_slabs || 0).toString(),
+          total_sqft: (report.total_sqft || 0).toString()
+        }
+      ];
+    }
+
     setFormData({
       date: report.date,
       shift: report.shift,
@@ -408,14 +432,7 @@ export default function LinePolishPage() {
       no_of_hours: report.no_of_hours.toString(),
       rate_per_hour: report.rate_per_hour.toString(),
       remarks: report.remarks || '',
-      activityRows: [
-        {
-          id: crypto.randomUUID(),
-          activity: report.activity,
-          number_of_slabs: report.number_of_slabs.toString(),
-          total_sqft: report.total_sqft.toString()
-        }
-      ]
+      activityRows: activityRows
     });
     setIsEditing(true);
     setEditingId(report.id);

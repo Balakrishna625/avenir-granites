@@ -102,12 +102,14 @@ export async function PUT(req: Request) {
       id,
       date,
       shift,
-      activity,
+      activity, // Summary text
+      activities, // JSONB array
       no_of_workers,
-      number_of_slabs,
-      total_sqft,
+      total_slabs, // Aggregate
+      total_sqft, // Aggregate
       no_of_hours,
       rate_per_hour,
+      debit_amount, // Pre-calculated
       remarks
     } = body;
 
@@ -115,23 +117,32 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    // Calculate debit amount
-    const debit_amount = (no_of_hours || 0) * (rate_per_hour || 0);
+    const updateData: any = {
+      date,
+      shift,
+      no_of_workers: no_of_workers || 3,
+      no_of_hours: no_of_hours || 0,
+      rate_per_hour: rate_per_hour || 250,
+      debit_amount: debit_amount || (no_of_hours || 0) * (rate_per_hour || 0),
+      remarks
+    };
+
+    // If activities array is provided, use new JSONB format
+    if (activities && Array.isArray(activities) && activities.length > 0) {
+      updateData.activity = activity; // Summary text
+      updateData.activities = activities; // JSONB array
+      updateData.total_slabs = total_slabs || 0;
+      updateData.total_sqft = total_sqft || 0;
+    } else {
+      // Fallback for old format (backward compatibility)
+      updateData.activity = activity;
+      updateData.number_of_slabs = body.number_of_slabs || 0;
+      updateData.total_sqft = body.total_sqft || 0;
+    }
 
     const { data, error } = await supabaseAdmin
       .from("line_polish_reports")
-      .update({
-        date,
-        shift,
-        activity,
-        no_of_workers: no_of_workers || 3,
-        number_of_slabs: number_of_slabs || 0,
-        total_sqft: total_sqft || 0,
-        no_of_hours: no_of_hours || 0,
-        rate_per_hour: rate_per_hour || 250,
-        debit_amount,
-        remarks
-      })
+      .update(updateData)
       .eq("id", id)
       .select()
       .single();
