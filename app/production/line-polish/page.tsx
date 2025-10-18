@@ -738,86 +738,86 @@ export default function LinePolishPage() {
           </div>
 
           {/* Metrics Tiles */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Card className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Workers</p>
-                  <p className="text-2xl font-bold text-gray-900">3</p>
+                  <p className="text-xs text-gray-600">Total Workers</p>
+                  <p className="text-xl font-bold text-gray-900">3</p>
                 </div>
-                <Users className="w-8 h-8 text-green-500" />
+                <Users className="w-6 h-6 text-green-500" />
               </div>
             </Card>
 
-            <Card className="p-4">
+            <Card className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Slabs</p>
-                  <p className="text-2xl font-bold text-gray-900">{monthReports.reduce((sum, r) => sum + r.number_of_slabs, 0).toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-600">Total Slabs</p>
+                  <p className="text-xl font-bold text-gray-900">{monthReports.reduce((sum, r) => sum + r.number_of_slabs, 0).toLocaleString('en-IN')}</p>
                 </div>
-                <Layers className="w-8 h-8 text-indigo-500" />
+                <Layers className="w-6 h-6 text-indigo-500" />
               </div>
             </Card>
 
-            <Card className="p-4">
+            <Card className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total SqFt</p>
-                  <p className="text-2xl font-bold text-gray-900">{(metrics.polishingSqft + metrics.grindingSqft).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-gray-600">Total SqFt</p>
+                  <p className="text-xl font-bold text-gray-900">{(metrics.polishingSqft + metrics.grindingSqft).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                 </div>
-                <BarChart3 className="w-8 h-8 text-orange-500" />
+                <BarChart3 className="w-6 h-6 text-orange-500" />
               </div>
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Card className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Hours</p>
-                  <p className="text-2xl font-bold text-gray-900">{metrics.totalHours.toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-600">Total Hours</p>
+                  <p className="text-xl font-bold text-gray-900">{metrics.totalHours.toLocaleString('en-IN')}</p>
                 </div>
-                <Clock className="w-8 h-8 text-blue-500" />
+                <Clock className="w-6 h-6 text-blue-500" />
               </div>
             </Card>
 
-            <Card className="p-4">
+            <Card className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-red-600">Total Debit</p>
-                  <p className="text-2xl font-bold text-red-900">{fmt(metrics.totalAmount)}</p>
+                  <p className="text-xs text-red-600">Total Debit</p>
+                  <p className="text-xl font-bold text-red-900">{fmt(metrics.totalAmount)}</p>
                 </div>
-                <DollarSign className="w-8 h-8 text-red-500" />
+                <DollarSign className="w-6 h-6 text-red-500" />
               </div>
             </Card>
 
-            <Card className="p-4 bg-purple-50 border-purple-200">
+            <Card className="p-3 bg-purple-50 border-purple-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-purple-700">Previous Due</p>
-                  <p className="text-2xl font-bold text-purple-900">{fmt(metrics.totalPreviousDues)}</p>
+                  <p className="text-xs text-purple-700">Previous Due</p>
+                  <p className="text-xl font-bold text-purple-900">{fmt(metrics.totalPreviousDues)}</p>
                 </div>
-                <TrendingUp className="w-8 h-8 text-purple-600" />
+                <TrendingUp className="w-6 h-6 text-purple-600" />
               </div>
             </Card>
 
-            <Card className="p-4 bg-green-50 border-green-200">
+            <Card className="p-3 bg-green-50 border-green-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-green-700">Total Credit</p>
-                  <p className="text-2xl font-bold text-green-900">{fmt(metrics.totalPaid)}</p>
+                  <p className="text-xs text-green-700">Total Credit</p>
+                  <p className="text-xl font-bold text-green-900">{fmt(metrics.totalPaid)}</p>
                 </div>
-                <CreditCard className="w-8 h-8 text-green-600" />
+                <CreditCard className="w-6 h-6 text-green-600" />
               </div>
             </Card>
 
-            <Card className="p-4 bg-amber-50 border-amber-200">
+            <Card className="p-3 bg-amber-50 border-amber-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-amber-700">Final Balance Due</p>
-                  <p className="text-2xl font-bold text-amber-900">{fmt(metrics.pending)}</p>
+                  <p className="text-xs text-amber-700">Final Balance Due</p>
+                  <p className="text-xl font-bold text-amber-900">{fmt(metrics.pending)}</p>
                 </div>
-                <AlertCircle className="w-8 h-8 text-amber-600" />
+                <AlertCircle className="w-6 h-6 text-amber-600" />
               </div>
             </Card>
           </div>
