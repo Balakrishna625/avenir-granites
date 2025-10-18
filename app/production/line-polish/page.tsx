@@ -874,7 +874,7 @@ export default function LinePolishPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-600">Total Slabs</p>
-                  <p className="text-xl font-bold text-gray-900">{monthReports.reduce((sum, r) => sum + r.number_of_slabs, 0).toLocaleString('en-IN')}</p>
+                  <p className="text-xl font-bold text-gray-900">{monthReports.reduce((sum, r) => sum + (r.total_slabs || r.number_of_slabs || 0), 0).toLocaleString('en-IN')}</p>
                 </div>
                 <Layers className="w-6 h-6 text-indigo-500" />
               </div>
@@ -1375,7 +1375,7 @@ export default function LinePolishPage() {
                           </span>
                         </td>
                         <td className="py-3 px-4">{report.no_of_workers}</td>
-                        <td className="py-3 px-4 text-right">{report.number_of_slabs}</td>
+                        <td className="py-3 px-4 text-right">{report.total_slabs || report.number_of_slabs || 0}</td>
                         <td className="py-3 px-4 text-right">{report.total_sqft}</td>
                         <td className="py-3 px-4 text-right">{report.no_of_hours}</td>
                         <td className="py-3 px-4 text-right">₹{parseFloat(report.debit_amount.toString()).toLocaleString('en-IN')}</td>
