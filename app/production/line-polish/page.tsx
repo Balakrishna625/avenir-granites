@@ -1569,6 +1569,157 @@ export default function LinePolishPage() {
               )}
             </div>
           </div>
+
+          {/* Material-wise Activity Summary */}
+          <div className="bg-white rounded-lg shadow-sm border">
+            <div className="px-6 py-4 border-b bg-indigo-50">
+              <h3 className="text-lg font-semibold text-indigo-900">
+                Activity Summary for {new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+              </h3>
+              <p className="text-sm text-indigo-600 mt-1">Material-wise breakdown of polished/ground slabs</p>
+            </div>
+            
+            <div className="overflow-x-auto">
+              {(() => {
+                // Calculate activity summary from JSONB activities
+                const activitySummary: Record<string, { slabs: number; sqft: number; count: number }> = {};
+                
+                monthReports.forEach(report => {
+                  if (report.activities && Array.isArray(report.activities)) {
+                    // New format: Parse JSONB activities array
+                    report.activities.forEach((act: any) => {
+                      const activityName = act.activity;
+                      if (!activitySummary[activityName]) {
+                        activitySummary[activityName] = { slabs: 0, sqft: 0, count: 0 };
+                      }
+                      activitySummary[activityName].slabs += act.slabs || 0;
+                      activitySummary[activityName].sqft += act.sqft || 0;
+                      activitySummary[activityName].count += 1;
+                    });
+                  } else if (report.activity) {
+                    // Fallback for old format: Use activity field
+                    const activityName = report.activity;
+                    if (!activitySummary[activityName]) {
+                      activitySummary[activityName] = { slabs: 0, sqft: 0, count: 0 };
+                    }
+                    activitySummary[activityName].slabs += report.number_of_slabs || 0;
+                    activitySummary[activityName].sqft += report.total_sqft || 0;
+                    activitySummary[activityName].count += 1;
+                  }
+                });
+
+                // Sort by total slabs descending
+                const sortedActivities = Object.entries(activitySummary)
+                  .sort(([, a], [, b]) => b.slabs - a.slabs);
+
+                // Group by granite type for summary cards
+                const graniteTypeSummary: Record<string, { slabs: number; sqft: number }> = {
+                  'S/G (Sadarahalli)': { slabs: 0, sqft: 0 },
+                  'B/P (Black Pearl)': { slabs: 0, sqft: 0 },
+                  'Burgandy': { slabs: 0, sqft: 0 },
+                  'Other': { slabs: 0, sqft: 0 }
+                };
+
+                sortedActivities.forEach(([activity, stats]) => {
+                  if (activity.startsWith('S/G')) {
+                    graniteTypeSummary['S/G (Sadarahalli)'].slabs += stats.slabs;
+                    graniteTypeSummary['S/G (Sadarahalli)'].sqft += stats.sqft;
+                  } else if (activity.startsWith('B/P')) {
+                    graniteTypeSummary['B/P (Black Pearl)'].slabs += stats.slabs;
+                    graniteTypeSummary['B/P (Black Pearl)'].sqft += stats.sqft;
+                  } else if (activity.startsWith('Burgandy')) {
+                    graniteTypeSummary['Burgandy'].slabs += stats.slabs;
+                    graniteTypeSummary['Burgandy'].sqft += stats.sqft;
+                  } else {
+                    graniteTypeSummary['Other'].slabs += stats.slabs;
+                    graniteTypeSummary['Other'].sqft += stats.sqft;
+                  }
+                });
+
+                return (
+                  <>
+                    {/* Granite Type Summary Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 border-b">
+                      {Object.entries(graniteTypeSummary).map(([type, stats]) => (
+                        stats.slabs > 0 && (
+                          <Card key={type} className="p-3">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">{type}</h4>
+                            <div className="space-y-1">
+                              <p className="text-xs text-gray-600">
+                                Slabs: <span className="font-bold text-indigo-600">{stats.slabs.toLocaleString('en-IN')}</span>
+                              </p>
+                              <p className="text-xs text-gray-600">
+                                Sqft: <span className="font-bold text-indigo-600">{stats.sqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                              </p>
+                            </div>
+                          </Card>
+                        )
+                      ))}
+                    </div>
+
+                    {/* Detailed Activity Table */}
+                    {sortedActivities.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-600">No activity data for this month.</p>
+                      </div>
+                    ) : (
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left py-3 px-4 font-medium text-gray-700">Activity Type</th>
+                            <th className="text-center py-3 px-4 font-medium text-gray-700">Times Done</th>
+                            <th className="text-right py-3 px-4 font-medium text-gray-700">Total Slabs</th>
+                            <th className="text-right py-3 px-4 font-medium text-gray-700">Total Sqft</th>
+                            <th className="text-right py-3 px-4 font-medium text-gray-700">Avg Slabs/Time</th>
+                            <th className="text-right py-3 px-4 font-medium text-gray-700">Avg Sqft/Time</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedActivities.map(([activity, stats]) => (
+                            <tr key={activity} className="border-b hover:bg-indigo-50">
+                              <td className="py-3 px-4">
+                                <span className="font-medium text-gray-900">{activity}</span>
+                              </td>
+                              <td className="py-3 px-4 text-center text-gray-600">
+                                {stats.count}
+                              </td>
+                              <td className="py-3 px-4 text-right font-semibold text-indigo-600">
+                                {stats.slabs.toLocaleString('en-IN')}
+                              </td>
+                              <td className="py-3 px-4 text-right font-semibold text-indigo-600">
+                                {stats.sqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-3 px-4 text-right text-gray-600">
+                                {(stats.slabs / stats.count).toFixed(1)}
+                              </td>
+                              <td className="py-3 px-4 text-right text-gray-600">
+                                {(stats.sqft / stats.count).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                          {/* Total Row */}
+                          <tr className="border-t-2 bg-indigo-50 font-semibold">
+                            <td className="py-3 px-4 text-gray-900">TOTAL</td>
+                            <td className="py-3 px-4 text-center text-gray-900">
+                              {sortedActivities.reduce((sum, [, stats]) => sum + stats.count, 0)}
+                            </td>
+                            <td className="py-3 px-4 text-right text-indigo-700">
+                              {sortedActivities.reduce((sum, [, stats]) => sum + stats.slabs, 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-3 px-4 text-right text-indigo-700">
+                              {sortedActivities.reduce((sum, [, stats]) => sum + stats.sqft, 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-3 px-4"></td>
+                            <td className="py-3 px-4"></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
       </div>
     </AppLayout>
   );
