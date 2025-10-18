@@ -519,6 +519,13 @@ export default function LinePolishPage() {
 
   const metrics = calculateMetrics();
 
+  // Calculate filtered month reports for display
+  const monthReports = reports.filter(report => {
+    if (showAllRecords) return true;
+    const reportMonth = report.date.slice(0, 7);
+    return reportMonth === selectedMonth;
+  });
+
   return (
     <AppLayout>
       <div className="min-h-screen bg-gray-50 py-6">
