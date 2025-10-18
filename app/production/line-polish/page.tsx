@@ -859,7 +859,7 @@ export default function LinePolishPage() {
           </div>
 
           {/* Metrics Tiles */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -899,7 +899,9 @@ export default function LinePolishPage() {
                 <Clock className="w-8 h-8 text-blue-500" />
               </div>
             </Card>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -909,9 +911,7 @@ export default function LinePolishPage() {
                 <DollarSign className="w-8 h-8 text-red-500" />
               </div>
             </Card>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-4 bg-purple-50 border-purple-200">
               <div className="flex items-center justify-between">
                 <div>
