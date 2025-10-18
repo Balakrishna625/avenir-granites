@@ -6,6 +6,7 @@ import {
   Users, 
   DollarSign, 
   TrendingUp,
+  TrendingDown,
   Star,
   AlertCircle
 } from 'lucide-react';
@@ -20,6 +21,7 @@ interface CustomerSummary {
   totalReceived: number;
   totalPending: number;
   oldDueAmount: number;
+  waivedAmount: number;
   totalReceivables: number;
   consignmentCount: number;
   lastPaymentDate: string | null;
@@ -81,6 +83,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
   const totalCustomers = filteredCustomers.length;
   const totalOutstanding = filteredCustomers.reduce((sum, c) => sum + c.totalPending, 0);
   const totalInvoiced = filteredCustomers.reduce((sum, c) => sum + c.totalInvoiced, 0);
+  const totalWaived = filteredCustomers.reduce((sum, c) => sum + (c.waivedAmount || 0), 0);
   const avgCollectionEfficiency = totalCustomers > 0 
     ? filteredCustomers.reduce((sum, c) => sum + c.collectionEfficiency, 0) / totalCustomers 
     : 0;
@@ -98,6 +101,12 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
       const bReceivables = b.totalReceivables !== undefined ? b.totalReceivables : b.totalPending;
       return bReceivables - aReceivables;
     })
+    .slice(0, 5);
+
+  // Customers with highest waived amounts
+  const highestWaived = [...filteredCustomers]
+    .filter(c => (c.waivedAmount || 0) > 0)
+    .sort((a, b) => (b.waivedAmount || 0) - (a.waivedAmount || 0))
     .slice(0, 5);
 
   if (loading) {
@@ -121,7 +130,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
       </div>
 
       {/* Overview KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -149,6 +158,16 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
               <p className="text-2xl font-bold text-gray-900">{fmt(totalOutstanding)}</p>
             </div>
             <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+        </Card>
+
+        <Card className="p-4 bg-amber-50 border-amber-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-amber-700">Total Waived</p>
+              <p className="text-2xl font-bold text-amber-900">{fmt(totalWaived)}</p>
+            </div>
+            <TrendingDown className="w-8 h-8 text-amber-600" />
           </div>
         </Card>
         
@@ -193,8 +212,8 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
                     <p className="font-semibold text-blue-600">{fmt(customer.totalReceived)}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Pending</p>
-                    <p className="font-semibold text-red-600">{fmt(customer.totalPending)}</p>
+                    <p className="text-gray-600">Waived Amount</p>
+                    <p className="font-semibold text-amber-600">{fmt(customer.waivedAmount || 0)}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">
@@ -315,35 +334,61 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
                 </div>
               );
             })}
+            {highOutstanding.length === 0 && (
+              <p className="text-center text-gray-500 py-4 text-sm">No outstanding amounts</p>
+            )}
           </div>
         </Card>
 
-        {/* Bank Accounts Summary */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <DollarSign className="w-5 h-5 mr-2 text-green-500" />
-            Bank Collections
+        {/* Highest Waived */}
+        <Card className="p-6 bg-amber-50 border-amber-200">
+          <h3 className="text-lg font-semibold mb-4 flex items-center text-amber-900">
+            <TrendingDown className="w-5 h-5 mr-2 text-amber-600" />
+            Highest Waived
           </h3>
           <div className="space-y-3">
-            {bankAccountsSummary.map((account, index) => (
-              <div key={account.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm truncate">{account.name}</span>
-                  <span className="text-green-600 font-semibold text-sm">{fmt(account.total)}</span>
+            {highestWaived.map((customer, index) => (
+              <div key={customer.id} className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <span className="w-6 h-6 bg-amber-200 text-amber-900 rounded-full flex items-center justify-center text-xs font-medium mr-3">
+                    {index + 1}
+                  </span>
+                  <span className="font-medium text-gray-900">{customer.name}</span>
                 </div>
-                <div className="flex justify-between text-xs text-gray-600">
-                  <span>RTGS: {fmt(account.rtgs)}</span>
-                  <span>Cash: {fmt(account.cash)}</span>
-                </div>
-                {index < bankAccountsSummary.length - 1 && <div className="border-b border-gray-100"></div>}
+                <span className="text-amber-700 font-semibold">{fmt(customer.waivedAmount || 0)}</span>
               </div>
             ))}
-            {bankAccountsSummary.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-4">No payment data available</p>
+            {highestWaived.length === 0 && (
+              <p className="text-center text-amber-700 py-4 text-sm">No waived amounts</p>
             )}
           </div>
         </Card>
       </div>
+
+      {/* Bank Accounts Summary */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4 flex items-center">
+          <DollarSign className="w-5 h-5 mr-2 text-green-500" />
+          Bank Collections
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {bankAccountsSummary.map((account) => (
+            <div key={account.id} className="space-y-2 p-4 bg-gray-50 rounded-lg border">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-sm truncate">{account.name}</span>
+                <span className="text-green-600 font-semibold text-sm">{fmt(account.total)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-600">
+                <span>RTGS: {fmt(account.rtgs)}</span>
+                <span>Cash: {fmt(account.cash)}</span>
+              </div>
+            </div>
+          ))}
+          {bankAccountsSummary.length === 0 && (
+            <p className="text-sm text-gray-500 text-center py-4">No payment data available</p>
+          )}
+        </div>
+      </Card>
     </div>
   );
 }
