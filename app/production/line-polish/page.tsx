@@ -534,13 +534,14 @@ export default function LinePolishPage() {
             <div>
               <h1 className="text-2xl md:text-3xl font-semibold">Production Management</h1>
               <p className="text-gray-600">Line polish reports and analytics</p>
+              <p className="text-xs text-green-600 font-bold">✅ UPDATED VERSION - New Design Applied</p>
             </div>
-            <button
-              onClick={() => window.history.back()}
+            <a 
+              href="/"
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               ← Back to Dashboard
-            </button>
+            </a>
           </div>
 
           {/* Filters */}
