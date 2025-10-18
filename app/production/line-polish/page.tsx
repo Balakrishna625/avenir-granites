@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Edit3, Trash2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Plus, Edit3, Trash2, Users, BarChart3, Layers, TrendingUp, DollarSign, CreditCard, AlertCircle, Clock } from 'lucide-react';
 import { formatDisplayDate } from '@/lib/date-utils';
 
 interface LinePolishReport {
@@ -650,117 +651,89 @@ export default function LinePolishPage() {
             )}
           </div>
 
-          {/* Metrics Tiles - 6 Tiles */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg shadow-sm border p-5">
+          {/* Metrics Tiles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Hours Worked</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{metrics.totalHours.toLocaleString('en-IN')}</p>
-                  <p className="text-xs text-gray-500 mt-1">This month</p>
+                  <p className="text-sm text-gray-600">Total Entries</p>
+                  <p className="text-2xl font-bold text-gray-900">{monthReports.length}</p>
                 </div>
-                <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
+                <BarChart3 className="w-8 h-8 text-blue-500" />
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-white rounded-lg shadow-sm border p-5">
+            <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">SqFt Polished</p>
-                  <p className="text-2xl font-bold text-blue-600 mt-1">{metrics.polishingSqft.toLocaleString('en-IN')}</p>
-                  <p className="text-xs text-gray-500 mt-1">This month</p>
+                  <p className="text-sm text-gray-600">Total Workers</p>
+                  <p className="text-2xl font-bold text-gray-900">{monthReports.reduce((sum, r) => sum + r.no_of_workers, 0)}</p>
                 </div>
-                <div className="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                  </svg>
-                </div>
+                <Users className="w-8 h-8 text-green-500" />
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-white rounded-lg shadow-sm border p-5">
+            <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">SqFt Ground</p>
-                  <p className="text-2xl font-bold text-green-600 mt-1">{metrics.grindingSqft.toLocaleString('en-IN')}</p>
-                  <p className="text-xs text-gray-500 mt-1">This month</p>
+                  <p className="text-sm text-gray-600">Total Slabs</p>
+                  <p className="text-2xl font-bold text-gray-900">{monthReports.reduce((sum, r) => sum + r.number_of_slabs, 0).toLocaleString('en-IN')}</p>
                 </div>
-                <div className="h-12 w-12 bg-green-50 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
-                  </svg>
-                </div>
+                <Layers className="w-8 h-8 text-indigo-500" />
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-white rounded-lg shadow-sm border p-5">
+            <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total SqFt</p>
-                  <p className="text-2xl font-bold text-indigo-600 mt-1">{(metrics.polishingSqft + metrics.grindingSqft).toLocaleString('en-IN')}</p>
-                  <p className="text-xs text-gray-500 mt-1">Polishing + Grinding</p>
+                  <p className="text-sm text-gray-600">Total SqFt</p>
+                  <p className="text-2xl font-bold text-gray-900">{(metrics.polishingSqft + metrics.grindingSqft).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                 </div>
-                <div className="h-12 w-12 bg-indigo-50 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm10-8a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z" />
-                  </svg>
-                </div>
+                <BarChart3 className="w-8 h-8 text-orange-500" />
               </div>
-            </div>
+            </Card>
+          </div>
 
-            <div className="bg-white rounded-lg shadow-sm border p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Amount</p>
-                  <p className="text-2xl font-bold text-purple-600 mt-1">{fmt(metrics.totalAmount)}</p>
-                  <p className="text-xs text-gray-500 mt-1">Work done this month</p>
+                  <p className="text-sm text-gray-600">Total Hours</p>
+                  <p className="text-2xl font-bold text-gray-900">{metrics.totalHours.toLocaleString('en-IN')}</p>
                 </div>
-                <div className="h-12 w-12 bg-purple-50 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
+                <Clock className="w-8 h-8 text-blue-500" />
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-white rounded-lg shadow-sm border p-5">
+            <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Amount Paid</p>
-                  <p className="text-2xl font-bold text-green-600 mt-1">{fmt(metrics.totalPaid)}</p>
-                  <p className="text-xs text-gray-500 mt-1">Payments this month</p>
+                  <p className="text-sm text-red-600">Total Debit</p>
+                  <p className="text-2xl font-bold text-red-900">{fmt(metrics.totalAmount)}</p>
                 </div>
-                <div className="h-12 w-12 bg-green-50 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
+                <DollarSign className="w-8 h-8 text-red-500" />
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg shadow-md border-2 border-red-200 p-5">
+            <Card className="p-4 bg-green-50 border-green-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Pending Amount</p>
-                  <p className="text-2xl font-bold text-red-600 mt-1">{fmt(metrics.pending)}</p>
-                  <p className="text-xs text-red-500 mt-1">
-                    {metrics.totalPreviousDues > 0 
-                      ? `Work (${fmt(metrics.totalAmount)}) + Prev Dues (${fmt(metrics.totalPreviousDues)}) - Paid (${fmt(metrics.totalPaid)})`
-                      : `Work - Paid this month`
-                    }
-                  </p>
+                  <p className="text-sm text-green-700">Total Credit</p>
+                  <p className="text-2xl font-bold text-green-900">{fmt(metrics.totalPaid)}</p>
                 </div>
-                <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
+                <CreditCard className="w-8 h-8 text-green-600" />
               </div>
-            </div>
+            </Card>
+
+            <Card className="p-4 bg-amber-50 border-amber-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-amber-700">Balance Due</p>
+                  <p className="text-2xl font-bold text-amber-900">{fmt(metrics.pending)}</p>
+                </div>
+                <AlertCircle className="w-8 h-8 text-amber-600" />
+              </div>
+            </Card>
           </div>
 
           {/* Add Polish Report */}

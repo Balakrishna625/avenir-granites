@@ -131,7 +131,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
       </div>
 
       {/* Overview KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -139,26 +139,6 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
               <p className="text-2xl font-bold text-gray-900">{totalCustomers}</p>
             </div>
             <Users className="w-8 h-8 text-blue-500" />
-          </div>
-        </Card>
-        
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Invoiced</p>
-              <p className="text-2xl font-bold text-gray-900">{fmt(totalInvoiced)}</p>
-            </div>
-            <DollarSign className="w-8 h-8 text-green-500" />
-          </div>
-        </Card>
-        
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Pending</p>
-              <p className="text-2xl font-bold text-gray-900">{fmt(totalOutstanding)}</p>
-            </div>
-            <AlertCircle className="w-8 h-8 text-purple-500" />
           </div>
         </Card>
 
