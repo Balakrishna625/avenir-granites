@@ -8,11 +8,28 @@ import { Card } from '@/components/ui/card';
 import { Plus, Edit3, Trash2, Users, BarChart3, Layers, TrendingUp, DollarSign, CreditCard, AlertCircle, Clock } from 'lucide-react';
 import { formatDisplayDate } from '@/lib/date-utils';
 
+type ActivityType = 
+  | 'S/G Polishing'
+  | 'S/G Laputra'
+  | 'S/G Grinding'
+  | 'S/G Polish Grinding'
+  | 'S/G Laputra Grinding'
+  | 'B/P Polishing'
+  | 'B/P Laputra'
+  | 'B/P Grinding'
+  | 'B/P Polish Grinding'
+  | 'B/P Laputra Grinding'
+  | 'Burgandy Polishing'
+  | 'Burgandy Grinding'
+  | 'Burgandy Polish Grinding'
+  | 'GRINDING'  // Keep for backward compatibility
+  | 'POLISHING'; // Keep for backward compatibility
+
 interface LinePolishReport {
   id: string;
   date: string;
   shift: 'MORNING' | 'NIGHT';
-  activity: 'GRINDING' | 'POLISHING';
+  activity: ActivityType;
   no_of_workers: number;
   number_of_slabs: number;
   total_sqft: number;
@@ -58,7 +75,7 @@ interface LinePolishPreviousDue {
 interface FormData {
   date: string;
   shift: 'MORNING' | 'NIGHT';
-  activity: 'GRINDING' | 'POLISHING';
+  activity: ActivityType;
   no_of_workers: string;
   number_of_slabs: string;
   total_sqft: string;
@@ -87,7 +104,7 @@ export default function LinePolishPage() {
   // Month/Year filter states
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // Format: YYYY-MM
   const [showAllRecords, setShowAllRecords] = useState(false);
-  const [selectedActivity, setSelectedActivity] = useState<'ALL' | 'POLISHING' | 'GRINDING'>('ALL');
+  const [selectedActivity, setSelectedActivity] = useState<ActivityType | 'ALL'>('ALL');
   
   // Previous due management
   const [showPreviousDueForm, setShowPreviousDueForm] = useState(false);
@@ -101,7 +118,7 @@ export default function LinePolishPage() {
   const initialFormData: FormData = {
     date: new Date().toISOString().split('T')[0],
     shift: 'MORNING',
-    activity: 'POLISHING', // Default to POLISHING
+    activity: 'S/G Polishing', // Default to S/G Polishing
     no_of_workers: '3', // Prefilled with 3
     number_of_slabs: '',
     total_sqft: '',
@@ -848,8 +865,25 @@ export default function LinePolishPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                       required
                     >
-                      <option value="POLISHING">Polishing</option>
-                      <option value="GRINDING">Grinding</option>
+                      <optgroup label="S/G (Steel Grey)">
+                        <option value="S/G Polishing">S/G Polishing</option>
+                        <option value="S/G Laputra">S/G Laputra</option>
+                        <option value="S/G Grinding">S/G Grinding</option>
+                        <option value="S/G Polish Grinding">S/G Polish Grinding</option>
+                        <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
+                      </optgroup>
+                      <optgroup label="B/P (Black Pearl)">
+                        <option value="B/P Polishing">B/P Polishing</option>
+                        <option value="B/P Laputra">B/P Laputra</option>
+                        <option value="B/P Grinding">B/P Grinding</option>
+                        <option value="B/P Polish Grinding">B/P Polish Grinding</option>
+                        <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
+                      </optgroup>
+                      <optgroup label="Burgandy">
+                        <option value="Burgandy Polishing">Burgandy Polishing</option>
+                        <option value="Burgandy Grinding">Burgandy Grinding</option>
+                        <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
+                      </optgroup>
                     </select>
                   </div>
                   
@@ -1083,42 +1117,37 @@ export default function LinePolishPage() {
                 
                 {/* Activity Filter */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">Activity:</span>
-                  <div className="inline-flex rounded-md shadow-sm" role="group">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedActivity('ALL')}
-                      className={`px-4 py-2 text-sm font-medium border ${
-                        selectedActivity === 'ALL'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      } rounded-l-lg`}
-                    >
-                      All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedActivity('POLISHING')}
-                      className={`px-4 py-2 text-sm font-medium border-t border-b ${
-                        selectedActivity === 'POLISHING'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      Polishing
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedActivity('GRINDING')}
-                      className={`px-4 py-2 text-sm font-medium border ${
-                        selectedActivity === 'GRINDING'
-                          ? 'bg-green-600 text-white border-green-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      } rounded-r-lg`}
-                    >
-                      Grinding
-                    </button>
-                  </div>
+                  <span className="text-sm font-medium text-gray-700">Filter by Activity:</span>
+                  <select
+                    value={selectedActivity}
+                    onChange={(e) => setSelectedActivity(e.target.value as ActivityType | 'ALL')}
+                    className="px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                  >
+                    <option value="ALL">All Activities</option>
+                    <optgroup label="S/G (Steel Grey)">
+                      <option value="S/G Polishing">S/G Polishing</option>
+                      <option value="S/G Laputra">S/G Laputra</option>
+                      <option value="S/G Grinding">S/G Grinding</option>
+                      <option value="S/G Polish Grinding">S/G Polish Grinding</option>
+                      <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
+                    </optgroup>
+                    <optgroup label="B/P (Black Pearl)">
+                      <option value="B/P Polishing">B/P Polishing</option>
+                      <option value="B/P Laputra">B/P Laputra</option>
+                      <option value="B/P Grinding">B/P Grinding</option>
+                      <option value="B/P Polish Grinding">B/P Polish Grinding</option>
+                      <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
+                    </optgroup>
+                    <optgroup label="Burgandy">
+                      <option value="Burgandy Polishing">Burgandy Polishing</option>
+                      <option value="Burgandy Grinding">Burgandy Grinding</option>
+                      <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
+                    </optgroup>
+                    <optgroup label="Legacy (Old Data)">
+                      <option value="POLISHING">Polishing (Old)</option>
+                      <option value="GRINDING">Grinding (Old)</option>
+                    </optgroup>
+                  </select>
                 </div>
               </div>
               
