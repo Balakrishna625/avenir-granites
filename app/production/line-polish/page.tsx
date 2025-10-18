@@ -528,13 +528,88 @@ export default function LinePolishPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-gray-50 py-6">
-        <div className="w-full max-w-none mx-auto px-6 space-y-6">
+      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
+        <div className="space-y-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-semibold">Production Management</h1>
+              <p className="text-gray-600">Line polish reports and analytics</p>
+            </div>
+            <button
+              onClick={() => window.history.back()}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              ← Back to Dashboard
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+              <select
+                value={new Date(selectedMonth + '-01').getFullYear()}
+                onChange={(e) => {
+                  const currentMonth = new Date(selectedMonth + '-01').getMonth();
+                  setSelectedMonth(`${e.target.value}-${String(currentMonth + 1).padStart(2, '0')}`);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">All Months</option>
+                {getAvailableMonths().map(month => {
+                  const date = new Date(month + '-01');
+                  const monthName = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                  return (
+                    <option key={month} value={month}>{monthName}</option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+              <Input
+                type="date"
+                placeholder="dd/mm/yyyy"
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+              <Input
+                type="date"
+                placeholder="dd/mm/yyyy"
+                className="w-full"
+              />
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full"
+            >
+              Clear Filters
+            </Button>
+          </div>
+        </div>
           
           {/* Month Selector - Top Right */}
           <div className="bg-white rounded-lg shadow-sm border p-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Line Polish Reports</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Line Polish Reports</h2>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowPreviousDueForm(!showPreviousDueForm)}
@@ -542,19 +617,6 @@ export default function LinePolishPage() {
                 >
                   + Add Previous Month Due
                 </button>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"
-                >
-                  {getAvailableMonths().map(month => {
-                    const date = new Date(month + '-01');
-                    const monthName = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-                    return (
-                      <option key={month} value={month}>{monthName}</option>
-                    );
-                  })}
-                </select>
               </div>
             </div>
 
@@ -742,6 +804,7 @@ export default function LinePolishPage() {
               </div>
             </Card>
           </div>
+        </div>
 
           {/* Add Polish Report */}
           <div className="bg-white rounded-lg shadow-sm border">
@@ -1298,8 +1361,6 @@ export default function LinePolishPage() {
               )}
             </div>
           </div>
-        </div>
-      </div>
     </AppLayout>
   );
 }
