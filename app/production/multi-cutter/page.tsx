@@ -824,37 +824,6 @@ export default function MultiCutterPage() {
           </Card>
         )}
 
-        {/* Filters */}
-        <Card className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-            </div>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setDateFrom("");
-                setDateTo("");
-              }}
-            >
-              Clear Filters
-            </Button>
-          </div>
-        </Card>
-
         {/* Reports Table - Grouped by Date */}
         <Card className="p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
