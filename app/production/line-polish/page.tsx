@@ -72,17 +72,22 @@ interface LinePolishPreviousDue {
   created_at: string;
 }
 
+// Activity detail row for grouped entries
+interface ActivityRow {
+  id: string; // Temporary ID for React keys
+  activity: ActivityType;
+  number_of_slabs: string;
+  total_sqft: string;
+}
+
 interface FormData {
   date: string;
   shift: 'MORNING' | 'NIGHT';
-  activity: ActivityType;
   no_of_workers: string;
-  number_of_slabs: string;
-  total_sqft: string;
   no_of_hours: string;
   rate_per_hour: string;
-  debit_amount: string;
   remarks: string;
+  activityRows: ActivityRow[]; // Multiple activity rows
 }
 
 const fmt = (value: string | number): string => {
@@ -118,14 +123,18 @@ export default function LinePolishPage() {
   const initialFormData: FormData = {
     date: new Date().toISOString().split('T')[0],
     shift: 'MORNING',
-    activity: 'S/G Polishing', // Default to S/G Polishing
     no_of_workers: '3', // Prefilled with 3
-    number_of_slabs: '',
-    total_sqft: '',
     no_of_hours: '',
     rate_per_hour: '250', // Prefilled with 250
-    debit_amount: '',
-    remarks: ''
+    remarks: '',
+    activityRows: [
+      {
+        id: crypto.randomUUID(),
+        activity: 'S/G Polishing',
+        number_of_slabs: '',
+        total_sqft: ''
+      }
+    ]
   };
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -254,31 +263,91 @@ export default function LinePolishPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleActivityRowChange = (rowId: string, field: keyof ActivityRow, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      activityRows: prev.activityRows.map(row =>
+        row.id === rowId ? { ...row, [field]: value } : row
+      )
+    }));
+  };
+
+  const addActivityRow = () => {
+    setFormData(prev => ({
+      ...prev,
+      activityRows: [
+        ...prev.activityRows,
+        {
+          id: crypto.randomUUID(),
+          activity: 'S/G Polishing',
+          number_of_slabs: '',
+          total_sqft: ''
+        }
+      ]
+    }));
+  };
+
+  const removeActivityRow = (rowId: string) => {
+    if (formData.activityRows.length <= 1) {
+      alert('At least one activity is required');
+      return;
+    }
+    setFormData(prev => ({
+      ...prev,
+      activityRows: prev.activityRows.filter(row => row.id !== rowId)
+    }));
+  };
+
+  const calculateTotals = () => {
+    const totalSlabs = formData.activityRows.reduce(
+      (sum, row) => sum + (parseInt(row.number_of_slabs) || 0), 
+      0
+    );
+    const totalSqft = formData.activityRows.reduce(
+      (sum, row) => sum + (parseFloat(row.total_sqft) || 0), 
+      0
+    );
+    const totalAmount = (parseFloat(formData.no_of_hours) || 0) * (parseFloat(formData.rate_per_hour) || 0);
+    
+    return { totalSlabs, totalSqft, totalAmount };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const submitData = {
+      // Validate that we have at least one activity
+      if (formData.activityRows.length === 0) {
+        alert('Please add at least one activity');
+        setLoading(false);
+        return;
+      }
+
+      // Generate a group ID for all entries
+      const entryGroupId = crypto.randomUUID();
+      const debitAmount = (parseFloat(formData.no_of_hours) || 0) * (parseFloat(formData.rate_per_hour) || 0);
+
+      // Create an array of entries, one for each activity row
+      const entries = formData.activityRows.map(row => ({
         date: formData.date,
         shift: formData.shift,
-        activity: formData.activity,
-        no_of_workers: parseInt(formData.no_of_workers) || 0,
-        number_of_slabs: parseInt(formData.number_of_slabs) || 0,
-        total_sqft: parseFloat(formData.total_sqft) || 0,
+        activity: row.activity,
+        no_of_workers: parseInt(formData.no_of_workers) || 3,
+        number_of_slabs: parseInt(row.number_of_slabs) || 0,
+        total_sqft: parseFloat(row.total_sqft) || 0,
         no_of_hours: parseFloat(formData.no_of_hours) || 0,
         rate_per_hour: parseFloat(formData.rate_per_hour) || 0,
-        debit_amount: parseFloat(formData.debit_amount) || 0,
-        remarks: formData.remarks.trim() || null
-      };
+        debit_amount: debitAmount, // Same for all entries in the group
+        remarks: formData.remarks.trim() || null,
+        entry_group_id: entryGroupId
+      }));
 
-      const url = isEditing && editingId ? `/api/line-polish-reports/${editingId}` : '/api/line-polish-reports';
-      const method = isEditing ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
+      // Submit all entries
+      const response = await fetch('/api/line-polish-reports/bulk', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitData)
+        body: JSON.stringify({ entries })
       });
 
       if (response.ok) {
@@ -288,30 +357,39 @@ export default function LinePolishPage() {
         await fetchReports();
         
         // Update monthly balance for the report's month
-        const reportMonth = submitData.date.slice(0, 7);
+        const reportMonth = formData.date.slice(0, 7);
         await updateMonthlyBalance(reportMonth);
       } else {
-        console.error('Failed to save report');
+        const error = await response.json();
+        console.error('Failed to save reports:', error);
+        alert('Failed to save reports: ' + (error.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error saving report:', error);
+      console.error('Error saving reports:', error);
+      alert('Error saving reports. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleEdit = (report: LinePolishReport) => {
+    // For now, editing is simplified - creates a new single-row entry with the report's data
+    // TODO: Future enhancement - support editing grouped entries
     setFormData({
       date: report.date,
       shift: report.shift,
-      activity: report.activity,
       no_of_workers: report.no_of_workers.toString(),
-      number_of_slabs: report.number_of_slabs.toString(),
-      total_sqft: report.total_sqft.toString(),
       no_of_hours: report.no_of_hours.toString(),
       rate_per_hour: report.rate_per_hour.toString(),
-      debit_amount: report.debit_amount.toString(),
-      remarks: report.remarks || ''
+      remarks: report.remarks || '',
+      activityRows: [
+        {
+          id: crypto.randomUUID(),
+          activity: report.activity,
+          number_of_slabs: report.number_of_slabs.toString(),
+          total_sqft: report.total_sqft.toString()
+        }
+      ]
     });
     setIsEditing(true);
     setEditingId(report.id);
@@ -826,174 +904,233 @@ export default function LinePolishPage() {
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="px-6 py-4 border-b">
               <h2 className="text-lg font-semibold text-gray-900">
-                {isEditing ? 'Edit Line Polish Report' : 'Line Polish Reports'}
+                {isEditing ? 'Edit Line Polish Report' : 'Add Line Polish Report'}
               </h2>
+              <p className="text-sm text-gray-600 mt-1">Enter common details and add multiple activities for the same shift</p>
             </div>
             
             <div className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                    <Input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => handleInputChange('date', e.target.value)}
-                      placeholder="dd/mm/yyyy"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Shift</label>
-                    <select
-                      value={formData.shift}
-                      onChange={(e) => handleInputChange('shift', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      required
-                    >
-                      <option value="MORNING">A (Morning)</option>
-                      <option value="NIGHT">B (Night)</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Activity</label>
-                    <select
-                      value={formData.activity}
-                      onChange={(e) => handleInputChange('activity', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      required
-                    >
-                      <optgroup label="S/G (Steel Grey)">
-                        <option value="S/G Polishing">S/G Polishing</option>
-                        <option value="S/G Laputra">S/G Laputra</option>
-                        <option value="S/G Grinding">S/G Grinding</option>
-                        <option value="S/G Polish Grinding">S/G Polish Grinding</option>
-                        <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
-                      </optgroup>
-                      <optgroup label="B/P (Black Pearl)">
-                        <option value="B/P Polishing">B/P Polishing</option>
-                        <option value="B/P Laputra">B/P Laputra</option>
-                        <option value="B/P Grinding">B/P Grinding</option>
-                        <option value="B/P Polish Grinding">B/P Polish Grinding</option>
-                        <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
-                      </optgroup>
-                      <optgroup label="Burgandy">
-                        <option value="Burgandy Polishing">Burgandy Polishing</option>
-                        <option value="Burgandy Grinding">Burgandy Grinding</option>
-                        <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
-                      </optgroup>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Workers</label>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="Enter workers count"
-                      value={formData.no_of_workers}
-                      onChange={(e) => handleInputChange('no_of_workers', e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Slabs</label>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="Enter slabs count"
-                      value={formData.number_of_slabs}
-                      onChange={(e) => handleInputChange('number_of_slabs', e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Sq Ft</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="Enter area"
-                      value={formData.total_sqft}
-                      onChange={(e) => handleInputChange('total_sqft', e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hours</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      placeholder="Enter hours"
-                      value={formData.no_of_hours}
-                      onChange={(e) => handleInputChange('no_of_hours', e.target.value)}
-                    />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Common Fields - Date, Shift, Workers, Hours, Rate */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Shift Details (Common for all activities)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+                      <Input
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => handleInputChange('date', e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Shift *</label>
+                      <select
+                        value={formData.shift}
+                        onChange={(e) => handleInputChange('shift', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                        required
+                      >
+                        <option value="MORNING">A (Morning)</option>
+                        <option value="NIGHT">B (Night)</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Workers</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={formData.no_of_workers}
+                        onChange={(e) => handleInputChange('no_of_workers', e.target.value)}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Total Hours *</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        placeholder="145"
+                        value={formData.no_of_hours}
+                        onChange={(e) => handleInputChange('no_of_hours', e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Rate/Hr (₹)</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={formData.rate_per_hour}
+                        onChange={(e) => handleInputChange('rate_per_hour', e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Rate/Hr (₹)</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      placeholder="Enter rate per hour"
-                      value={formData.rate_per_hour}
-                      onChange={(e) => handleInputChange('rate_per_hour', e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Amount (₹)</label>
-                    <Input
-                      type="text"
-                      value={fmt(formData.debit_amount)}
-                      className="bg-gray-50 font-semibold text-blue-700"
-                      readOnly
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Remarks (Optional)</label>
-                    <Input
-                      type="text"
-                      placeholder="Enter any remarks"
-                      value={formData.remarks}
-                      onChange={(e) => handleInputChange('remarks', e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="flex items-end">
-                    {isEditing && (
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => {
-                          setFormData(initialFormData);
-                          setIsEditing(false);
-                          setEditingId(null);
-                        }}
-                        className="mr-2"
-                      >
-                        Cancel
-                      </Button>
-                    )}
-                    <Button 
-                      type="submit" 
-                      disabled={loading}
-                      className="bg-black text-white hover:bg-gray-800 flex items-center"
+
+                {/* Activity Rows */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">Activity Details</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addActivityRow}
+                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
                     >
-                      {loading ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      ) : (
-                        <Plus className="w-4 h-4 mr-2" />
-                      )}
-                      {isEditing ? 'Update Report' : 'Add Report'}
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Activity
                     </Button>
                   </div>
+
+                  {/* Activity Table */}
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Activity Type *</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Slabs</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Sq Ft</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 w-20">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {formData.activityRows.map((row, index) => (
+                          <tr key={row.id} className="bg-white hover:bg-gray-50">
+                            <td className="px-4 py-2">
+                              <select
+                                value={row.activity}
+                                onChange={(e) => handleActivityRowChange(row.id, 'activity', e.target.value)}
+                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                required
+                              >
+                                <optgroup label="S/G (Steel Grey)">
+                                  <option value="S/G Polishing">S/G Polishing</option>
+                                  <option value="S/G Laputra">S/G Laputra</option>
+                                  <option value="S/G Grinding">S/G Grinding</option>
+                                  <option value="S/G Polish Grinding">S/G Polish Grinding</option>
+                                  <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
+                                </optgroup>
+                                <optgroup label="B/P (Black Pearl)">
+                                  <option value="B/P Polishing">B/P Polishing</option>
+                                  <option value="B/P Laputra">B/P Laputra</option>
+                                  <option value="B/P Grinding">B/P Grinding</option>
+                                  <option value="B/P Polish Grinding">B/P Polish Grinding</option>
+                                  <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
+                                </optgroup>
+                                <optgroup label="Burgandy">
+                                  <option value="Burgandy Polishing">Burgandy Polishing</option>
+                                  <option value="Burgandy Grinding">Burgandy Grinding</option>
+                                  <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
+                                </optgroup>
+                              </select>
+                            </td>
+                            <td className="px-4 py-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="14"
+                                value={row.number_of_slabs}
+                                onChange={(e) => handleActivityRowChange(row.id, 'number_of_slabs', e.target.value)}
+                                className="text-sm"
+                              />
+                            </td>
+                            <td className="px-4 py-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="1234.50"
+                                value={row.total_sqft}
+                                onChange={(e) => handleActivityRowChange(row.id, 'total_sqft', e.target.value)}
+                                className="text-sm"
+                              />
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => removeActivityRow(row.id)}
+                                disabled={formData.activityRows.length === 1}
+                                className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                title="Remove activity"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Totals Summary */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Total Slabs:</span>
+                        <span className="ml-2 font-semibold text-gray-900">{calculateTotals().totalSlabs}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Total Sq Ft:</span>
+                        <span className="ml-2 font-semibold text-gray-900">{calculateTotals().totalSqft.toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Total Amount:</span>
+                        <span className="ml-2 font-semibold text-blue-700">{fmt(calculateTotals().totalAmount)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Remarks */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Remarks (Optional)</label>
+                  <Input
+                    type="text"
+                    placeholder="Enter any notes or comments"
+                    value={formData.remarks}
+                    onChange={(e) => handleInputChange('remarks', e.target.value)}
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t">
+                  {isEditing && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {
+                        setFormData(initialFormData);
+                        setIsEditing(false);
+                        setEditingId(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <Button 
+                    type="submit" 
+                    disabled={loading}
+                    className="bg-blue-600 text-white hover:bg-blue-700 flex items-center px-6"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        {isEditing ? 'Update Report' : 'Submit All Activities'}
+                      </>
+                    )}
+                  </Button>
                 </div>
               </form>
             </div>
