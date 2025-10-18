@@ -201,7 +201,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               <span className="text-white font-bold text-sm">AG</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Business Ledger</h1>
+              <h1 className="text-lg font-bold text-gray-900">Avenir Granites</h1>
               <p className="text-xs text-gray-500">Customer & Expense Mgmt</p>
             </div>
           </div>
