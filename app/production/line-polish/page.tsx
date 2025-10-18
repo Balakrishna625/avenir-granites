@@ -721,22 +721,12 @@ export default function LinePolishPage() {
           </div>
 
           {/* Metrics Tiles */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Entries</p>
-                  <p className="text-2xl font-bold text-gray-900">{monthReports.length}</p>
-                </div>
-                <BarChart3 className="w-8 h-8 text-blue-500" />
-              </div>
-            </Card>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Total Workers</p>
-                  <p className="text-2xl font-bold text-gray-900">{monthReports.reduce((sum, r) => sum + r.no_of_workers, 0)}</p>
+                  <p className="text-2xl font-bold text-gray-900">3</p>
                 </div>
                 <Users className="w-8 h-8 text-green-500" />
               </div>
@@ -763,7 +753,7 @@ export default function LinePolishPage() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -784,6 +774,16 @@ export default function LinePolishPage() {
               </div>
             </Card>
 
+            <Card className="p-4 bg-purple-50 border-purple-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-purple-700">Previous Due</p>
+                  <p className="text-2xl font-bold text-purple-900">{fmt(metrics.totalPreviousDues)}</p>
+                </div>
+                <TrendingUp className="w-8 h-8 text-purple-600" />
+              </div>
+            </Card>
+
             <Card className="p-4 bg-green-50 border-green-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -797,7 +797,7 @@ export default function LinePolishPage() {
             <Card className="p-4 bg-amber-50 border-amber-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-amber-700">Balance Due</p>
+                  <p className="text-sm text-amber-700">Final Balance Due</p>
                   <p className="text-2xl font-bold text-amber-900">{fmt(metrics.pending)}</p>
                 </div>
                 <AlertCircle className="w-8 h-8 text-amber-600" />
