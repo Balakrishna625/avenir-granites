@@ -31,6 +31,7 @@ interface LinePolishReport {
   shift: 'MORNING' | 'NIGHT';
   activity: string; // Summary text: "S/G Polishing, B/P Grinding"
   activities?: Array<{
+    block_name?: string;
     activity: ActivityType;
     slabs: number;
     sqft: number;
@@ -347,6 +348,7 @@ export default function LinePolishPage() {
 
       // Create activities array for JSONB storage
       const activities = formData.activityRows.map(row => ({
+        block_name: row.block_name || '',
         activity: row.activity,
         slabs: parseInt(row.number_of_slabs) || 0,
         sqft: parseFloat(row.total_sqft) || 0
@@ -412,6 +414,7 @@ export default function LinePolishPage() {
       // New format: Use activities JSONB array
       activityRows = report.activities.map(act => ({
         id: crypto.randomUUID(),
+        block_name: act.block_name || '',
         activity: act.activity as ActivityType,
         number_of_slabs: act.slabs.toString(),
         total_sqft: act.sqft.toString()
@@ -421,6 +424,7 @@ export default function LinePolishPage() {
       activityRows = [
         {
           id: crypto.randomUUID(),
+          block_name: '',
           activity: 'S/G Polishing' as ActivityType, // Default to a valid type
           number_of_slabs: (report.number_of_slabs || 0).toString(),
           total_sqft: (report.total_sqft || 0).toString()
