@@ -870,7 +870,7 @@ export default function MultiCutterPage() {
           </Card>
         )}
 
-        {/* Reports Table - Grouped by Date */}
+        {/* Reports Table - Clean Format */}
         <Card className="p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
             <Calendar className="w-5 h-5 mr-2 text-blue-600" />
@@ -884,89 +884,75 @@ export default function MultiCutterPage() {
               <p className="text-sm text-gray-400 mt-1">Start by adding a new multi-cutter report</p>
             </div>
           ) : (
-            <div className="space-y-6">
-              {Object.keys(reportsByDate).sort((a, b) => b.localeCompare(a)).map(date => {
-                const dayReports = reportsByDate[date];
-                const dayTotal = dayReports.reduce((sum, r) => sum + (r.total_sqft || 0), 0);
-                
-                return (
-                  <div key={date} className="border border-gray-200 rounded-lg overflow-hidden">
-                    {/* Date Header */}
-                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h3 className="text-lg font-bold">{formatDisplayDate(date)}</h3>
-                          <p className="text-sm opacity-90">Total Day Production: {fmt(dayTotal)} Sq. Ft.</p>
-                        </div>
-                        <Box className="w-8 h-8 opacity-75" />
-                      </div>
-                    </div>
-
-                    {/* Machines */}
-                    <div className="p-4 space-y-4">
-                      {dayReports.map(report => (
-                        <div key={report.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center">
-                              <Factory className="w-5 h-5 text-blue-600 mr-2" />
-                              <h4 className="font-bold text-gray-900">{report.machine}</h4>
-                              <span className="ml-3 text-sm text-gray-600">
-                                Total: {report.total_slabs} Slabs | {fmt(report.total_sqft)} Sq. Ft.
-                              </span>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEdit(report)}
-                                className="text-blue-600 hover:bg-blue-50"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(report.id)}
-                                className="text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Blocks Table */}
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                              <thead>
-                                <tr className="border-b border-gray-300 bg-gray-100">
-                                  <th className="text-left py-2 px-3 font-semibold text-gray-700">Block Name</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-gray-700">Material</th>
-                                  <th className="text-right py-2 px-3 font-semibold text-gray-700">Slabs</th>
-                                  <th className="text-right py-2 px-3 font-semibold text-gray-700">Sq. Ft.</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-gray-700">Notes</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {report.blocks.map((block, idx) => (
-                                  <tr key={idx} className="border-b border-gray-200 hover:bg-white">
-                                    <td className="py-2 px-3 font-medium text-gray-900">{block.block_name}</td>
-                                    <td className="py-2 px-3 text-gray-700">{block.material_type}</td>
-                                    <td className="py-2 px-3 text-right font-semibold text-gray-900">{block.slabs}</td>
-                                    <td className="py-2 px-3 text-right font-semibold text-gray-900">{fmt(block.sqft)}</td>
-                                    <td className="py-2 px-3 text-gray-600 italic">
-                                      {block.notes || <span className="text-gray-400">—</span>}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Machine</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Block Name</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Material</th>
+                    <th className="text-right py-3 px-4 font-medium text-gray-700">Slabs</th>
+                    <th className="text-right py-3 px-4 font-medium text-gray-700">Sq Ft</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Notes</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(reportsByDate).sort((a, b) => b.localeCompare(a)).flatMap(date => 
+                    reportsByDate[date].flatMap((report) => {
+                      const rowSpan = report.blocks.length;
+                      return report.blocks.map((block, blockIdx) => (
+                        <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
+                          {blockIdx === 0 && (
+                            <>
+                              <td className="py-3 px-4 align-top" rowSpan={rowSpan}>
+                                {formatDisplayDate(report.date)}
+                              </td>
+                              <td className="py-3 px-4 align-top" rowSpan={rowSpan}>
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  report.machine === 'Machine-1' ? 'bg-blue-100 text-blue-800' :
+                                  report.machine === 'Machine-2' ? 'bg-green-100 text-green-800' :
+                                  'bg-purple-100 text-purple-800'
+                                }`}>
+                                  {report.machine}
+                                </span>
+                              </td>
+                            </>
+                          )}
+                          <td className="py-3 px-4">{block.block_name}</td>
+                          <td className="py-3 px-4">{block.material_type}</td>
+                          <td className="py-3 px-4 text-right">{block.slabs}</td>
+                          <td className="py-3 px-4 text-right">{fmt(block.sqft)}</td>
+                          <td className="py-3 px-4 text-gray-600 text-sm">{block.notes || '-'}</td>
+                          {blockIdx === 0 && (
+                            <td className="py-3 px-4 align-top" rowSpan={rowSpan}>
+                              <div className="flex items-center justify-center space-x-2">
+                                <Button
+                                  onClick={() => handleEdit(report)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-blue-600 hover:text-blue-800"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  onClick={() => handleDelete(report.id)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ));
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </Card>
