@@ -61,6 +61,8 @@ const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR",
 const fmtCurrency = (n: number) => INR.format(n || 0);
 
 export default function MultiCutterPage() {
+  console.log('MultiCutterPage component mounted'); // Debug log
+  
   const [reports, setReports] = useState<MultiCutterReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
