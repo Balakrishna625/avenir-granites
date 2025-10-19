@@ -878,47 +878,47 @@ export default function MultiCutterPage() {
             Production Records
           </h2>
 
-          {/* Machine Tabs */}
-          <div className="flex gap-2 mb-6 border-b border-gray-200">
+          {/* Machine Tabs - Minimal Design */}
+          <div className="flex gap-1 mb-6 border-b border-gray-200">
             <button
               onClick={() => setSelectedMachineTab('Machine-1')}
-              className={`px-6 py-3 font-medium transition-colors relative ${
+              className={`px-4 py-2.5 text-sm font-medium transition-all relative ${
                 selectedMachineTab === 'Machine-1'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-gray-900 bg-gray-50 border-b-2 border-gray-900'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
-              Machine-1
+              Machine 1
             </button>
             <button
               onClick={() => setSelectedMachineTab('Machine-2')}
-              className={`px-6 py-3 font-medium transition-colors relative ${
+              className={`px-4 py-2.5 text-sm font-medium transition-all relative ${
                 selectedMachineTab === 'Machine-2'
-                  ? 'text-green-600 border-b-2 border-green-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-gray-900 bg-gray-50 border-b-2 border-gray-900'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
-              Machine-2
+              Machine 2
             </button>
             <button
               onClick={() => setSelectedMachineTab('Machine-3')}
-              className={`px-6 py-3 font-medium transition-colors relative ${
+              className={`px-4 py-2.5 text-sm font-medium transition-all relative ${
                 selectedMachineTab === 'Machine-3'
-                  ? 'text-purple-600 border-b-2 border-purple-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-gray-900 bg-gray-50 border-b-2 border-gray-900'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
-              Machine-3
+              Machine 3
             </button>
             <button
               onClick={() => setSelectedMachineTab('All')}
-              className={`px-6 py-3 font-medium transition-colors relative ${
+              className={`px-4 py-2.5 text-sm font-medium transition-all relative ${
                 selectedMachineTab === 'All'
-                  ? 'text-gray-900 border-b-2 border-gray-900'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-gray-900 bg-gray-50 border-b-2 border-gray-900'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
-              All Machines
+              All
             </button>
           </div>
           
@@ -930,35 +930,31 @@ export default function MultiCutterPage() {
             </div>
           ) : selectedMachineTab === 'All' ? (
             // All Machines View - Side by Side Tables
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {['Machine-1', 'Machine-2', 'Machine-3'].map((machine) => {
                 const machineReports = Object.keys(reportsByDate)
                   .sort((a, b) => b.localeCompare(a))
                   .flatMap(date => reportsByDate[date].filter(r => r.machine === machine));
-                
-                const machineColor = 
-                  machine === 'Machine-1' ? 'blue' :
-                  machine === 'Machine-2' ? 'green' : 'purple';
 
                 return (
                   <div key={machine} className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className={`bg-${machineColor}-600 text-white px-4 py-3 font-bold text-center`}>
-                      {machine}
+                    <div className="bg-gray-100 border-b border-gray-200 px-4 py-2.5">
+                      <h3 className="font-semibold text-gray-900 text-sm">{machine}</h3>
                     </div>
                     <div className="overflow-x-auto">
                       {machineReports.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500 text-sm">
+                        <div className="text-center py-8 text-gray-400 text-xs">
                           No records
                         </div>
                       ) : (
-                        <table className="w-full text-sm">
+                        <table className="w-full text-xs">
                           <thead>
                             <tr className="border-b bg-gray-50">
-                              <th className="text-left py-2 px-3 font-medium text-gray-700">Date</th>
-                              <th className="text-left py-2 px-3 font-medium text-gray-700">Block</th>
-                              <th className="text-left py-2 px-3 font-medium text-gray-700">Mat.</th>
-                              <th className="text-right py-2 px-3 font-medium text-gray-700">Slabs</th>
-                              <th className="text-right py-2 px-3 font-medium text-gray-700">Sq Ft</th>
+                              <th className="text-left py-2 px-2 font-medium text-gray-600">Date</th>
+                              <th className="text-left py-2 px-2 font-medium text-gray-600">Block</th>
+                              <th className="text-left py-2 px-2 font-medium text-gray-600">Mat.</th>
+                              <th className="text-right py-2 px-2 font-medium text-gray-600">Slabs</th>
+                              <th className="text-right py-2 px-2 font-medium text-gray-600">Sq Ft</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -966,14 +962,14 @@ export default function MultiCutterPage() {
                               report.blocks.map((block, blockIdx) => (
                                 <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
                                   {blockIdx === 0 && (
-                                    <td className="py-2 px-3 text-xs align-top" rowSpan={report.blocks.length}>
-                                      {formatDisplayDate(report.date).split(' ').slice(0, 2).join(' ')}
+                                    <td className="py-2 px-2 text-gray-600 align-top" rowSpan={report.blocks.length}>
+                                      {formatDisplayDate(report.date).split(',')[0]}
                                     </td>
                                   )}
-                                  <td className="py-2 px-3">{block.block_name}</td>
-                                  <td className="py-2 px-3">{block.material_type}</td>
-                                  <td className="py-2 px-3 text-right">{block.slabs}</td>
-                                  <td className="py-2 px-3 text-right">{fmt(block.sqft)}</td>
+                                  <td className="py-2 px-2 text-gray-900">{block.block_name}</td>
+                                  <td className="py-2 px-2 text-gray-700">{block.material_type}</td>
+                                  <td className="py-2 px-2 text-right text-gray-900">{block.slabs}</td>
+                                  <td className="py-2 px-2 text-right text-gray-900">{fmt(block.sqft)}</td>
                                 </tr>
                               ))
                             )}
