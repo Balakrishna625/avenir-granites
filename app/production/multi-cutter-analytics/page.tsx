@@ -277,6 +277,112 @@ export default function MultiCutterAnalyticsPage() {
           </div>
         </Card>
 
+        {/* ========== MACHINE PERFORMANCE COMPARISON (TOP SECTION) ========== */}
+        <Card className="p-6">
+          <div className="flex items-center mb-6">
+            <Factory className="w-6 h-6 text-blue-600 mr-2" />
+            <h3 className="text-xl font-bold text-gray-900">Machine Performance Comparison</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {machineBreakdown.map((machine, index) => {
+              const colors = [
+                { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900', badge: 'bg-blue-100 text-blue-800', progressColor: '#1e40af' },
+                { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-900', badge: 'bg-green-100 text-green-800', progressColor: '#15803d' },
+                { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-900', badge: 'bg-purple-100 text-purple-800', progressColor: '#7e22ce' }
+              ];
+              const color = colors[index % 3];
+              
+              // Monthly target: 40,000 sqft per machine
+              const monthlyTarget = 40000;
+              const progressPercentage = Math.min((machine.sqft / monthlyTarget) * 100, 100);
+              const radius = 65;
+              const circumference = 2 * Math.PI * radius;
+              const strokeDashoffset = circumference - (progressPercentage / 100) * circumference;
+              
+              return (
+                <div key={machine.machine} className={`${color.bg} border-2 ${color.border} p-5 rounded-xl shadow-sm`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className={`font-bold text-lg ${color.text}`}>
+                      {machine.machine}
+                    </h4>
+                    <span className={`text-xs ${color.badge} px-2.5 py-1 rounded-full font-semibold`}>
+                      {machine.working_days} days
+                    </span>
+                  </div>
+                  
+                  {/* Circular Progress - Clean Design */}
+                  <div className="flex justify-center mb-5">
+                    <div className="relative">
+                      <svg width="150" height="150" className="transform -rotate-90">
+                        {/* Background circle */}
+                        <circle
+                          cx="75"
+                          cy="75"
+                          r={radius}
+                          stroke="#e5e7eb"
+                          strokeWidth="14"
+                          fill="white"
+                          className="drop-shadow-md"
+                        />
+                        {/* Progress circle */}
+                        <circle
+                          cx="75"
+                          cy="75"
+                          r={radius}
+                          stroke={color.progressColor}
+                          strokeWidth="14"
+                          fill="none"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={strokeDashoffset}
+                          strokeLinecap="round"
+                          className="transition-all duration-1000 ease-out"
+                        />
+                      </svg>
+                      {/* Center text */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className={`text-3xl font-bold ${color.text}`}>
+                          {Math.round(progressPercentage)}%
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1 font-medium">of target</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2.5 text-sm">
+                    <div className="flex justify-between items-center py-1.5 border-b border-gray-200">
+                      <span className="text-gray-600 font-medium">Production:</span>
+                      <span className={`font-bold ${color.text}`}>{fmt(machine.sqft)} sqft</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-gray-200">
+                      <span className="text-gray-600 font-medium">Target:</span>
+                      <span className="font-semibold text-gray-700">{fmt(monthlyTarget)} sqft</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-gray-200">
+                      <span className="text-gray-600 font-medium">Remaining:</span>
+                      <span className={`font-semibold ${machine.sqft >= monthlyTarget ? 'text-green-600' : 'text-amber-600'}`}>
+                        {fmt(Math.max(0, monthlyTarget - machine.sqft))} sqft
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-gray-200">
+                      <span className="text-gray-600 font-medium">Daily Avg:</span>
+                      <span className={`font-bold ${color.text}`}>{fmt(machine.avg_sqft)} sqft/day</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5">
+                      <span className="text-gray-600 font-medium">Entries:</span>
+                      <span className={`font-bold ${color.text}`}>{machine.entries}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {machineBreakdown.length === 0 && (
+              <div className="col-span-full text-center py-8 text-gray-500">
+                No machine data available
+              </div>
+            )}
+          </div>
+        </Card>
+
         {/* ========== KEY PRODUCTION METRICS (ROW 1) ========== */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="p-4">
@@ -474,32 +580,39 @@ export default function MultiCutterAnalyticsPage() {
               <Activity className="w-5 h-5 text-blue-600 mr-2" />
               <h3 className="text-lg font-semibold text-gray-900">Daily Production Trend</h3>
             </div>
-            <p className="text-sm text-gray-600">Last {dailyTrends.length} days</p>
+            <p className="text-sm text-gray-600">{dailyTrends.length} days of data</p>
           </div>
           
-          {/* Visual Bar Chart */}
-          <div className="space-y-3">
-            {dailyTrends.slice(0, 15).map((trend, index) => {
-              const maxSqft = Math.max(...dailyTrends.slice(0, 15).map(d => d.sqft));
+          {/* Visual Bar Chart - Chronological Order (oldest to newest) */}
+          <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+            {[...dailyTrends].reverse().slice(0, 30).map((trend, index) => {
+              const maxSqft = Math.max(...dailyTrends.map(d => d.sqft));
               const percentage = maxSqft > 0 ? (trend.sqft / maxSqft) * 100 : 0;
               
               return (
                 <div key={index} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-gray-700 w-24">{formatDisplayDate(trend.date)}</span>
+                    <span className="font-medium text-gray-700 w-28">{formatDisplayDate(trend.date)}</span>
                     <div className="flex-1 mx-4">
-                      <div className="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
+                      <div className="w-full bg-gray-200 rounded-full h-9 relative overflow-hidden shadow-sm">
                         <div 
-                          className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full flex items-center justify-end pr-2"
+                          className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 rounded-full flex items-center justify-end pr-3 transition-all duration-300"
                           style={{ width: `${percentage}%` }}
                         >
-                          <span className="text-xs font-bold text-white">{fmt(trend.sqft)} sqft</span>
+                          {percentage > 15 && (
+                            <span className="text-xs font-bold text-white drop-shadow">{fmt(trend.sqft)} sqft</span>
+                          )}
                         </div>
+                        {percentage <= 15 && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-700">
+                            {fmt(trend.sqft)} sqft
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right space-y-0.5">
-                      <p className="text-xs text-gray-600">{trend.slabs} slabs</p>
-                      <p className="text-xs text-gray-500">{trend.machines_active} machines</p>
+                    <div className="text-right space-y-0.5 min-w-[80px]">
+                      <p className="text-xs font-semibold text-gray-700">{trend.slabs} slabs</p>
+                      <p className="text-xs text-gray-500">{trend.machines_active} machine{trend.machines_active !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                 </div>
@@ -508,115 +621,6 @@ export default function MultiCutterAnalyticsPage() {
             {dailyTrends.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 No production data available for the selected period
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* ========== MACHINE BREAKDOWN ========== */}
-        <Card className="p-6">
-          <div className="flex items-center mb-4">
-            <Factory className="w-5 h-5 text-blue-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Machine Performance Comparison</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {machineBreakdown.map((machine, index) => {
-              const colors = [
-                { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900', badge: 'bg-blue-100 text-blue-800', progressColor: '#1e40af' },
-                { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-900', badge: 'bg-green-100 text-green-800', progressColor: '#15803d' },
-                { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-900', badge: 'bg-purple-100 text-purple-800', progressColor: '#7e22ce' }
-              ];
-              const color = colors[index % 3];
-              
-              // Monthly target: 40,000 sqft per machine
-              const monthlyTarget = 40000;
-              const progressPercentage = Math.min((machine.sqft / monthlyTarget) * 100, 100);
-              const radius = 60;
-              const circumference = 2 * Math.PI * radius;
-              const strokeDashoffset = circumference - (progressPercentage / 100) * circumference;
-              
-              return (
-                <div key={machine.machine} className={`${color.bg} border ${color.border} p-4 rounded-lg`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className={`font-semibold ${color.text}`}>
-                      {machine.machine}
-                    </h4>
-                    <span className={`text-xs ${color.badge} px-2 py-1 rounded-full font-medium`}>
-                      {machine.working_days} days
-                    </span>
-                  </div>
-                  
-                  {/* Circular Progress - Cutter Disc Style */}
-                  <div className="flex justify-center mb-4">
-                    <div className="relative">
-                      <svg width="140" height="140" className="transform -rotate-90">
-                        {/* Background circle (light gray) */}
-                        <circle
-                          cx="70"
-                          cy="70"
-                          r={radius}
-                          stroke="#e5e7eb"
-                          strokeWidth="12"
-                          fill="white"
-                          className="drop-shadow-sm"
-                        />
-                        {/* Progress circle (colored) */}
-                        <circle
-                          cx="70"
-                          cy="70"
-                          r={radius}
-                          stroke={color.progressColor}
-                          strokeWidth="12"
-                          fill="none"
-                          strokeDasharray={circumference}
-                          strokeDashoffset={strokeDashoffset}
-                          strokeLinecap="round"
-                          className="transition-all duration-1000 ease-out"
-                        />
-                        {/* Inner cutting disc detail circles */}
-                        <circle cx="70" cy="70" r="20" fill="#f9fafb" stroke="#d1d5db" strokeWidth="1" />
-                        <circle cx="70" cy="70" r="8" fill="white" stroke={color.progressColor} strokeWidth="2" />
-                      </svg>
-                      {/* Center text */}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <div className={`text-2xl font-bold ${color.text}`}>
-                          {Math.round(progressPercentage)}%
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">of target</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                      <span className="text-gray-600">Production:</span>
-                      <span className={`font-bold ${color.text}`}>{fmt(machine.sqft)} sqft</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                      <span className="text-gray-600">Target:</span>
-                      <span className="font-medium text-gray-700">{fmt(monthlyTarget)} sqft</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                      <span className="text-gray-600">Remaining:</span>
-                      <span className={`font-medium ${machine.sqft >= monthlyTarget ? 'text-green-600' : 'text-amber-600'}`}>
-                        {fmt(Math.max(0, monthlyTarget - machine.sqft))} sqft
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                      <span className="text-gray-600">Daily Avg:</span>
-                      <span className={`font-bold ${color.text}`}>{fmt(machine.avg_sqft)} sqft/day</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-600">Entries:</span>
-                      <span className={`font-bold ${color.text}`}>{machine.entries}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {machineBreakdown.length === 0 && (
-              <div className="col-span-full text-center py-8 text-gray-500">
-                No machine data available
               </div>
             )}
           </div>
@@ -632,28 +636,37 @@ export default function MultiCutterAnalyticsPage() {
             <table className="min-w-full">
               <thead>
                 <tr className="border-b-2 border-gray-300 bg-gray-50">
-                  <th className="text-left py-3 px-3 text-sm font-semibold text-gray-700">Material Type</th>
-                  <th className="text-right py-3 px-3 text-sm font-semibold text-gray-700">Blocks Processed</th>
-                  <th className="text-right py-3 px-3 text-sm font-semibold text-gray-700">Total Slabs</th>
-                  <th className="text-right py-3 px-3 text-sm font-semibold text-gray-700">Total Sq. Ft.</th>
-                  <th className="text-right py-3 px-3 text-sm font-semibold text-gray-700">Avg Sqft/Block</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Material Type</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Blocks</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Total Slabs</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Total Sq. Ft.</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">% of Total</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Avg Sqft/Block</th>
                 </tr>
               </thead>
               <tbody>
-                {materialBreakdown.map((material, index) => (
-                  <tr key={index} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
-                    <td className="py-3 px-3 text-sm font-medium text-gray-900">{material.material_type}</td>
-                    <td className="py-3 px-3 text-sm text-right font-semibold text-gray-900">{material.block_count}</td>
-                    <td className="py-3 px-3 text-sm text-right font-semibold text-gray-900">{fmt(material.total_slabs)}</td>
-                    <td className="py-3 px-3 text-sm text-right font-semibold text-green-600">{fmt(material.total_sqft)}</td>
-                    <td className="py-3 px-3 text-sm text-right text-gray-600">
-                      {fmt(material.total_sqft / material.block_count)}
-                    </td>
-                  </tr>
-                ))}
+                {materialBreakdown.map((material, index) => {
+                  const percentOfTotal = summary.total_sqft > 0 ? (material.total_sqft / summary.total_sqft) * 100 : 0;
+                  return (
+                    <tr key={index} className="border-b border-gray-100 hover:bg-green-50 transition-colors">
+                      <td className="py-3 px-4 text-sm font-bold text-gray-900">{material.material_type}</td>
+                      <td className="py-3 px-4 text-sm text-right font-semibold text-gray-700">{material.block_count}</td>
+                      <td className="py-3 px-4 text-sm text-right font-semibold text-gray-900">{fmt(material.total_slabs)}</td>
+                      <td className="py-3 px-4 text-sm text-right font-bold text-green-600">{fmt(material.total_sqft)}</td>
+                      <td className="py-3 px-4 text-sm text-right">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                          {percentOfTotal.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-right text-gray-600 font-medium">
+                        {fmt(material.total_sqft / material.block_count)}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {materialBreakdown.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-gray-500">
+                    <td colSpan={6} className="py-8 text-center text-gray-500">
                       No material data available
                     </td>
                   </tr>
@@ -666,33 +679,57 @@ export default function MultiCutterAnalyticsPage() {
         {/* ========== TOP PERFORMING BLOCKS ========== */}
         <Card className="p-6">
           <div className="flex items-center mb-4">
-            <Ruler className="w-5 h-5 text-purple-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Top Performing Blocks</h3>
+            <Award className="w-5 h-5 text-amber-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Top 10 Performing Blocks</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="border-b-2 border-gray-300 bg-gray-50">
-                  <th className="text-left py-3 px-3 text-sm font-semibold text-gray-700">Block Name</th>
-                  <th className="text-left py-3 px-3 text-sm font-semibold text-gray-700">Material</th>
-                  <th className="text-right py-3 px-3 text-sm font-semibold text-gray-700">Times Processed</th>
-                  <th className="text-right py-3 px-3 text-sm font-semibold text-gray-700">Total Slabs</th>
-                  <th className="text-right py-3 px-3 text-sm font-semibold text-gray-700">Total Sq. Ft.</th>
+                  <th className="text-center py-3 px-3 text-sm font-semibold text-gray-700">Rank</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Block Name</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Material</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Times Cut</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Total Slabs</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Total Sq. Ft.</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Avg Sqft/Cut</th>
                 </tr>
               </thead>
               <tbody>
-                {topBlocks.map((block, index) => (
-                  <tr key={index} className="border-b border-gray-100 hover:bg-purple-50 transition-colors">
-                    <td className="py-3 px-3 text-sm font-medium text-gray-900">{block.block_name}</td>
-                    <td className="py-3 px-3 text-sm text-gray-700">{block.material_type}</td>
-                    <td className="py-3 px-3 text-sm text-right font-semibold text-blue-600">{block.times_processed}</td>
-                    <td className="py-3 px-3 text-sm text-right font-semibold text-gray-900">{fmt(block.total_slabs)}</td>
-                    <td className="py-3 px-3 text-sm text-right font-semibold text-green-600">{fmt(block.total_sqft)}</td>
-                  </tr>
-                ))}
+                {topBlocks.map((block, index) => {
+                  const rankColors = [
+                    'bg-amber-100 text-amber-900 border-amber-300',
+                    'bg-gray-200 text-gray-800 border-gray-400', 
+                    'bg-orange-100 text-orange-900 border-orange-300'
+                  ];
+                  const rankColor = index < 3 ? rankColors[index] : 'bg-blue-50 text-blue-900 border-blue-200';
+                  const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+                  
+                  return (
+                    <tr key={index} className="border-b border-gray-100 hover:bg-purple-50 transition-colors">
+                      <td className="py-3 px-3 text-center">
+                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold border-2 ${rankColor}`}>
+                          {rankEmoji}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm font-bold text-gray-900">{block.block_name}</td>
+                      <td className="py-3 px-4 text-sm">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                          {block.material_type}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-right font-semibold text-blue-600">{block.times_processed}×</td>
+                      <td className="py-3 px-4 text-sm text-right font-bold text-gray-900">{fmt(block.total_slabs)}</td>
+                      <td className="py-3 px-4 text-sm text-right font-bold text-green-600">{fmt(block.total_sqft)}</td>
+                      <td className="py-3 px-4 text-sm text-right text-gray-600 font-medium">
+                        {fmt(block.total_sqft / block.times_processed)}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {topBlocks.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-gray-500">
+                    <td colSpan={7} className="py-8 text-center text-gray-500">
                       No block data available
                     </td>
                   </tr>
