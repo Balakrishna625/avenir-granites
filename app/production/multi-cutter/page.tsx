@@ -936,10 +936,20 @@ export default function MultiCutterPage() {
                   .sort((a, b) => b.localeCompare(a))
                   .flatMap(date => reportsByDate[date].filter(r => r.machine === machine));
 
+                const headerColor = 
+                  machine === 'Machine-1' ? 'bg-blue-50 border-blue-200' :
+                  machine === 'Machine-2' ? 'bg-green-50 border-green-200' :
+                  'bg-purple-50 border-purple-200';
+                
+                const headerTextColor = 
+                  machine === 'Machine-1' ? 'text-blue-900' :
+                  machine === 'Machine-2' ? 'text-green-900' :
+                  'text-purple-900';
+
                 return (
                   <div key={machine} className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-100 border-b border-gray-200 px-4 py-2.5">
-                      <h3 className="font-semibold text-gray-900 text-sm">{machine}</h3>
+                    <div className={`${headerColor} border-b px-4 py-2.5`}>
+                      <h3 className={`font-semibold ${headerTextColor} text-sm`}>{machine}</h3>
                     </div>
                     <div className="overflow-x-auto">
                       {machineReports.length === 0 ? (
@@ -962,7 +972,7 @@ export default function MultiCutterPage() {
                               report.blocks.map((block, blockIdx) => (
                                 <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
                                   {blockIdx === 0 && (
-                                    <td className="py-2 px-2 text-gray-600 align-top" rowSpan={report.blocks.length}>
+                                    <td className="py-2 px-2 text-gray-600 align-middle" rowSpan={report.blocks.length}>
                                       {formatDisplayDate(report.date).split(',')[0]}
                                     </td>
                                   )}
@@ -986,7 +996,11 @@ export default function MultiCutterPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b bg-gray-50">
+                  <tr className={`border-b ${
+                    selectedMachineTab === 'Machine-1' ? 'bg-blue-50' :
+                    selectedMachineTab === 'Machine-2' ? 'bg-green-50' :
+                    'bg-purple-50'
+                  }`}>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Block Name</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Material</th>
@@ -1005,7 +1019,7 @@ export default function MultiCutterPage() {
                         return report.blocks.map((block, blockIdx) => (
                           <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
                             {blockIdx === 0 && (
-                              <td className="py-3 px-4 align-top" rowSpan={rowSpan}>
+                              <td className="py-3 px-4 align-middle font-medium text-gray-900" rowSpan={rowSpan}>
                                 {formatDisplayDate(report.date)}
                               </td>
                             )}
@@ -1015,7 +1029,7 @@ export default function MultiCutterPage() {
                             <td className="py-3 px-4 text-right">{fmt(block.sqft)}</td>
                             <td className="py-3 px-4 text-gray-600 text-sm">{block.notes || '-'}</td>
                             {blockIdx === 0 && (
-                              <td className="py-3 px-4 align-top" rowSpan={rowSpan}>
+                              <td className="py-3 px-4 align-middle" rowSpan={rowSpan}>
                                 <div className="flex items-center justify-center space-x-2">
                                   <Button
                                     onClick={() => handleEdit(report)}
