@@ -65,6 +65,7 @@ export default function MultiCutterPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedMachineTab, setSelectedMachineTab] = useState<'Machine-1' | 'Machine-2' | 'Machine-3' | 'All'>('Machine-1');
   
   // Summary stats
   const [totalSlabs, setTotalSlabs] = useState(0);
@@ -870,12 +871,56 @@ export default function MultiCutterPage() {
           </Card>
         )}
 
-        {/* Reports Table - Clean Format */}
+        {/* Reports Table - Clean Format with Machine Tabs */}
         <Card className="p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
             <Calendar className="w-5 h-5 mr-2 text-blue-600" />
             Production Records
           </h2>
+
+          {/* Machine Tabs */}
+          <div className="flex gap-2 mb-6 border-b border-gray-200">
+            <button
+              onClick={() => setSelectedMachineTab('Machine-1')}
+              className={`px-6 py-3 font-medium transition-colors relative ${
+                selectedMachineTab === 'Machine-1'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Machine-1
+            </button>
+            <button
+              onClick={() => setSelectedMachineTab('Machine-2')}
+              className={`px-6 py-3 font-medium transition-colors relative ${
+                selectedMachineTab === 'Machine-2'
+                  ? 'text-green-600 border-b-2 border-green-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Machine-2
+            </button>
+            <button
+              onClick={() => setSelectedMachineTab('Machine-3')}
+              className={`px-6 py-3 font-medium transition-colors relative ${
+                selectedMachineTab === 'Machine-3'
+                  ? 'text-purple-600 border-b-2 border-purple-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Machine-3
+            </button>
+            <button
+              onClick={() => setSelectedMachineTab('All')}
+              className={`px-6 py-3 font-medium transition-colors relative ${
+                selectedMachineTab === 'All'
+                  ? 'text-gray-900 border-b-2 border-gray-900'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              All Machines
+            </button>
+          </div>
           
           {Object.keys(reportsByDate).length === 0 ? (
             <div className="text-center py-12">
@@ -883,13 +928,70 @@ export default function MultiCutterPage() {
               <p className="text-gray-500">No production records found</p>
               <p className="text-sm text-gray-400 mt-1">Start by adding a new multi-cutter report</p>
             </div>
+          ) : selectedMachineTab === 'All' ? (
+            // All Machines View - Side by Side Tables
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {['Machine-1', 'Machine-2', 'Machine-3'].map((machine) => {
+                const machineReports = Object.keys(reportsByDate)
+                  .sort((a, b) => b.localeCompare(a))
+                  .flatMap(date => reportsByDate[date].filter(r => r.machine === machine));
+                
+                const machineColor = 
+                  machine === 'Machine-1' ? 'blue' :
+                  machine === 'Machine-2' ? 'green' : 'purple';
+
+                return (
+                  <div key={machine} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className={`bg-${machineColor}-600 text-white px-4 py-3 font-bold text-center`}>
+                      {machine}
+                    </div>
+                    <div className="overflow-x-auto">
+                      {machineReports.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500 text-sm">
+                          No records
+                        </div>
+                      ) : (
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-gray-50">
+                              <th className="text-left py-2 px-3 font-medium text-gray-700">Date</th>
+                              <th className="text-left py-2 px-3 font-medium text-gray-700">Block</th>
+                              <th className="text-left py-2 px-3 font-medium text-gray-700">Mat.</th>
+                              <th className="text-right py-2 px-3 font-medium text-gray-700">Slabs</th>
+                              <th className="text-right py-2 px-3 font-medium text-gray-700">Sq Ft</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {machineReports.flatMap((report) =>
+                              report.blocks.map((block, blockIdx) => (
+                                <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
+                                  {blockIdx === 0 && (
+                                    <td className="py-2 px-3 text-xs align-top" rowSpan={report.blocks.length}>
+                                      {formatDisplayDate(report.date).split(' ').slice(0, 2).join(' ')}
+                                    </td>
+                                  )}
+                                  <td className="py-2 px-3">{block.block_name}</td>
+                                  <td className="py-2 px-3">{block.material_type}</td>
+                                  <td className="py-2 px-3 text-right">{block.slabs}</td>
+                                  <td className="py-2 px-3 text-right">{fmt(block.sqft)}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
+            // Single Machine View
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b bg-gray-50">
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Machine</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Block Name</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Material</th>
                     <th className="text-right py-3 px-4 font-medium text-gray-700">Slabs</th>
@@ -900,56 +1002,47 @@ export default function MultiCutterPage() {
                 </thead>
                 <tbody>
                   {Object.keys(reportsByDate).sort((a, b) => b.localeCompare(a)).flatMap(date => 
-                    reportsByDate[date].flatMap((report) => {
-                      const rowSpan = report.blocks.length;
-                      return report.blocks.map((block, blockIdx) => (
-                        <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
-                          {blockIdx === 0 && (
-                            <>
+                    reportsByDate[date]
+                      .filter(report => report.machine === selectedMachineTab)
+                      .flatMap((report) => {
+                        const rowSpan = report.blocks.length;
+                        return report.blocks.map((block, blockIdx) => (
+                          <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
+                            {blockIdx === 0 && (
                               <td className="py-3 px-4 align-top" rowSpan={rowSpan}>
                                 {formatDisplayDate(report.date)}
                               </td>
+                            )}
+                            <td className="py-3 px-4">{block.block_name}</td>
+                            <td className="py-3 px-4">{block.material_type}</td>
+                            <td className="py-3 px-4 text-right">{block.slabs}</td>
+                            <td className="py-3 px-4 text-right">{fmt(block.sqft)}</td>
+                            <td className="py-3 px-4 text-gray-600 text-sm">{block.notes || '-'}</td>
+                            {blockIdx === 0 && (
                               <td className="py-3 px-4 align-top" rowSpan={rowSpan}>
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  report.machine === 'Machine-1' ? 'bg-blue-100 text-blue-800' :
-                                  report.machine === 'Machine-2' ? 'bg-green-100 text-green-800' :
-                                  'bg-purple-100 text-purple-800'
-                                }`}>
-                                  {report.machine}
-                                </span>
+                                <div className="flex items-center justify-center space-x-2">
+                                  <Button
+                                    onClick={() => handleEdit(report)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-blue-600 hover:text-blue-800"
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    onClick={() => handleDelete(report.id)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600 hover:text-red-800"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </td>
-                            </>
-                          )}
-                          <td className="py-3 px-4">{block.block_name}</td>
-                          <td className="py-3 px-4">{block.material_type}</td>
-                          <td className="py-3 px-4 text-right">{block.slabs}</td>
-                          <td className="py-3 px-4 text-right">{fmt(block.sqft)}</td>
-                          <td className="py-3 px-4 text-gray-600 text-sm">{block.notes || '-'}</td>
-                          {blockIdx === 0 && (
-                            <td className="py-3 px-4 align-top" rowSpan={rowSpan}>
-                              <div className="flex items-center justify-center space-x-2">
-                                <Button
-                                  onClick={() => handleEdit(report)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  onClick={() => handleDelete(report.id)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      ));
-                    })
+                            )}
+                          </tr>
+                        ));
+                      })
                   )}
                 </tbody>
               </table>
