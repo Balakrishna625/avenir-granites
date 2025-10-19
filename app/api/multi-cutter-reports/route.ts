@@ -8,6 +8,8 @@ export async function GET(req: Request) {
   const to = url.searchParams.get("to");
   const machine = url.searchParams.get("machine");
 
+  console.log('🔍 GET /api/multi-cutter-reports called with params:', { from, to, machine });
+
   try {
     let query = supabaseAdmin
       .from("multi_cutter_reports")
@@ -16,25 +18,35 @@ export async function GET(req: Request) {
       .order("machine", { ascending: true });
 
     if (from) {
+      console.log('  Adding from filter:', from);
       query = query.gte("date", from);
     }
     if (to) {
+      console.log('  Adding to filter:', to);
       query = query.lte("date", to);
     }
     if (machine) {
+      console.log('  Adding machine filter:', machine);
       query = query.eq("machine", machine);
     }
 
     const { data, error } = await query;
 
     if (error) {
-      console.error("Error fetching multi-cutter reports:", error);
+      console.error("❌ Supabase error fetching multi-cutter reports:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    console.log('✅ Supabase query successful - Retrieved', data?.length || 0, 'reports');
+    if (data && data.length > 0) {
+      console.log('📊 Sample report:', data[0]);
+    } else {
+      console.log('⚠️ No reports found in database');
     }
 
     return NextResponse.json(data || []);
   } catch (error: any) {
-    console.error("Error in GET /api/multi-cutter-reports:", error);
+    console.error("❌ Error in GET /api/multi-cutter-reports:", error);
     return NextResponse.json(
       { error: error.message || "Failed to fetch reports" },
       { status: 500 }

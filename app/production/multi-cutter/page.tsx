@@ -95,41 +95,79 @@ export default function MultiCutterPage() {
   const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
+    console.log('useEffect triggered - loading reports');
     loadReports();
   }, [dateFrom, dateTo]);
 
   async function loadReports() {
+    console.log('loadReports() called with filters:', { dateFrom, dateTo });
+    setLoading(true);
+    
     try {
       const params = new URLSearchParams();
       if (dateFrom) params.set('from', dateFrom);
       if (dateTo) params.set('to', dateTo);
       
-      const response = await fetch(`/api/multi-cutter-reports?${params.toString()}`);
+      const url = `/api/multi-cutter-reports?${params.toString()}`;
+      console.log('Fetching from URL:', url);
+      
+      const response = await fetch(url);
+      console.log('Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
-      console.log('Loaded multi-cutter reports:', data); // Debug log
+      console.log('✅ API Response - Total reports:', data?.length || 0);
+      console.log('📊 Full data received:', data);
+      
+      if (!Array.isArray(data)) {
+        console.error('❌ Data is not an array:', data);
+        setReports([]);
+        calculateSummary([]);
+        return;
+      }
+      
       setReports(data);
       calculateSummary(data);
     } catch (error) {
-      console.error('Failed to load multi-cutter reports:', error);
+      console.error('❌ Failed to load multi-cutter reports:', error);
+      setReports([]);
+      calculateSummary([]);
     } finally {
       setLoading(false);
     }
   }
 
   function calculateSummary(data: MultiCutterReport[]) {
-    console.log('Calculating summary for reports:', data); // Debug log
+    console.log('🧮 calculateSummary() called with', data.length, 'reports');
     
-    const totSlabs = data.reduce((sum, r) => {
-      const slabs = Number(r.total_slabs) || 0;
-      console.log(`Report ${r.id}: total_slabs=${r.total_slabs}, converted=${slabs}`);
-      return sum + slabs;
-    }, 0);
+    if (!Array.isArray(data) || data.length === 0) {
+      console.log('⚠️ No data to calculate summary');
+      setTotalSlabs(0);
+      setTotalSqft(0);
+      setMachine1Total(0);
+      setMachine2Total(0);
+      setMachine3Total(0);
+      setTodayProduction(0);
+      return;
+    }
     
-    const totSqft = data.reduce((sum, r) => {
-      const sqft = Number(r.total_sqft) || 0;
-      console.log(`Report ${r.id}: total_sqft=${r.total_sqft}, converted=${sqft}`);
-      return sum + sqft;
-    }, 0);
+    // Log each report for debugging
+    data.forEach((r, index) => {
+      console.log(`Report ${index + 1}:`, {
+        id: r.id,
+        date: r.date,
+        machine: r.machine,
+        total_slabs: r.total_slabs,
+        total_sqft: r.total_sqft,
+        blocks_count: r.blocks?.length || 0
+      });
+    });
+    
+    const totSlabs = data.reduce((sum, r) => sum + (Number(r.total_slabs) || 0), 0);
+    const totSqft = data.reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
     
     const m1 = data.filter(r => r.machine === 'Machine-1').reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
     const m2 = data.filter(r => r.machine === 'Machine-2').reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
@@ -138,7 +176,15 @@ export default function MultiCutterPage() {
     const today = new Date().toISOString().split('T')[0];
     const todayProd = data.filter(r => r.date === today).reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
     
-    console.log('Summary calculated:', { totSlabs, totSqft, m1, m2, m3, todayProd }); // Debug log
+    console.log('✅ Summary calculated:', {
+      totalSlabs: totSlabs,
+      totalSqft: totSqft,
+      machine1: m1,
+      machine2: m2,
+      machine3: m3,
+      todayProduction: todayProd,
+      today: today
+    });
     
     setTotalSlabs(totSlabs);
     setTotalSqft(totSqft);
