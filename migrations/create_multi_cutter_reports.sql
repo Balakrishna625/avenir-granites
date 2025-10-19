@@ -37,8 +37,8 @@ COMMENT ON COLUMN multi_cutter_reports.machine IS
   'Machine identifier: Machine-1, Machine-2, or Machine-3';
 
 COMMENT ON COLUMN multi_cutter_reports.blocks IS 
-  'JSONB array of blocks processed. Each block contains: {block_name: string, material_type: string (S/G, B/P, etc.), slabs: number, sqft: number}. 
-   Example: [{"block_name":"AVG-16B","material_type":"S/G","slabs":26,"sqft":721},{"block_name":"AVG-01A","material_type":"S/G","slabs":45,"sqft":1282}]';
+  'JSONB array of blocks processed. Each block contains: {block_name: string, material_type: string (S/G, B/P, etc.), slabs: number, sqft: number, notes: string (optional)}. 
+   Example: [{"block_name":"AVG-16B","material_type":"S/G","slabs":26,"sqft":721,"notes":"Minor edge damage"},{"block_name":"AVG-01A","material_type":"S/G","slabs":45,"sqft":1282,"notes":""}]';
 
 COMMENT ON COLUMN multi_cutter_reports.total_slabs IS 
   'Total number of slabs produced by this machine on this date (sum of all blocks)';
@@ -54,6 +54,8 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_multi_cutter_reports_timestamp ON multi_cutter_reports;
 
 CREATE TRIGGER update_multi_cutter_reports_timestamp
   BEFORE UPDATE ON multi_cutter_reports

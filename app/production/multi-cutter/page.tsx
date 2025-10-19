@@ -23,6 +23,7 @@ interface MultiCutterReport {
     material_type: MaterialType;
     slabs: number;
     sqft: number;
+    notes?: string;
   }>;
   total_slabs: number;
   total_sqft: number;
@@ -37,6 +38,7 @@ interface BlockRow {
   material_type: MaterialType;
   slabs: string;
   sqft: string;
+  notes: string;
 }
 
 interface MachineFormData {
@@ -76,13 +78,13 @@ export default function MultiCutterPage() {
   const [formData, setFormData] = useState<FormData>({
     date: new Date().toISOString().split('T')[0],
     machine1: {
-      blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '' }]
+      blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
     },
     machine2: {
-      blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '' }]
+      blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
     },
     machine3: {
-      blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '' }]
+      blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
     }
   });
 
@@ -139,7 +141,8 @@ export default function MultiCutterPage() {
           block_name: '', 
           material_type: 'S/G', 
           slabs: '', 
-          sqft: '' 
+          sqft: '',
+          notes: ''
         }]
       }
     }));
@@ -197,7 +200,8 @@ export default function MultiCutterPage() {
           block_name: row.block_name.trim(),
           material_type: row.material_type,
           slabs: parseFloat(row.slabs) || 0,
-          sqft: parseFloat(row.sqft) || 0
+          sqft: parseFloat(row.sqft) || 0,
+          notes: row.notes.trim()
         }));
         
         const total_slabs = blocks.reduce((sum, b) => sum + b.slabs, 0);
@@ -239,13 +243,13 @@ export default function MultiCutterPage() {
     setFormData({
       date: new Date().toISOString().split('T')[0],
       machine1: {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       },
       machine2: {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       },
       machine3: {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       }
     });
   }
@@ -284,10 +288,11 @@ export default function MultiCutterPage() {
           block_name: b.block_name,
           material_type: b.material_type,
           slabs: b.slabs.toString(),
-          sqft: b.sqft.toString()
+          sqft: b.sqft.toString(),
+          notes: b.notes || ''
         }))
       } : {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       },
       machine2: machineKey === 'machine2' ? {
         blockRows: report.blocks.map(b => ({
@@ -295,10 +300,11 @@ export default function MultiCutterPage() {
           block_name: b.block_name,
           material_type: b.material_type,
           slabs: b.slabs.toString(),
-          sqft: b.sqft.toString()
+          sqft: b.sqft.toString(),
+          notes: b.notes || ''
         }))
       } : {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       },
       machine3: machineKey === 'machine3' ? {
         blockRows: report.blocks.map(b => ({
@@ -306,10 +312,11 @@ export default function MultiCutterPage() {
           block_name: b.block_name,
           material_type: b.material_type,
           slabs: b.slabs.toString(),
-          sqft: b.sqft.toString()
+          sqft: b.sqft.toString(),
+          notes: b.notes || ''
         }))
       } : {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       }
     });
     
@@ -561,58 +568,71 @@ export default function MultiCutterPage() {
 
                 <div className="space-y-3">
                   {formData.machine1.blockRows.map((row, index) => (
-                    <div key={row.id} className="grid grid-cols-12 gap-2 items-end bg-white p-3 rounded border border-blue-200">
-                      <div className="col-span-4">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Block Name (e.g., AVG-16B)</label>
-                        <Input
-                          placeholder="AVG-16B"
-                          value={row.block_name}
-                          onChange={(e) => updateBlockRow('machine1', row.id, 'block_name', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Material Type</label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          value={row.material_type}
-                          onChange={(e) => updateBlockRow('machine1', row.id, 'material_type', e.target.value as MaterialType)}
-                        >
-                          <option value="S/G">S/G</option>
-                          <option value="B/P">B/P</option>
-                          <option value="Burgandy">Burgandy</option>
-                          <option value="Others">Others</option>
-                        </select>
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Slabs</label>
-                        <Input
-                          type="number"
-                          placeholder="26"
-                          value={row.slabs}
-                          onChange={(e) => updateBlockRow('machine1', row.id, 'slabs', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Sq. Ft.</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="721"
-                          value={row.sqft}
-                          onChange={(e) => updateBlockRow('machine1', row.id, 'sqft', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-1 flex items-end">
-                        {formData.machine1.blockRows.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => removeBlockRow('machine1', row.id)}
-                            className="text-red-600 hover:bg-red-50 w-full"
+                    <div key={row.id} className="space-y-2 bg-white p-3 rounded border border-blue-200">
+                      <div className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Block Name</label>
+                          <Input
+                            placeholder="AVG-16B"
+                            value={row.block_name}
+                            onChange={(e) => updateBlockRow('machine1', row.id, 'block_name', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Material Type</label>
+                          <select
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            value={row.material_type}
+                            onChange={(e) => updateBlockRow('machine1', row.id, 'material_type', e.target.value as MaterialType)}
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
+                            <option value="S/G">S/G</option>
+                            <option value="B/P">B/P</option>
+                            <option value="Burgandy">Burgandy</option>
+                            <option value="Others">Others</option>
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Slabs</label>
+                          <Input
+                            type="number"
+                            placeholder="26"
+                            value={row.slabs}
+                            onChange={(e) => updateBlockRow('machine1', row.id, 'slabs', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Sq. Ft.</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="721"
+                            value={row.sqft}
+                            onChange={(e) => updateBlockRow('machine1', row.id, 'sqft', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-2 flex items-end">
+                          {formData.machine1.blockRows.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => removeBlockRow('machine1', row.id)}
+                              className="text-red-600 hover:bg-red-50 w-full"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                          <Input
+                            placeholder="e.g., Minor edge damage, Extra polishing needed"
+                            value={row.notes}
+                            onChange={(e) => updateBlockRow('machine1', row.id, 'notes', e.target.value)}
+                            className="w-full"
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -643,58 +663,71 @@ export default function MultiCutterPage() {
 
                 <div className="space-y-3">
                   {formData.machine2.blockRows.map((row, index) => (
-                    <div key={row.id} className="grid grid-cols-12 gap-2 items-end bg-white p-3 rounded border border-green-200">
-                      <div className="col-span-4">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Block Name (e.g., AVG-17C)</label>
-                        <Input
-                          placeholder="AVG-17C"
-                          value={row.block_name}
-                          onChange={(e) => updateBlockRow('machine2', row.id, 'block_name', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Material Type</label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          value={row.material_type}
-                          onChange={(e) => updateBlockRow('machine2', row.id, 'material_type', e.target.value as MaterialType)}
-                        >
-                          <option value="S/G">S/G</option>
-                          <option value="B/P">B/P</option>
-                          <option value="Burgandy">Burgandy</option>
-                          <option value="Others">Others</option>
-                        </select>
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Slabs</label>
-                        <Input
-                          type="number"
-                          placeholder="31"
-                          value={row.slabs}
-                          onChange={(e) => updateBlockRow('machine2', row.id, 'slabs', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Sq. Ft.</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="767"
-                          value={row.sqft}
-                          onChange={(e) => updateBlockRow('machine2', row.id, 'sqft', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-1 flex items-end">
-                        {formData.machine2.blockRows.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => removeBlockRow('machine2', row.id)}
-                            className="text-red-600 hover:bg-red-50 w-full"
+                    <div key={row.id} className="space-y-2 bg-white p-3 rounded border border-green-200">
+                      <div className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Block Name</label>
+                          <Input
+                            placeholder="AVG-17C"
+                            value={row.block_name}
+                            onChange={(e) => updateBlockRow('machine2', row.id, 'block_name', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Material Type</label>
+                          <select
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                            value={row.material_type}
+                            onChange={(e) => updateBlockRow('machine2', row.id, 'material_type', e.target.value as MaterialType)}
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
+                            <option value="S/G">S/G</option>
+                            <option value="B/P">B/P</option>
+                            <option value="Burgandy">Burgandy</option>
+                            <option value="Others">Others</option>
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Slabs</label>
+                          <Input
+                            type="number"
+                            placeholder="31"
+                            value={row.slabs}
+                            onChange={(e) => updateBlockRow('machine2', row.id, 'slabs', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Sq. Ft.</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="767"
+                            value={row.sqft}
+                            onChange={(e) => updateBlockRow('machine2', row.id, 'sqft', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-2 flex items-end">
+                          {formData.machine2.blockRows.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => removeBlockRow('machine2', row.id)}
+                              className="text-red-600 hover:bg-red-50 w-full"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                          <Input
+                            placeholder="e.g., Minor edge damage, Extra polishing needed"
+                            value={row.notes}
+                            onChange={(e) => updateBlockRow('machine2', row.id, 'notes', e.target.value)}
+                            className="w-full"
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -725,58 +758,71 @@ export default function MultiCutterPage() {
 
                 <div className="space-y-3">
                   {formData.machine3.blockRows.map((row, index) => (
-                    <div key={row.id} className="grid grid-cols-12 gap-2 items-end bg-white p-3 rounded border border-purple-200">
-                      <div className="col-span-4">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Block Name (e.g., AVG-16A)</label>
-                        <Input
-                          placeholder="AVG-16A"
-                          value={row.block_name}
-                          onChange={(e) => updateBlockRow('machine3', row.id, 'block_name', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Material Type</label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          value={row.material_type}
-                          onChange={(e) => updateBlockRow('machine3', row.id, 'material_type', e.target.value as MaterialType)}
-                        >
-                          <option value="S/G">S/G</option>
-                          <option value="B/P">B/P</option>
-                          <option value="Burgandy">Burgandy</option>
-                          <option value="Others">Others</option>
-                        </select>
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Slabs</label>
-                        <Input
-                          type="number"
-                          placeholder="28"
-                          value={row.slabs}
-                          onChange={(e) => updateBlockRow('machine3', row.id, 'slabs', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Sq. Ft.</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="777"
-                          value={row.sqft}
-                          onChange={(e) => updateBlockRow('machine3', row.id, 'sqft', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-1 flex items-end">
-                        {formData.machine3.blockRows.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => removeBlockRow('machine3', row.id)}
-                            className="text-red-600 hover:bg-red-50 w-full"
+                    <div key={row.id} className="space-y-2 bg-white p-3 rounded border border-purple-200">
+                      <div className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Block Name</label>
+                          <Input
+                            placeholder="AVG-16A"
+                            value={row.block_name}
+                            onChange={(e) => updateBlockRow('machine3', row.id, 'block_name', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Material Type</label>
+                          <select
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            value={row.material_type}
+                            onChange={(e) => updateBlockRow('machine3', row.id, 'material_type', e.target.value as MaterialType)}
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
+                            <option value="S/G">S/G</option>
+                            <option value="B/P">B/P</option>
+                            <option value="Burgandy">Burgandy</option>
+                            <option value="Others">Others</option>
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Slabs</label>
+                          <Input
+                            type="number"
+                            placeholder="28"
+                            value={row.slabs}
+                            onChange={(e) => updateBlockRow('machine3', row.id, 'slabs', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Sq. Ft.</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="777"
+                            value={row.sqft}
+                            onChange={(e) => updateBlockRow('machine3', row.id, 'sqft', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-2 flex items-end">
+                          {formData.machine3.blockRows.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => removeBlockRow('machine3', row.id)}
+                              className="text-red-600 hover:bg-red-50 w-full"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                          <Input
+                            placeholder="e.g., Minor edge damage, Extra polishing needed"
+                            value={row.notes}
+                            onChange={(e) => updateBlockRow('machine3', row.id, 'notes', e.target.value)}
+                            className="w-full"
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -897,6 +943,7 @@ export default function MultiCutterPage() {
                                   <th className="text-left py-2 px-3 font-semibold text-gray-700">Material</th>
                                   <th className="text-right py-2 px-3 font-semibold text-gray-700">Slabs</th>
                                   <th className="text-right py-2 px-3 font-semibold text-gray-700">Sq. Ft.</th>
+                                  <th className="text-left py-2 px-3 font-semibold text-gray-700">Notes</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -906,6 +953,9 @@ export default function MultiCutterPage() {
                                     <td className="py-2 px-3 text-gray-700">{block.material_type}</td>
                                     <td className="py-2 px-3 text-right font-semibold text-gray-900">{block.slabs}</td>
                                     <td className="py-2 px-3 text-right font-semibold text-gray-900">{fmt(block.sqft)}</td>
+                                    <td className="py-2 px-3 text-gray-600 italic">
+                                      {block.notes || <span className="text-gray-400">—</span>}
+                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
