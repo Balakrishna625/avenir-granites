@@ -527,21 +527,21 @@ export default function MultiCutterPage() {
 
         {/* Add/Edit Form - Balanced Design */}
         {showForm && (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {editingId ? 'Edit Multi Cutter Report' : 'Add Multi Cutter Report'}
-              </h2>
-              <div className="flex items-center gap-2">
+          <Card className="p-6">
+            <div className="mb-6 pb-5 border-b border-gray-200">
+              <div className="flex items-center gap-2 mb-6">
                 <label className="text-sm font-medium text-gray-700">Date:</label>
                 <Input
                   type="date"
                   value={formData.date}
                   onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                   required
-                  className="w-44"
+                  className="w-44 h-10"
                 />
               </div>
+              <h2 className="text-2xl font-semibold text-gray-900">
+                {editingId ? 'Edit Multi Cutter Report' : 'Add Multi Cutter Report'}
+              </h2>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -638,8 +638,8 @@ export default function MultiCutterPage() {
 
               {/* Machine 2 - Balanced */}
               <div className="border border-green-200 rounded-lg overflow-hidden">
-                <div className="bg-green-50 px-4 py-2.5 flex items-center justify-between border-b border-green-200">
-                  <h3 className="text-base font-semibold text-green-900 flex items-center">
+                <div className="bg-green-50 px-5 py-3 flex items-center justify-between border-b border-green-200">
+                  <h3 className="text-lg font-semibold text-green-900 flex items-center">
                     <Factory className="w-5 h-5 mr-2" />
                     Machine-2
                   </h3>
@@ -653,23 +653,23 @@ export default function MultiCutterPage() {
                   </Button>
                 </div>
 
-                <div className="p-3 space-y-2.5 bg-white">
+                <div className="p-4 space-y-3 bg-white">
                   {formData.machine2.blockRows.map((row, index) => (
-                    <div key={row.id} className="border border-gray-200 rounded-md p-3 space-y-2">
-                      <div className="grid grid-cols-12 gap-2 items-end">
+                    <div key={row.id} className="border border-gray-200 rounded-md p-4 space-y-2">
+                      <div className="grid grid-cols-12 gap-2.5 items-end">
                         <div className="col-span-3">
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Block Name</label>
                           <Input
                             placeholder="AVG-17C"
                             value={row.block_name}
                             onChange={(e) => updateBlockRow('machine2', row.id, 'block_name', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
                         <div className="col-span-2">
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Material</label>
                           <select
-                            className="w-full h-9 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                            className="w-full h-10 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                             value={row.material_type}
                             onChange={(e) => updateBlockRow('machine2', row.id, 'material_type', e.target.value as MaterialType)}
                           >
@@ -686,7 +686,7 @@ export default function MultiCutterPage() {
                             placeholder="31"
                             value={row.slabs}
                             onChange={(e) => updateBlockRow('machine2', row.id, 'slabs', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
                         <div className="col-span-2">
@@ -697,31 +697,33 @@ export default function MultiCutterPage() {
                             placeholder="767"
                             value={row.sqft}
                             onChange={(e) => updateBlockRow('machine2', row.id, 'sqft', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
-                        <div className="col-span-3">
+                        <div className="col-span-2">
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Notes</label>
                           <Input
                             placeholder="Optional notes"
                             value={row.notes}
                             onChange={(e) => updateBlockRow('machine2', row.id, 'notes', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
                         {formData.machine2.blockRows.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeBlockRow('machine2', row.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="col-span-1 flex items-end justify-center pb-1">
+                            <button
+                              type="button"
+                              onClick={() => removeBlockRow('machine2', row.id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
                   ))}
-                  <div className="bg-green-50 px-3 py-2 rounded-md text-sm font-semibold text-green-900">
+                  <div className="bg-green-50 px-4 py-3 rounded-md text-base font-semibold text-green-900">
                     Total: {calculateMachineTotal('machine2').slabs} Slabs | {fmt(calculateMachineTotal('machine2').sqft)} Sq Ft
                   </div>
                 </div>
@@ -729,8 +731,8 @@ export default function MultiCutterPage() {
 
               {/* Machine 3 - Balanced */}
               <div className="border border-purple-200 rounded-lg overflow-hidden">
-                <div className="bg-purple-50 px-4 py-2.5 flex items-center justify-between border-b border-purple-200">
-                  <h3 className="text-base font-semibold text-purple-900 flex items-center">
+                <div className="bg-purple-50 px-5 py-3 flex items-center justify-between border-b border-purple-200">
+                  <h3 className="text-lg font-semibold text-purple-900 flex items-center">
                     <Factory className="w-5 h-5 mr-2" />
                     Machine-3
                   </h3>
@@ -744,23 +746,23 @@ export default function MultiCutterPage() {
                   </Button>
                 </div>
 
-                <div className="p-3 space-y-2.5 bg-white">
+                <div className="p-4 space-y-3 bg-white">
                   {formData.machine3.blockRows.map((row, index) => (
-                    <div key={row.id} className="border border-gray-200 rounded-md p-3 space-y-2">
-                      <div className="grid grid-cols-12 gap-2 items-end">
+                    <div key={row.id} className="border border-gray-200 rounded-md p-4 space-y-2">
+                      <div className="grid grid-cols-12 gap-2.5 items-end">
                         <div className="col-span-3">
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Block Name</label>
                           <Input
                             placeholder="AVG-16A"
                             value={row.block_name}
                             onChange={(e) => updateBlockRow('machine3', row.id, 'block_name', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
                         <div className="col-span-2">
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Material</label>
                           <select
-                            className="w-full h-9 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="w-full h-10 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                             value={row.material_type}
                             onChange={(e) => updateBlockRow('machine3', row.id, 'material_type', e.target.value as MaterialType)}
                           >
@@ -777,7 +779,7 @@ export default function MultiCutterPage() {
                             placeholder="28"
                             value={row.slabs}
                             onChange={(e) => updateBlockRow('machine3', row.id, 'slabs', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
                         <div className="col-span-2">
@@ -788,47 +790,49 @@ export default function MultiCutterPage() {
                             placeholder="777"
                             value={row.sqft}
                             onChange={(e) => updateBlockRow('machine3', row.id, 'sqft', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
-                        <div className="col-span-3">
+                        <div className="col-span-2">
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Notes</label>
                           <Input
                             placeholder="Optional notes"
                             value={row.notes}
                             onChange={(e) => updateBlockRow('machine3', row.id, 'notes', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
                         {formData.machine3.blockRows.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeBlockRow('machine3', row.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="col-span-1 flex items-end justify-center pb-1">
+                            <button
+                              type="button"
+                              onClick={() => removeBlockRow('machine3', row.id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
                   ))}
-                  <div className="bg-purple-50 px-3 py-2 rounded-md text-sm font-semibold text-purple-900">
+                  <div className="bg-purple-50 px-4 py-3 rounded-md text-base font-semibold text-purple-900">
                     Total: {calculateMachineTotal('machine3').slabs} Slabs | {fmt(calculateMachineTotal('machine3').sqft)} Sq Ft
                   </div>
                 </div>
               </div>
 
               {/* Grand Total - Balanced */}
-              <div className="bg-gradient-to-r from-gray-700 to-gray-800 px-5 py-4 rounded-lg">
+              <div className="bg-gradient-to-r from-gray-700 to-gray-800 px-6 py-5 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-base font-semibold text-gray-200">Total Production (All Machines)</span>
-                  <div className="flex gap-8 text-white">
+                  <span className="text-lg font-semibold text-gray-200">Total Production (All Machines)</span>
+                  <div className="flex gap-10 text-white">
                     <div>
-                      <span className="text-sm text-gray-300">Slabs: </span>
+                      <span className="text-base text-gray-300">Slabs: </span>
                       <span className="text-2xl font-bold">{grandTotalSlabs}</span>
                     </div>
                     <div>
-                      <span className="text-sm text-gray-300">Sq Ft: </span>
+                      <span className="text-base text-gray-300">Sq Ft: </span>
                       <span className="text-2xl font-bold">{fmt(grandTotalSqft)}</span>
                     </div>
                   </div>
