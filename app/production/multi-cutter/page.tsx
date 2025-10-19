@@ -104,6 +104,7 @@ export default function MultiCutterPage() {
       
       const response = await fetch(`/api/multi-cutter-reports?${params.toString()}`);
       const data = await response.json();
+      console.log('Loaded multi-cutter reports:', data); // Debug log
       setReports(data);
       calculateSummary(data);
     } catch (error) {
@@ -114,15 +115,28 @@ export default function MultiCutterPage() {
   }
 
   function calculateSummary(data: MultiCutterReport[]) {
-    const totSlabs = data.reduce((sum, r) => sum + (r.total_slabs || 0), 0);
-    const totSqft = data.reduce((sum, r) => sum + (r.total_sqft || 0), 0);
+    console.log('Calculating summary for reports:', data); // Debug log
     
-    const m1 = data.filter(r => r.machine === 'Machine-1').reduce((sum, r) => sum + (r.total_sqft || 0), 0);
-    const m2 = data.filter(r => r.machine === 'Machine-2').reduce((sum, r) => sum + (r.total_sqft || 0), 0);
-    const m3 = data.filter(r => r.machine === 'Machine-3').reduce((sum, r) => sum + (r.total_sqft || 0), 0);
+    const totSlabs = data.reduce((sum, r) => {
+      const slabs = Number(r.total_slabs) || 0;
+      console.log(`Report ${r.id}: total_slabs=${r.total_slabs}, converted=${slabs}`);
+      return sum + slabs;
+    }, 0);
+    
+    const totSqft = data.reduce((sum, r) => {
+      const sqft = Number(r.total_sqft) || 0;
+      console.log(`Report ${r.id}: total_sqft=${r.total_sqft}, converted=${sqft}`);
+      return sum + sqft;
+    }, 0);
+    
+    const m1 = data.filter(r => r.machine === 'Machine-1').reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
+    const m2 = data.filter(r => r.machine === 'Machine-2').reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
+    const m3 = data.filter(r => r.machine === 'Machine-3').reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
     
     const today = new Date().toISOString().split('T')[0];
-    const todayProd = data.filter(r => r.date === today).reduce((sum, r) => sum + (r.total_sqft || 0), 0);
+    const todayProd = data.filter(r => r.date === today).reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
+    
+    console.log('Summary calculated:', { totSlabs, totSqft, m1, m2, m3, todayProd }); // Debug log
     
     setTotalSlabs(totSlabs);
     setTotalSqft(totSqft);
@@ -547,8 +561,8 @@ export default function MultiCutterPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Machine 1 - Balanced */}
               <div className="border border-blue-200 rounded-lg overflow-hidden">
-                <div className="bg-blue-50 px-4 py-2.5 flex items-center justify-between border-b border-blue-200">
-                  <h3 className="text-base font-semibold text-blue-900 flex items-center">
+                <div className="bg-blue-50 px-5 py-3 flex items-center justify-between border-b border-blue-200">
+                  <h3 className="text-lg font-semibold text-blue-900 flex items-center">
                     <Factory className="w-5 h-5 mr-2" />
                     Machine-1
                   </h3>
@@ -562,23 +576,23 @@ export default function MultiCutterPage() {
                   </Button>
                 </div>
 
-                <div className="p-3 space-y-2.5 bg-white">
+                <div className="p-4 space-y-3 bg-white">
                   {formData.machine1.blockRows.map((row, index) => (
-                    <div key={row.id} className="border border-gray-200 rounded-md p-3 space-y-2">
-                      <div className="grid grid-cols-12 gap-2 items-end">
+                    <div key={row.id} className="border border-gray-200 rounded-md p-4 space-y-2">
+                      <div className="grid grid-cols-12 gap-2.5 items-end">
                         <div className="col-span-3">
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Block Name</label>
                           <Input
                             placeholder="AVG-16B"
                             value={row.block_name}
                             onChange={(e) => updateBlockRow('machine1', row.id, 'block_name', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
                         <div className="col-span-2">
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Material</label>
                           <select
-                            className="w-full h-9 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full h-10 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value={row.material_type}
                             onChange={(e) => updateBlockRow('machine1', row.id, 'material_type', e.target.value as MaterialType)}
                           >
@@ -595,7 +609,7 @@ export default function MultiCutterPage() {
                             placeholder="26"
                             value={row.slabs}
                             onChange={(e) => updateBlockRow('machine1', row.id, 'slabs', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
                         <div className="col-span-2">
@@ -606,31 +620,33 @@ export default function MultiCutterPage() {
                             placeholder="721"
                             value={row.sqft}
                             onChange={(e) => updateBlockRow('machine1', row.id, 'sqft', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
-                        <div className="col-span-3">
+                        <div className="col-span-2">
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Notes</label>
                           <Input
                             placeholder="Optional notes"
                             value={row.notes}
                             onChange={(e) => updateBlockRow('machine1', row.id, 'notes', e.target.value)}
-                            className="h-9 text-sm"
+                            className="h-10 text-sm"
                           />
                         </div>
                         {formData.machine1.blockRows.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeBlockRow('machine1', row.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="col-span-1 flex items-end justify-center pb-1">
+                            <button
+                              type="button"
+                              onClick={() => removeBlockRow('machine1', row.id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
                   ))}
-                  <div className="bg-blue-50 px-3 py-2 rounded-md text-sm font-semibold text-blue-900">
+                  <div className="bg-blue-50 px-4 py-3 rounded-md text-base font-semibold text-blue-900">
                     Total: {calculateMachineTotal('machine1').slabs} Slabs | {fmt(calculateMachineTotal('machine1').sqft)} Sq Ft
                   </div>
                 </div>
