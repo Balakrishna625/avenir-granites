@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { AddExpenseForm } from "@/components/AddExpenseForm";
+import { useTableSort } from "@/hooks/useTableSort";
+import { SortButton } from "@/components/ui/SortButton";
 import { CategoryManagement } from "@/components/CategoryManagement";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -134,6 +136,9 @@ export default function ExpensesPage() {
     expense.expense_categories.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (expense.vendors?.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // Add sorting for expenses table
+  const { sortedData: sortedExpenses, sortConfig: expensesSortConfig, requestSort: requestExpensesSort } = useTableSort(filteredExpenses);
 
   const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.total_amount, 0);
   const monthlyExpenses = filteredExpenses
@@ -296,17 +301,17 @@ export default function ExpensesPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Expense Details
+                    <th className="px-6 py-3 text-xs uppercase tracking-wider">
+                      <SortButton column="date" sortConfig={expensesSortConfig} onSort={requestExpensesSort} label="Expense Details" align="left" />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Category
+                    <th className="px-6 py-3 text-xs uppercase tracking-wider">
+                      <SortButton column="expense_categories" sortConfig={expensesSortConfig} onSort={requestExpensesSort} label="Category" align="left" />
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Payment Account
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
+                    <th className="px-6 py-3 text-xs uppercase tracking-wider">
+                      <SortButton column="total_amount" sortConfig={expensesSortConfig} onSort={requestExpensesSort} label="Amount" align="right" />
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -320,14 +325,14 @@ export default function ExpensesPage() {
                         Loading expenses...
                       </td>
                     </tr>
-                  ) : filteredExpenses.length === 0 ? (
+                  ) : sortedExpenses.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                         No expenses found. Add your first expense to get started.
                       </td>
                     </tr>
                   ) : (
-                    filteredExpenses.map((expense) => (
+                    sortedExpenses.map((expense) => (
                       <tr key={expense.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <div>

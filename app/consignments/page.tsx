@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortButton } from '@/components/ui/SortButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Package, TrendingUp, DollarSign, Truck } from 'lucide-react';
@@ -51,6 +53,9 @@ export default function ConsignmentsPage() {
     const matchesStatus = statusFilter === 'all' || consignment.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Add sorting for consignments table
+  const { sortedData: sortedConsignments, sortConfig: consignmentsSortConfig, requestSort: requestConsignmentsSort } = useTableSort(filteredConsignments);
 
   useEffect(() => {
     loadConsignments();
@@ -252,26 +257,26 @@ export default function ConsignmentsPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Consignment
+                <th className="px-6 py-3 text-xs uppercase tracking-wider">
+                  <SortButton column="consignment_number" sortConfig={consignmentsSortConfig} onSort={requestConsignmentsSort} label="Consignment" align="left" />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Supplier
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
+                <th className="px-6 py-3 text-xs uppercase tracking-wider">
+                  <SortButton column="arrival_date" sortConfig={consignmentsSortConfig} onSort={requestConsignmentsSort} label="Date" align="left" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Blocks
+                <th className="px-6 py-3 text-xs uppercase tracking-wider">
+                  <SortButton column="total_blocks" sortConfig={consignmentsSortConfig} onSort={requestConsignmentsSort} label="Blocks" align="left" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Net Measurement
+                <th className="px-6 py-3 text-xs uppercase tracking-wider">
+                  <SortButton column="total_net_measurement" sortConfig={consignmentsSortConfig} onSort={requestConsignmentsSort} label="Net Measurement" align="left" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Expenditure
+                <th className="px-6 py-3 text-xs uppercase tracking-wider">
+                  <SortButton column="total_expenditure" sortConfig={consignmentsSortConfig} onSort={requestConsignmentsSort} label="Expenditure" align="left" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                <th className="px-6 py-3 text-xs uppercase tracking-wider">
+                  <SortButton column="status" sortConfig={consignmentsSortConfig} onSort={requestConsignmentsSort} label="Status" align="left" />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -279,7 +284,7 @@ export default function ConsignmentsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredConsignments.map((consignment) => (
+              {sortedConsignments.map((consignment) => (
                 <tr key={consignment.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">{consignment.consignment_number}</div>

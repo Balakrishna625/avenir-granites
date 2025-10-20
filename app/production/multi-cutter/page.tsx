@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Plus, Edit3, Trash2, Factory, BarChart3, Layers, TrendingUp, Box, Ruler, AlertCircle, Calendar } from 'lucide-react';
 import { formatDisplayDate } from '@/lib/date-utils';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortButton } from '@/components/ui/SortButton';
 
 type MaterialType = 
   | 'S/G'
@@ -29,6 +31,20 @@ interface MultiCutterReport {
   total_sqft: number;
   created_at: string;
   updated_at: string;
+}
+
+// Flattened data for sorting
+interface FlattenedReport {
+  id: string;
+  date: string;
+  machine: 'Machine-1' | 'Machine-2' | 'Machine-3';
+  block_name: string;
+  material_type: MaterialType;
+  slabs: number;
+  sqft: number;
+  notes?: string;
+  reportId: string;
+  fullReport: MultiCutterReport;
 }
 
 // Block detail row for each machine
@@ -93,6 +109,38 @@ export default function MultiCutterPage() {
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  // Flatten data for sorting (Single Machine View)
+  const flattenedReports = useMemo<FlattenedReport[]>(() => {
+    if (selectedMachineTab === 'All') return [];
+    
+    // Apply date filters
+    let filteredReports = reports.filter(report => report.machine === selectedMachineTab);
+    
+    if (dateFrom) {
+      filteredReports = filteredReports.filter(r => r.date >= dateFrom);
+    }
+    if (dateTo) {
+      filteredReports = filteredReports.filter(r => r.date <= dateTo);
+    }
+    
+    return filteredReports.flatMap(report => 
+      report.blocks.map<FlattenedReport>(block => ({
+        id: report.id,
+        date: report.date,
+        machine: report.machine,
+        block_name: block.block_name,
+        material_type: block.material_type,
+        slabs: block.slabs,
+        sqft: block.sqft,
+        notes: block.notes,
+        reportId: report.id,
+        fullReport: report // Keep reference for edit/delete
+      }))
+    );
+  }, [selectedMachineTab, reports, dateFrom, dateTo]);
+
+  const { sortedData: sortedReports, sortConfig, requestSort } = useTableSort<FlattenedReport>(flattenedReports);
 
   useEffect(() => {
     console.log('useEffect triggered - loading reports');
@@ -1058,83 +1106,60 @@ export default function MultiCutterPage() {
                     selectedMachineTab === 'Machine-2' ? 'bg-green-50' :
                     'bg-purple-50'
                   }`}>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Block Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Material</th>
-                    <th className="text-right py-3 px-4 font-medium text-gray-700">Slabs</th>
-                    <th className="text-right py-3 px-4 font-medium text-gray-700">Sq Ft</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Notes</th>
+                    <th className="py-3 px-4">
+                      <SortButton column="date" sortConfig={sortConfig} onSort={requestSort} label="Date" align="left" />
+                    </th>
+                    <th className="py-3 px-4">
+                      <SortButton column="block_name" sortConfig={sortConfig} onSort={requestSort} label="Block Name" align="left" />
+                    </th>
+                    <th className="py-3 px-4">
+                      <SortButton column="material_type" sortConfig={sortConfig} onSort={requestSort} label="Material" align="left" />
+                    </th>
+                    <th className="py-3 px-4">
+                      <SortButton column="slabs" sortConfig={sortConfig} onSort={requestSort} label="Slabs" align="right" />
+                    </th>
+                    <th className="py-3 px-4">
+                      <SortButton column="sqft" sortConfig={sortConfig} onSort={requestSort} label="Sq Ft" align="right" />
+                    </th>
+                    <th className="py-3 px-4">
+                      <SortButton column="notes" sortConfig={sortConfig} onSort={requestSort} label="Notes" align="left" />
+                    </th>
                     <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.keys(reportsByDate).sort((a, b) => b.localeCompare(a)).flatMap(date => {
-                    const dateReports = reportsByDate[date].filter(report => report.machine === selectedMachineTab);
-                    const dateTotalSlabs = dateReports.reduce((sum, r) => sum + r.total_slabs, 0);
-                    const dateTotalSqft = dateReports.reduce((sum, r) => sum + r.total_sqft, 0);
-                    
-                    const rows = dateReports.flatMap((report) => {
-                      const rowSpan = report.blocks.length;
-                      return report.blocks.map((block, blockIdx) => (
-                        <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
-                          {blockIdx === 0 && (
-                            <td className="py-3 px-4 align-middle font-medium text-gray-900" rowSpan={rowSpan}>
-                              {formatDisplayDate(report.date)}
-                            </td>
-                          )}
-                          <td className="py-3 px-4">{block.block_name}</td>
-                          <td className="py-3 px-4">{block.material_type}</td>
-                          <td className="py-3 px-4 text-right">{block.slabs}</td>
-                          <td className="py-3 px-4 text-right">{fmt(block.sqft)}</td>
-                          <td className="py-3 px-4 text-gray-600 text-sm">{block.notes || '-'}</td>
-                          {blockIdx === 0 && (
-                            <td className="py-3 px-4 align-middle" rowSpan={rowSpan}>
-                              <div className="flex items-center justify-center space-x-2">
-                                <Button
-                                  onClick={() => handleEdit(report)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  onClick={() => handleDelete(report.id)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      ));
-                    });
-                    
-                    // Add total row for this date
-                    const totalRow = (
-                      <tr key={`total-${date}`} className={`border-b-2 ${
-                        selectedMachineTab === 'Machine-1' ? 'bg-blue-50 border-blue-200' :
-                        selectedMachineTab === 'Machine-2' ? 'bg-green-50 border-green-200' :
-                        'bg-purple-50 border-purple-200'
-                      }`}>
-                        <td colSpan={3} className="py-2.5 px-4 font-bold text-gray-800 text-right">
-                          {formatDisplayDate(date).split(',')[0]} Total:
-                        </td>
-                        <td className="py-2.5 px-4 text-right font-bold text-gray-900">
-                          {dateTotalSlabs}
-                        </td>
-                        <td className="py-2.5 px-4 text-right font-bold text-gray-900">
-                          {fmt(dateTotalSqft)}
-                        </td>
-                        <td colSpan={2} className="py-2.5 px-4"></td>
-                      </tr>
-                    );
-                    
-                    return [...rows, totalRow];
-                  })}
+                  {sortedReports.map((block, index) => (
+                    <tr key={`${block.id}-${index}`} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4 font-medium text-gray-900">
+                        {formatDisplayDate(block.date)}
+                      </td>
+                      <td className="py-3 px-4">{block.block_name}</td>
+                      <td className="py-3 px-4">{block.material_type}</td>
+                      <td className="py-3 px-4 text-right">{block.slabs}</td>
+                      <td className="py-3 px-4 text-right">{fmt(block.sqft)}</td>
+                      <td className="py-3 px-4 text-gray-600 text-sm">{block.notes || '-'}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Button
+                            onClick={() => handleEdit(block.fullReport)}
+                            size="sm"
+                            variant="outline"
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => handleDelete(block.id)}
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

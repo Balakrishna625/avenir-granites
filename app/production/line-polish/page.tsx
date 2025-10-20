@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortButton } from '@/components/ui/SortButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -598,6 +600,21 @@ export default function LinePolishPage() {
     
     return filtered;
   };
+
+  // Memoize filtered reports for sorting
+  const filteredReports = useMemo(() => filterReportsByMonth(reports), [reports, selectedMonth, showAllRecords, selectedActivity]);
+  
+  // Add sorting for reports table
+  const { sortedData: sortedReports, sortConfig: reportsSortConfig, requestSort: requestReportsSort } = useTableSort(filteredReports);
+
+  // Memoize filtered payments for sorting
+  const filteredPayments = useMemo(() => 
+    payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth),
+    [payments, selectedMonth, showAllRecords]
+  );
+  
+  // Add sorting for payments table
+  const { sortedData: sortedPayments, sortConfig: paymentsSortConfig, requestSort: requestPaymentsSort } = useTableSort(filteredPayments);
 
   // Get unique months from all reports for the dropdown
   const getAvailableMonths = () => {
@@ -1360,7 +1377,7 @@ export default function LinePolishPage() {
               </div>
               
               <p className="text-sm text-gray-700 mt-2">
-                {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total: ₹{filterReportsByMonth(reports).reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({filterReportsByMonth(reports).length} transactions)
+                {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total: ₹{filteredReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({filteredReports.length} transactions)
               </p>
             </div>
             
@@ -1370,7 +1387,7 @@ export default function LinePolishPage() {
                   <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                   <p className="text-gray-600">Loading reports...</p>
                 </div>
-              ) : filterReportsByMonth(reports).length === 0 ? (
+              ) : filteredReports.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-600">No reports found for the selected filters.</p>
                 </div>
@@ -1378,20 +1395,36 @@ export default function LinePolishPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-gray-50">
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Shift</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Activity</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Workers</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-700">Slabs</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-700">Sq Ft</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-700">Hours</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-700">Amount (₹)</th>
+                      <th className="py-3 px-4">
+                        <SortButton column="date" sortConfig={reportsSortConfig} onSort={requestReportsSort} label="Date" align="left" />
+                      </th>
+                      <th className="py-3 px-4">
+                        <SortButton column="shift" sortConfig={reportsSortConfig} onSort={requestReportsSort} label="Shift" align="left" />
+                      </th>
+                      <th className="py-3 px-4">
+                        <SortButton column="activity" sortConfig={reportsSortConfig} onSort={requestReportsSort} label="Activity" align="left" />
+                      </th>
+                      <th className="py-3 px-4">
+                        <SortButton column="no_of_workers" sortConfig={reportsSortConfig} onSort={requestReportsSort} label="Workers" align="left" />
+                      </th>
+                      <th className="py-3 px-4">
+                        <SortButton column="total_slabs" sortConfig={reportsSortConfig} onSort={requestReportsSort} label="Slabs" align="right" />
+                      </th>
+                      <th className="py-3 px-4">
+                        <SortButton column="total_sqft" sortConfig={reportsSortConfig} onSort={requestReportsSort} label="Sq Ft" align="right" />
+                      </th>
+                      <th className="py-3 px-4">
+                        <SortButton column="no_of_hours" sortConfig={reportsSortConfig} onSort={requestReportsSort} label="Hours" align="right" />
+                      </th>
+                      <th className="py-3 px-4">
+                        <SortButton column="debit_amount" sortConfig={reportsSortConfig} onSort={requestReportsSort} label="Amount (₹)" align="right" />
+                      </th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Note</th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filterReportsByMonth(reports).map((report) => (
+                    {sortedReports.map((report) => (
                       <tr key={report.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4">{formatDisplayDate(report.date)}</td>
                         <td className="py-3 px-4">{report.shift === 'MORNING' ? 'A (Morning)' : 'B (Night)'}</td>
@@ -1446,7 +1479,7 @@ export default function LinePolishPage() {
               </div>
               <div className="flex gap-4 text-sm">
                 <p className="text-emerald-700">
-                  <span className="font-semibold">Paid:</span> ₹{payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0).toLocaleString('en-IN')} ({payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length} payments)
+                  <span className="font-semibold">Paid:</span> ₹{filteredPayments.reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0).toLocaleString('en-IN')} ({filteredPayments.length} payments)
                 </p>
                 {!showAllRecords && previousDues.length > 0 && (
                   <p className="text-amber-700">
@@ -1512,7 +1545,7 @@ export default function LinePolishPage() {
             )}
             
             <div className="overflow-x-auto">
-              {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).length === 0 ? (
+              {filteredPayments.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-600">No payments recorded for {showAllRecords ? 'this period' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}.</p>
                 </div>
@@ -1520,15 +1553,21 @@ export default function LinePolishPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-gray-50">
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Date</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-700">Amount (₹)</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Method</th>
+                      <th className="py-3 px-4">
+                        <SortButton column="payment_date" sortConfig={paymentsSortConfig} onSort={requestPaymentsSort} label="Date" align="left" />
+                      </th>
+                      <th className="py-3 px-4">
+                        <SortButton column="amount" sortConfig={paymentsSortConfig} onSort={requestPaymentsSort} label="Amount (₹)" align="right" />
+                      </th>
+                      <th className="py-3 px-4">
+                        <SortButton column="payment_method" sortConfig={paymentsSortConfig} onSort={requestPaymentsSort} label="Method" align="left" />
+                      </th>
                       <th className="text-left py-3 px-4 font-medium text-gray-700">Notes</th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth).map((payment) => (
+                    {sortedPayments.map((payment) => (
                       <tr key={payment.id} className="border-b hover:bg-gray-50">
                         <td className="py-3 px-4">{formatDisplayDate(payment.payment_date)}</td>
                         <td className="py-3 px-4 text-right font-semibold text-green-600">₹{parseFloat(payment.amount.toString()).toLocaleString('en-IN')}</td>

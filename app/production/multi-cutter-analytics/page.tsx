@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
+import { useTableSort } from '@/hooks/useTableSort';
+import { SortButton } from '@/components/ui/SortButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppLayout } from '@/components/AppLayout';
@@ -123,6 +125,12 @@ export default function MultiCutterAnalyticsPage() {
   const dailyTrends = analytics?.daily_trends || [];
   const materialBreakdown = analytics?.material_breakdown || [];
   const topBlocks = analytics?.top_blocks || [];
+
+  // Add sorting for Material Breakdown table
+  const { sortedData: sortedMaterialBreakdown, sortConfig: materialSortConfig, requestSort: requestMaterialSort } = useTableSort(materialBreakdown);
+  
+  // Add sorting for Top Blocks table
+  const { sortedData: sortedTopBlocks, sortConfig: topBlocksSortConfig, requestSort: requestTopBlocksSort } = useTableSort(topBlocks);
 
   // ============ BUSINESS ANALYTICS CALCULATIONS ============
   
@@ -636,16 +644,24 @@ export default function MultiCutterAnalyticsPage() {
             <table className="min-w-full">
               <thead>
                 <tr className="border-b-2 border-gray-300 bg-gray-50">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Material Type</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Blocks</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Total Slabs</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Total Sq. Ft.</th>
+                  <th className="py-3 px-4 text-sm">
+                    <SortButton column="material_type" sortConfig={materialSortConfig} onSort={requestMaterialSort} label="Material Type" align="left" />
+                  </th>
+                  <th className="py-3 px-4 text-sm">
+                    <SortButton column="block_count" sortConfig={materialSortConfig} onSort={requestMaterialSort} label="Blocks" align="right" />
+                  </th>
+                  <th className="py-3 px-4 text-sm">
+                    <SortButton column="total_slabs" sortConfig={materialSortConfig} onSort={requestMaterialSort} label="Total Slabs" align="right" />
+                  </th>
+                  <th className="py-3 px-4 text-sm">
+                    <SortButton column="total_sqft" sortConfig={materialSortConfig} onSort={requestMaterialSort} label="Total Sq. Ft." align="right" />
+                  </th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">% of Total</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Avg Sqft/Block</th>
                 </tr>
               </thead>
               <tbody>
-                {materialBreakdown.map((material, index) => {
+                {sortedMaterialBreakdown.map((material, index) => {
                   const percentOfTotal = summary.total_sqft > 0 ? (material.total_sqft / summary.total_sqft) * 100 : 0;
                   return (
                     <tr key={index} className="border-b border-gray-100 hover:bg-green-50 transition-colors">
@@ -664,7 +680,7 @@ export default function MultiCutterAnalyticsPage() {
                     </tr>
                   );
                 })}
-                {materialBreakdown.length === 0 && (
+                {sortedMaterialBreakdown.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-gray-500">
                       No material data available
@@ -687,16 +703,26 @@ export default function MultiCutterAnalyticsPage() {
               <thead>
                 <tr className="border-b-2 border-gray-300 bg-gray-50">
                   <th className="text-center py-3 px-3 text-sm font-semibold text-gray-700">Rank</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Block Name</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Material</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Times Cut</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Total Slabs</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Total Sq. Ft.</th>
+                  <th className="py-3 px-4 text-sm">
+                    <SortButton column="block_name" sortConfig={topBlocksSortConfig} onSort={requestTopBlocksSort} label="Block Name" align="left" />
+                  </th>
+                  <th className="py-3 px-4 text-sm">
+                    <SortButton column="material_type" sortConfig={topBlocksSortConfig} onSort={requestTopBlocksSort} label="Material" align="left" />
+                  </th>
+                  <th className="py-3 px-4 text-sm">
+                    <SortButton column="times_processed" sortConfig={topBlocksSortConfig} onSort={requestTopBlocksSort} label="Times Cut" align="right" />
+                  </th>
+                  <th className="py-3 px-4 text-sm">
+                    <SortButton column="total_slabs" sortConfig={topBlocksSortConfig} onSort={requestTopBlocksSort} label="Total Slabs" align="right" />
+                  </th>
+                  <th className="py-3 px-4 text-sm">
+                    <SortButton column="total_sqft" sortConfig={topBlocksSortConfig} onSort={requestTopBlocksSort} label="Total Sq. Ft." align="right" />
+                  </th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Avg Sqft/Cut</th>
                 </tr>
               </thead>
               <tbody>
-                {topBlocks.map((block, index) => {
+                {sortedTopBlocks.map((block, index) => {
                   const rankColors = [
                     'bg-amber-100 text-amber-900 border-amber-300',
                     'bg-gray-200 text-gray-800 border-gray-400', 
@@ -727,7 +753,7 @@ export default function MultiCutterAnalyticsPage() {
                     </tr>
                   );
                 })}
-                {topBlocks.length === 0 && (
+                {sortedTopBlocks.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-gray-500">
                       No block data available
