@@ -4,10 +4,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar, Download, PlusCircle, BarChart3, Settings } from "lucide-react";
+import { Calendar, Download, PlusCircle, BarChart3, Settings, Archive } from "lucide-react";
 import { ConsignmentsTable } from "@/components/ConsignmentsTable";
 import { TransactionsTable } from "@/components/TransactionsTable";
 import { CustomerAnalytics } from "@/components/CustomerAnalytics";
+import { CustomerSettlementModal } from "@/components/CustomerSettlementModal";
 import { useToast } from "@/components/ui/toast";
 import * as XLSX from "xlsx";
 import { formatDisplayDate } from "@/lib/date-utils";
@@ -55,6 +56,7 @@ export default function Page() {
   const [waivedAmountInput, setWaivedAmountInput] = useState("");
   const [waivedDateInput, setWaivedDateInput] = useState("");
   const [waivedNotesInput, setWaivedNotesInput] = useState("");
+  const [showSettlementModal, setShowSettlementModal] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -585,6 +587,30 @@ export default function Page() {
     showToast("success", "Transaction deleted successfully!");
   }
 
+  function handleSettlementSuccess() {
+    // Reload all data after settlement
+    setConsignmentSubmitted(false);
+    setTransactionSubmitted(false);
+    
+    // Reload customers to get updated old_due_amount
+    fetch("/api/customers").then((r) => r.json()).then(setCustomers);
+    
+    // Reload consignments and transactions for the customer
+    const p = new URLSearchParams();
+    if (customerId) p.set("customerId", customerId);
+    if (dateFrom) p.set("from", dateFrom);
+    if (dateTo) p.set("to", dateTo);
+    fetch(`/api/consignments?${p.toString()}`).then((r) => r.json()).then(setConsignments);
+    fetch(`/api/transactions?${p.toString()}`).then((r) => r.json()).then(setTxns);
+    
+    // Reload waived transactions
+    if (customerId && customerId !== "all") {
+      fetch(`/api/waived-transactions?customerId=${customerId}`)
+        .then((r) => r.json())
+        .then(setWaivedTransactions);
+    }
+  }
+
   return (
     <AppLayout>
       <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
@@ -640,9 +666,20 @@ export default function Page() {
             <div className="px-6 py-2 rounded-full border text-lg font-semibold bg-blue-50 text-blue-700 border-blue-200 shadow-sm">
               {currentCustomerName || "Select a customer"}
             </div>
-            <Button type="button" className="rounded-2xl pointer-events-auto" variant="secondary" onClick={exportExcel}>
-              <Download className="w-4 h-4 mr-2" /> Export Excel
-            </Button>
+            <div className="flex gap-3">
+              {customerId && customerId !== "all" && (
+                <Button 
+                  type="button" 
+                  className="rounded-2xl bg-green-600 hover:bg-green-700 pointer-events-auto" 
+                  onClick={() => setShowSettlementModal(true)}
+                >
+                  <Archive className="w-4 h-4 mr-2" /> Settle Account
+                </Button>
+              )}
+              <Button type="button" className="rounded-2xl pointer-events-auto" variant="secondary" onClick={exportExcel}>
+                <Download className="w-4 h-4 mr-2" /> Export Excel
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -915,6 +952,19 @@ export default function Page() {
         Granite Ledger - Comprehensive consignment and payment management system
       </p>
       </div>
+
+      {/* Settlement Modal */}
+      {showSettlementModal && customerId && customerId !== "all" && (
+        <CustomerSettlementModal
+          customerId={customerId}
+          customerName={currentCustomerName}
+          currentBalance={kpi.expectedTotal - kpi.receivedTotal}
+          oldDueAmount={kpi.oldDueAmount}
+          waivedAmount={kpi.waivedAmount}
+          onClose={() => setShowSettlementModal(false)}
+          onSuccess={handleSettlementSuccess}
+        />
+      )}
     </AppLayout>
   );
 }
