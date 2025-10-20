@@ -27,5 +27,5 @@ ALTER TABLE line_polish_reports
     'POLISHING'
   ));
 
--- Update comment
+-- Update comment.
 COMMENT ON COLUMN line_polish_reports.activity IS 'Type of work: Various granite types (S/G, B/P, Burgandy) with different processes (Polishing, Laputra, Grinding, Polish Grinding, Laputra Grinding)';
