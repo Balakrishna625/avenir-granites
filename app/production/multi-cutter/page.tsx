@@ -75,7 +75,7 @@ export default function MultiCutterPage() {
   const [machine1Total, setMachine1Total] = useState(0);
   const [machine2Total, setMachine2Total] = useState(0);
   const [machine3Total, setMachine3Total] = useState(0);
-  const [todayProduction, setTodayProduction] = useState(0);
+  const [yesterdayProduction, setYesterdayProduction] = useState(0);
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -150,7 +150,7 @@ export default function MultiCutterPage() {
       setMachine1Total(0);
       setMachine2Total(0);
       setMachine3Total(0);
-      setTodayProduction(0);
+      setYesterdayProduction(0);
       return;
     }
     
@@ -173,8 +173,12 @@ export default function MultiCutterPage() {
     const m2 = data.filter(r => r.machine === 'Machine-2').reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
     const m3 = data.filter(r => r.machine === 'Machine-3').reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
     
-    const today = new Date().toISOString().split('T')[0];
-    const todayProd = data.filter(r => r.date === today).reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
+    // Calculate yesterday's production
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayDate = yesterday.toISOString().split('T')[0];
+    const yesterdayProd = data.filter(r => r.date === yesterdayDate).reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
     
     console.log('✅ Summary calculated:', {
       totalSlabs: totSlabs,
@@ -182,8 +186,8 @@ export default function MultiCutterPage() {
       machine1: m1,
       machine2: m2,
       machine3: m3,
-      todayProduction: todayProd,
-      today: today
+      yesterdayProduction: yesterdayProd,
+      yesterdayDate: yesterdayDate
     });
     
     setTotalSlabs(totSlabs);
@@ -191,7 +195,7 @@ export default function MultiCutterPage() {
     setMachine1Total(m1);
     setMachine2Total(m2);
     setMachine3Total(m3);
-    setTodayProduction(todayProd);
+    setYesterdayProduction(yesterdayProd);
   }
 
   // Add block row to a specific machine
@@ -516,9 +520,9 @@ export default function MultiCutterPage() {
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Today's Production</p>
-                <p className="text-2xl font-bold text-gray-900">{fmt(todayProduction)}</p>
-                <p className="text-xs text-gray-500 mt-1">Sq. Ft. Today</p>
+                <p className="text-sm text-gray-600">Yesterday's Production</p>
+                <p className="text-2xl font-bold text-gray-900">{fmt(yesterdayProduction)}</p>
+                <p className="text-xs text-gray-500 mt-1">Sq. Ft. Yesterday</p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
             </div>
