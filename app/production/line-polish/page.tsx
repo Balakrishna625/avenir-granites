@@ -632,8 +632,18 @@ export default function LinePolishPage() {
       return reportMonth === selectedMonth;
     });
     
-    const polishingReports = monthReports.filter(r => r.activity === 'POLISHING');
-    const grindingReports = monthReports.filter(r => r.activity === 'GRINDING');
+    // Filter by activity type - support both old and new activity names
+    const polishingReports = monthReports.filter(r => 
+      r.activity === 'POLISHING' || 
+      r.activity?.includes('Polishing')
+    );
+    const grindingReports = monthReports.filter(r => 
+      r.activity === 'GRINDING' || 
+      r.activity?.includes('Grinding')
+    );
+    
+    // Calculate total sqft from ALL reports (not just polishing/grinding)
+    const totalSqft = monthReports.reduce((sum, r) => sum + (r.total_sqft || 0), 0);
     
     // Calculate payments for selected month
     const monthPayments = payments.filter(p => {
@@ -653,8 +663,9 @@ export default function LinePolishPage() {
     
     return {
       totalHours: monthReports.reduce((sum, r) => sum + r.no_of_hours, 0),
-      polishingSqft: polishingReports.reduce((sum, r) => sum + r.total_sqft, 0),
-      grindingSqft: grindingReports.reduce((sum, r) => sum + r.total_sqft, 0),
+      totalSqft: totalSqft, // Total from ALL activities
+      polishingSqft: polishingReports.reduce((sum, r) => sum + (r.total_sqft || 0), 0),
+      grindingSqft: grindingReports.reduce((sum, r) => sum + (r.total_sqft || 0), 0),
       totalAmount,
       totalPaid,
       pending,
@@ -891,7 +902,7 @@ export default function LinePolishPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Total SqFt</p>
-                  <p className="text-2xl font-bold text-gray-900">{(metrics.polishingSqft + metrics.grindingSqft).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                  <p className="text-2xl font-bold text-gray-900">{metrics.totalSqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                 </div>
                 <BarChart3 className="w-8 h-8 text-orange-500" />
               </div>
