@@ -53,6 +53,7 @@ export default function CustomersPage() {
 
   async function loadCustomerSummaries() {
     try {
+      setLoading(true);
       const params = new URLSearchParams();
       if (dateFrom) params.set('from', dateFrom);
       if (dateTo) params.set('to', dateTo);

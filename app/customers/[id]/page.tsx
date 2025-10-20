@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/AppLayout';
@@ -79,24 +79,25 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     try {
       setLoading(true);
 
-      // Load customer details
-      const customerRes = await fetch(`/api/customers?id=${customerId}`);
-      const customerData = await customerRes.json();
-      setCustomer(customerData[0] || null);
-
-      // Load current period summary
-      const summaryRes = await fetch(`/api/customers/summary?customerId=${customerId}`);
-      const summaryData = await summaryRes.json();
-      setCurrentPeriodSummary(summaryData[0] || null);
-
-      // Load consignments and transactions for current period
-      const [consignmentsRes, transactionsRes] = await Promise.all([
+      // Parallel load all data with optimized summary endpoint
+      const [customerRes, summaryRes, consignmentsRes, transactionsRes] = await Promise.all([
+        fetch(`/api/customers?id=${customerId}`),
+        fetch(`/api/customers/summary?customerId=${customerId}`),
         fetch(`/api/consignments?customerId=${customerId}`),
         fetch(`/api/transactions?customerId=${customerId}`)
       ]);
-      
-      setConsignments(await consignmentsRes.json());
-      setTransactions(await transactionsRes.json());
+
+      const [customerData, summaryData, consignmentsData, transactionsData] = await Promise.all([
+        customerRes.json(),
+        summaryRes.json(),
+        consignmentsRes.json(),
+        transactionsRes.json()
+      ]);
+
+      setCustomer(customerData[0] || null);
+      setCurrentPeriodSummary(summaryData[0] || null);
+      setConsignments(consignmentsData);
+      setTransactions(transactionsData);
     } catch (error) {
       console.error('Failed to load customer data:', error);
     } finally {
@@ -108,6 +109,12 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     // Reload all data after settlement
     loadCustomerData();
   };
+
+  // Memoize calculated values to avoid recalculation on every render
+  const totalReceivables = useMemo(() => {
+    if (!customer || !currentPeriodSummary) return 0;
+    return (currentPeriodSummary.total_pending || 0) + customer.old_due_amount - customer.waived_amount;
+  }, [customer, currentPeriodSummary]);
 
   if (loading || !customer) {
     return (
@@ -122,7 +129,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     );
   }
 
-  const totalReceivables = (currentPeriodSummary?.total_pending || 0) + customer.old_due_amount - customer.waived_amount;
+  // Removed duplicate totalReceivables calculation (now using memoized value)
 
   return (
     <AppLayout>
@@ -393,6 +400,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
 
         {activeTab === 'history' && (
           <div>
+            {/* Only load history when tab is active to improve initial page load */}
             <CustomerPeriodHistory customerId={customerId} />
           </div>
         )}
