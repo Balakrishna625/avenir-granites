@@ -66,10 +66,13 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
       const customerData = await customerResponse.json();
       const bankData = await bankResponse.json();
       
-      setCustomerSummaries(customerData);
+      // Ensure customerData is always an array
+      setCustomerSummaries(Array.isArray(customerData) ? customerData : []);
       setBankAccountsSummary(bankData);
     } catch (error) {
       console.error('Failed to load analytics data:', error);
+      setCustomerSummaries([]); // Set empty array on error
+      setBankAccountsSummary([]);
     } finally {
       setLoading(false);
     }

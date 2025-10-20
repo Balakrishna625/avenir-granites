@@ -60,9 +60,12 @@ export default function CustomersPage() {
       
       const response = await fetch(`/api/customers/summary?${params.toString()}`);
       const data = await response.json();
-      setCustomerSummaries(data);
+      
+      // Ensure data is always an array
+      setCustomerSummaries(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load customer summaries:', error);
+      setCustomerSummaries([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
