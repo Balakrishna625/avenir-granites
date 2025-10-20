@@ -1064,49 +1064,73 @@ export default function MultiCutterPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.keys(reportsByDate).sort((a, b) => b.localeCompare(a)).flatMap(date => 
-                    reportsByDate[date]
-                      .filter(report => report.machine === selectedMachineTab)
-                      .flatMap((report) => {
-                        const rowSpan = report.blocks.length;
-                        return report.blocks.map((block, blockIdx) => (
-                          <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
-                            {blockIdx === 0 && (
-                              <td className="py-3 px-4 align-middle font-medium text-gray-900" rowSpan={rowSpan}>
-                                {formatDisplayDate(report.date)}
-                              </td>
-                            )}
-                            <td className="py-3 px-4">{block.block_name}</td>
-                            <td className="py-3 px-4">{block.material_type}</td>
-                            <td className="py-3 px-4 text-right">{block.slabs}</td>
-                            <td className="py-3 px-4 text-right">{fmt(block.sqft)}</td>
-                            <td className="py-3 px-4 text-gray-600 text-sm">{block.notes || '-'}</td>
-                            {blockIdx === 0 && (
-                              <td className="py-3 px-4 align-middle" rowSpan={rowSpan}>
-                                <div className="flex items-center justify-center space-x-2">
-                                  <Button
-                                    onClick={() => handleEdit(report)}
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-blue-600 hover:text-blue-800"
-                                  >
-                                    <Edit3 className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    onClick={() => handleDelete(report.id)}
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-red-600 hover:text-red-800"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        ));
-                      })
-                  )}
+                  {Object.keys(reportsByDate).sort((a, b) => b.localeCompare(a)).flatMap(date => {
+                    const dateReports = reportsByDate[date].filter(report => report.machine === selectedMachineTab);
+                    const dateTotalSlabs = dateReports.reduce((sum, r) => sum + r.total_slabs, 0);
+                    const dateTotalSqft = dateReports.reduce((sum, r) => sum + r.total_sqft, 0);
+                    
+                    const rows = dateReports.flatMap((report) => {
+                      const rowSpan = report.blocks.length;
+                      return report.blocks.map((block, blockIdx) => (
+                        <tr key={`${report.id}-${blockIdx}`} className="border-b hover:bg-gray-50">
+                          {blockIdx === 0 && (
+                            <td className="py-3 px-4 align-middle font-medium text-gray-900" rowSpan={rowSpan}>
+                              {formatDisplayDate(report.date)}
+                            </td>
+                          )}
+                          <td className="py-3 px-4">{block.block_name}</td>
+                          <td className="py-3 px-4">{block.material_type}</td>
+                          <td className="py-3 px-4 text-right">{block.slabs}</td>
+                          <td className="py-3 px-4 text-right">{fmt(block.sqft)}</td>
+                          <td className="py-3 px-4 text-gray-600 text-sm">{block.notes || '-'}</td>
+                          {blockIdx === 0 && (
+                            <td className="py-3 px-4 align-middle" rowSpan={rowSpan}>
+                              <div className="flex items-center justify-center space-x-2">
+                                <Button
+                                  onClick={() => handleEdit(report)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-blue-600 hover:text-blue-800"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  onClick={() => handleDelete(report.id)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ));
+                    });
+                    
+                    // Add total row for this date
+                    const totalRow = (
+                      <tr key={`total-${date}`} className={`border-b-2 ${
+                        selectedMachineTab === 'Machine-1' ? 'bg-blue-50 border-blue-200' :
+                        selectedMachineTab === 'Machine-2' ? 'bg-green-50 border-green-200' :
+                        'bg-purple-50 border-purple-200'
+                      }`}>
+                        <td colSpan={3} className="py-2.5 px-4 font-bold text-gray-800 text-right">
+                          {formatDisplayDate(date).split(',')[0]} Total:
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-bold text-gray-900">
+                          {dateTotalSlabs}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-bold text-gray-900">
+                          {fmt(dateTotalSqft)}
+                        </td>
+                        <td colSpan={2} className="py-2.5 px-4"></td>
+                      </tr>
+                    );
+                    
+                    return [...rows, totalRow];
+                  })}
                 </tbody>
               </table>
             </div>
