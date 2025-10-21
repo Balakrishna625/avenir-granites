@@ -21,6 +21,13 @@ export function useUnsavedChangesWarning(
   const router = useRouter();
   const isNavigatingRef = useRef(false);
 
+  // Reset navigation flag when unsaved changes become false
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      isNavigatingRef.current = false;
+    }
+  }, [hasUnsavedChanges]);
+
   // Warn on browser back/forward/refresh
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
