@@ -95,8 +95,8 @@ export default function MultiCutterPage() {
   const [machine3Total, setMachine3Total] = useState(0);
   const [yesterdayProduction, setYesterdayProduction] = useState(0);
 
-  // Initial form state (for comparison)
-  const initialFormState: FormData = {
+  // Create initial form state once using useMemo to prevent regenerating UUIDs on every render
+  const initialFormState: FormData = useMemo(() => ({
     date: new Date().toISOString().split('T')[0],
     machine1: {
       blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
@@ -107,7 +107,7 @@ export default function MultiCutterPage() {
     machine3: {
       blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
     }
-  };
+  }), []); // Empty dependency array - only create once
 
   // Form state
   const [formData, setFormData] = useState<FormData>(initialFormState);

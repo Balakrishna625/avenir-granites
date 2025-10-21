@@ -133,7 +133,8 @@ export default function LinePolishPage() {
   });
   const [savingPreviousDue, setSavingPreviousDue] = useState(false);
 
-  const initialFormData: FormData = {
+  // Create initial form state once using useMemo to prevent regenerating UUIDs on every render
+  const initialFormData: FormData = useMemo(() => ({
     date: new Date().toISOString().split('T')[0],
     shift: 'MORNING',
     no_of_workers: '3', // Prefilled with 3
@@ -149,7 +150,7 @@ export default function LinePolishPage() {
         total_sqft: ''
       }
     ]
-  };
+  }), []); // Empty dependency array - only create once
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [initialFormState, setInitialFormState] = useState<FormData>(initialFormData);
