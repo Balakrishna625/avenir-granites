@@ -49,6 +49,11 @@ const menuItems: MenuItem[] = [
         title: 'Customer Admin',
         href: '/admin',
         icon: <UserCog className="w-4 h-4" />
+      },
+      {
+        title: 'Settlement History',
+        href: '/customers/settlements',
+        icon: <Receipt className="w-4 h-4" />
       }
     ]
   },

@@ -4,12 +4,14 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const customerId = url.searchParams.get("customerId");
+  const periodId = url.searchParams.get("periodId");
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
   const mode = url.searchParams.get("mode");
 
   let q = supabaseAdmin.from("transactions").select("*");
   if (customerId && customerId !== "all") q = q.eq("customer_id", customerId);
+  if (periodId) q = q.eq("period_id", periodId);
   if (from) q = q.gte("date", from);
   if (to) q = q.lte("date", to);
   if (mode) q = q.eq("mode", mode);
