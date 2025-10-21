@@ -773,9 +773,12 @@ export default function LinePolishPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
               <select
-                value={new Date(selectedMonth + '-01').getFullYear()}
+                value={selectedMonth ? new Date(selectedMonth + '-01').getFullYear() : new Date().getFullYear()}
                 onChange={(e) => {
-                  const currentMonth = new Date(selectedMonth + '-01').getMonth();
+                  // If "All Months" is selected, keep current month when changing year
+                  const currentMonth = selectedMonth 
+                    ? new Date(selectedMonth + '-01').getMonth() 
+                    : new Date().getMonth();
                   setSelectedMonth(`${e.target.value}-${String(currentMonth + 1).padStart(2, '0')}`);
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
