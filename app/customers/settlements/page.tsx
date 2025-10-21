@@ -18,7 +18,11 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Edit,
+  Trash2,
+  Save,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDisplayDate } from '@/lib/date-utils';
@@ -61,6 +65,9 @@ export default function SettlementsPage() {
   const [dateTo, setDateTo] = useState('');
   const [expandedPeriods, setExpandedPeriods] = useState<{ [key: string]: PeriodDetails }>({});
   const [loadingDetails, setLoadingDetails] = useState<{ [key: string]: boolean }>({});
+  const [editingPeriod, setEditingPeriod] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<Partial<SettlementPeriod>>({});
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     loadSettlements();
@@ -154,6 +161,95 @@ export default function SettlementsPage() {
       console.error('Failed to load period details:', error);
     } finally {
       setLoadingDetails({ ...loadingDetails, [periodId]: false });
+    }
+  }
+
+  function startEditingPeriod(settlement: SettlementPeriod) {
+    setEditingPeriod(settlement.id);
+    setEditFormData({
+      total_invoiced: settlement.total_invoiced,
+      total_received: settlement.total_received,
+      total_pending: settlement.total_pending,
+      waived_amount: settlement.waived_amount,
+      settlement_amount: settlement.settlement_amount,
+      settlement_mode: settlement.settlement_mode,
+      settlement_reference: settlement.settlement_reference,
+      settlement_notes: settlement.settlement_notes
+    });
+  }
+
+  function cancelEditing() {
+    setEditingPeriod(null);
+    setEditFormData({});
+  }
+
+  async function saveEditedPeriod(periodId: string) {
+    if (!confirm('Are you sure you want to update this settlement history record?')) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const response = await fetch('/api/customers/settlement', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodId,
+          totalInvoiced: editFormData.total_invoiced,
+          totalReceived: editFormData.total_received,
+          totalPending: editFormData.total_pending,
+          waivedAmount: editFormData.waived_amount,
+          settlementAmount: editFormData.settlement_amount,
+          settlementMode: editFormData.settlement_mode,
+          settlementReference: editFormData.settlement_reference,
+          settlementNotes: editFormData.settlement_notes
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Failed to update settlement history');
+        return;
+      }
+
+      alert('Settlement history updated successfully!');
+      setEditingPeriod(null);
+      setEditFormData({});
+      loadSettlements(); // Reload to show updated data
+    } catch (error) {
+      console.error('Error updating settlement history:', error);
+      alert('Failed to update settlement history');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function deleteSettlementHistory(periodId: string, customerName: string) {
+    if (!confirm(`Are you sure you want to DELETE this settlement history record for ${customerName}?\n\nThis action cannot be undone!`)) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const response = await fetch(`/api/customers/settlement?periodId=${periodId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Failed to delete settlement history');
+        return;
+      }
+
+      alert('Settlement history deleted successfully!');
+      loadSettlements(); // Reload to show updated data
+    } catch (error) {
+      console.error('Error deleting settlement history:', error);
+      alert('Failed to delete settlement history');
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -344,6 +440,24 @@ export default function SettlementsPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => startEditingPeriod(settlement)}
+                            disabled={actionLoading || editingPeriod === settlement.id}
+                            className="flex items-center gap-2"
+                          >
+                            <Edit className="w-4 h-4" /> Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteSettlementHistory(settlement.id, settlement.customer_name)}
+                            disabled={actionLoading}
+                            className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" /> Delete
+                          </Button>
+                          <Button
                             variant="secondary"
                             size="sm"
                             onClick={() => togglePeriodDetails(settlement.id, settlement.customer_id)}
@@ -362,33 +476,146 @@ export default function SettlementsPage() {
                         </div>
                       </div>
 
-                      {/* Financial Summary */}
-                      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
-                        <div className="bg-white rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Total Invoiced</p>
-                          <p className="text-lg font-bold text-gray-900">{fmt(settlement.total_invoiced || 0)}</p>
+                      {/* Edit Form (shown when editing) */}
+                      {editingPeriod === settlement.id ? (
+                        <div className="mt-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+                          <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <Edit className="w-4 h-4" />
+                            Edit Settlement History Values
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Total Invoiced</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editFormData.total_invoiced || 0}
+                                onChange={(e) => setEditFormData({ ...editFormData, total_invoiced: parseFloat(e.target.value) })}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Total Received</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editFormData.total_received || 0}
+                                onChange={(e) => setEditFormData({ ...editFormData, total_received: parseFloat(e.target.value) })}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Total Pending</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editFormData.total_pending || 0}
+                                onChange={(e) => setEditFormData({ ...editFormData, total_pending: parseFloat(e.target.value) })}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Waived Amount</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editFormData.waived_amount || 0}
+                                onChange={(e) => setEditFormData({ ...editFormData, waived_amount: parseFloat(e.target.value) })}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Settlement Amount</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={editFormData.settlement_amount || 0}
+                                onChange={(e) => setEditFormData({ ...editFormData, settlement_amount: parseFloat(e.target.value) })}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Payment Mode</label>
+                              <select
+                                value={editFormData.settlement_mode || 'RTGS'}
+                                onChange={(e) => setEditFormData({ ...editFormData, settlement_mode: e.target.value })}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              >
+                                <option value="RTGS">RTGS</option>
+                                <option value="CASH">CASH</option>
+                                <option value="CHEQUE">CHEQUE</option>
+                                <option value="UPI">UPI</option>
+                                <option value="PARTIAL_WAIVER">PARTIAL_WAIVER</option>
+                                <option value="FULL_WAIVER">FULL_WAIVER</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Reference</label>
+                              <input
+                                type="text"
+                                value={editFormData.settlement_reference || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, settlement_reference: e.target.value })}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                            <div className="md:col-span-1">
+                              <label className="text-xs text-gray-600 block mb-1">Notes</label>
+                              <input
+                                type="text"
+                                value={editFormData.settlement_notes || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, settlement_notes: e.target.value })}
+                                className="w-full px-2 py-1 text-sm border rounded"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => saveEditedPeriod(settlement.id)}
+                              disabled={actionLoading}
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <Save className="w-4 h-4 mr-1" /> Save Changes
+                            </Button>
+                            <Button
+                              onClick={cancelEditing}
+                              disabled={actionLoading}
+                              size="sm"
+                              variant="outline"
+                            >
+                              <X className="w-4 h-4 mr-1" /> Cancel
+                            </Button>
+                          </div>
                         </div>
-                        <div className="bg-white rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Total Received</p>
-                          <p className="text-lg font-bold text-green-600">{fmt(settlement.total_received || 0)}</p>
+                      ) : (
+                        /* Financial Summary - only show when not editing */
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
+                          <div className="bg-white rounded-lg p-3">
+                            <p className="text-xs text-gray-600 mb-1">Total Invoiced</p>
+                            <p className="text-lg font-bold text-gray-900">{fmt(settlement.total_invoiced || 0)}</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3">
+                            <p className="text-xs text-gray-600 mb-1">Total Received</p>
+                            <p className="text-lg font-bold text-green-600">{fmt(settlement.total_received || 0)}</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3">
+                            <p className="text-xs text-gray-600 mb-1">Pending</p>
+                            <p className="text-lg font-bold text-orange-600">{fmt(settlement.total_pending || 0)}</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3">
+                            <p className="text-xs text-gray-600 mb-1">Settlement Paid</p>
+                            <p className="text-lg font-bold text-blue-600">{fmt(settlement.settlement_amount || 0)}</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3">
+                            <p className="text-xs text-gray-600 mb-1">Waived</p>
+                            <p className="text-lg font-bold text-purple-600">{fmt(settlement.waived_amount || 0)}</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3">
+                            <p className="text-xs text-gray-600 mb-1">Carried Forward</p>
+                            <p className="text-lg font-bold text-red-600">{fmt(settlement.carried_forward || 0)}</p>
+                          </div>
                         </div>
-                        <div className="bg-white rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Pending</p>
-                          <p className="text-lg font-bold text-orange-600">{fmt(settlement.total_pending || 0)}</p>
-                        </div>
-                        <div className="bg-white rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Settlement Paid</p>
-                          <p className="text-lg font-bold text-blue-600">{fmt(settlement.settlement_amount || 0)}</p>
-                        </div>
-                        <div className="bg-white rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Waived</p>
-                          <p className="text-lg font-bold text-purple-600">{fmt(settlement.waived_amount || 0)}</p>
-                        </div>
-                        <div className="bg-white rounded-lg p-3">
-                          <p className="text-xs text-gray-600 mb-1">Carried Forward</p>
-                          <p className="text-lg font-bold text-red-600">{fmt(settlement.carried_forward || 0)}</p>
-                        </div>
-                      </div>
+                      )}
 
                       {/* Settlement Details */}
                       {(settlement.settlement_mode || settlement.settlement_reference || settlement.settlement_notes) && (

@@ -109,3 +109,97 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// PUT: Edit settlement history record
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const {
+      periodId,
+      totalInvoiced,
+      totalReceived,
+      totalPending,
+      oldDueAmount,
+      waivedAmount,
+      settlementAmount,
+      settlementMode,
+      settlementReference,
+      settlementNotes
+    } = body;
+
+    // Validation
+    if (!periodId) {
+      return NextResponse.json({ error: 'Period ID is required' }, { status: 400 });
+    }
+
+    // Call the edit settlement history function
+    const { data, error } = await supabaseAdmin.rpc('edit_settlement_history', {
+      p_period_id: periodId,
+      p_total_invoiced: totalInvoiced || null,
+      p_total_received: totalReceived || null,
+      p_total_pending: totalPending || null,
+      p_old_due_amount: oldDueAmount || null,
+      p_waived_amount: waivedAmount || null,
+      p_settlement_amount: settlementAmount || null,
+      p_settlement_mode: settlementMode || null,
+      p_settlement_reference: settlementReference || null,
+      p_settlement_notes: settlementNotes || null
+    });
+
+    if (error) {
+      console.error('Error editing settlement history:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Check if the function returned an error
+    if (data && !data.success) {
+      return NextResponse.json({ error: data.error }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Settlement history updated successfully',
+      data
+    });
+  } catch (error) {
+    console.error('Error in edit settlement history API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// DELETE: Delete settlement history record
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const periodId = searchParams.get('periodId');
+
+    // Validation
+    if (!periodId) {
+      return NextResponse.json({ error: 'Period ID is required' }, { status: 400 });
+    }
+
+    // Call the delete settlement history function
+    const { data, error } = await supabaseAdmin.rpc('delete_settlement_history', {
+      p_period_id: periodId
+    });
+
+    if (error) {
+      console.error('Error deleting settlement history:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Check if the function returned an error
+    if (data && !data.success) {
+      return NextResponse.json({ error: data.error }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Settlement history deleted successfully',
+      data
+    });
+  } catch (error) {
+    console.error('Error in delete settlement history API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
