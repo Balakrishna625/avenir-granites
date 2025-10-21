@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Plus, Edit3, Trash2, Users, BarChart3, Layers, TrendingUp, DollarSign, CreditCard, AlertCircle, Clock } from 'lucide-react';
 import { formatDisplayDate } from '@/lib/date-utils';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
+import { UnsavedChangesIndicator } from '@/components/ui/UnsavedChangesIndicator';
 
 type ActivityType = 
   | 'S/G Polishing'
@@ -150,6 +152,11 @@ export default function LinePolishPage() {
   };
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [initialFormState, setInitialFormState] = useState<FormData>(initialFormData);
+
+  // Unsaved changes tracking
+  const hasUnsavedChanges = JSON.stringify(formData) !== JSON.stringify(initialFormState);
+  const { allowNavigation } = useUnsavedChangesWarning(hasUnsavedChanges);
 
   // Payment form state
   const [paymentForm, setPaymentForm] = useState({
@@ -387,9 +394,12 @@ export default function LinePolishPage() {
       });
 
       if (response.ok) {
-        setFormData(initialFormData);
+        const freshFormData = initialFormData;
+        setFormData(freshFormData);
+        setInitialFormState(freshFormData);
         setIsEditing(false);
         setEditingId(null);
+        allowNavigation(); // Clear unsaved changes warning
         await fetchReports();
         
         // Update monthly balance for the report's month
@@ -434,7 +444,7 @@ export default function LinePolishPage() {
       ];
     }
 
-    setFormData({
+    const editFormData = {
       date: report.date,
       shift: report.shift,
       no_of_workers: report.no_of_workers.toString(),
@@ -442,7 +452,10 @@ export default function LinePolishPage() {
       rate_per_hour: report.rate_per_hour.toString(),
       remarks: report.remarks || '',
       activityRows: activityRows
-    });
+    };
+    
+    setFormData(editFormData);
+    setInitialFormState(editFormData); // Set initial state to prevent false unsaved warning
     setIsEditing(true);
     setEditingId(report.id);
     document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' });
@@ -989,6 +1002,11 @@ export default function LinePolishPage() {
             
             <div className="p-6">
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Unsaved Changes Warning Banner */}
+                {hasUnsavedChanges && (
+                  <UnsavedChangesIndicator hasUnsavedChanges={hasUnsavedChanges} />
+                )}
+
                 {/* Common Fields - Date, Shift, Workers, Hours, Rate */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">Shift Details (Common for all activities)</h3>
@@ -1194,9 +1212,22 @@ export default function LinePolishPage() {
                       type="button" 
                       variant="outline" 
                       onClick={() => {
-                        setFormData(initialFormData);
-                        setIsEditing(false);
-                        setEditingId(null);
+                        if (hasUnsavedChanges) {
+                          if (window.confirm('You have unsaved changes. Are you sure you want to cancel?')) {
+                            allowNavigation();
+                            const freshFormData = initialFormData;
+                            setFormData(freshFormData);
+                            setInitialFormState(freshFormData);
+                            setIsEditing(false);
+                            setEditingId(null);
+                          }
+                        } else {
+                          const freshFormData = initialFormData;
+                          setFormData(freshFormData);
+                          setInitialFormState(freshFormData);
+                          setIsEditing(false);
+                          setEditingId(null);
+                        }
                       }}
                     >
                       Cancel

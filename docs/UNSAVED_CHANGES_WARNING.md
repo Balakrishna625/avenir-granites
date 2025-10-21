@@ -267,3 +267,38 @@ The hook uses JSON.stringify for comparison, which is fine for most forms but ma
 - ✅ Mobile browsers (iOS Safari, Chrome Mobile)
 
 All modern browsers support the `beforeunload` event and confirmation dialogs.
+
+## Pages Protected with Unsaved Changes Warning
+
+The following pages have implemented the unsaved changes warning system:
+
+1. ✅ **Consignment New Page** (`/app/consignments/new/page.tsx`)
+   - Protects: Consignment details, customer info, items
+   - Documentation: Inline implementation
+
+2. ✅ **Add Expense Form** (`/components/AddExpenseForm.tsx`)
+   - Protects: Modal expense entry form
+   - Special: Close button with confirmation dialog
+   - Documentation: Inline implementation
+
+3. ✅ **Multi-Cutter Report** (`/app/production/multi-cutter/page.tsx`)
+   - Protects: 3-machine report with dynamic block rows
+   - Complex: Multiple sections, dynamic content
+   - Documentation: `/docs/MULTI_CUTTER_UNSAVED_CHANGES.md`
+
+4. ✅ **Line Polish Report** (`/app/production/line-polish/page.tsx`)
+   - Protects: Shift details, multiple activity rows
+   - Complex: Multiple activity types, dynamic rows
+   - Documentation: `/docs/LINE_POLISH_UNSAVED_CHANGES.md`
+
+### Implementation Pattern
+
+All protected pages follow the same pattern:
+- Import hooks and components
+- Track initial vs current form state
+- Add `useUnsavedChangesWarning` hook
+- Call `allowNavigation()` after successful save
+- Add visual indicator banner
+- Protect Cancel/Close buttons with confirmation
+
+For detailed implementation examples, see the individual page documentation files listed above.
