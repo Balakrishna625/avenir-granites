@@ -9,6 +9,8 @@ import { useToast } from '@/components/ui/toast';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
+import { UnsavedChangesIndicator } from '@/components/ui/UnsavedChangesIndicator';
 
 interface Supplier {
   id: string;
@@ -31,13 +33,24 @@ export default function NewConsignmentPage() {
     notes: ''
   });
 
+  // Track initial state for change detection
+  const [initialFormData, setInitialFormData] = useState(formData);
+  
+  // Check if form has unsaved changes
+  const hasUnsavedChanges = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn before navigating away with unsaved changes
+  const { allowNavigation } = useUnsavedChangesWarning(hasUnsavedChanges);
+
   useEffect(() => {
     loadSuppliers();
     // Auto-generate consignment number
     const today = new Date();
     const dateStr = today.toISOString().slice(2, 10).replace(/-/g, '');
     const consignmentNumber = `CON-${dateStr}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-    setFormData(prev => ({ ...prev, consignment_number: consignmentNumber }));
+    const newFormData = { ...formData, consignment_number: consignmentNumber };
+    setFormData(newFormData);
+    setInitialFormData(newFormData); // Set initial state after auto-generation
   }, []);
 
   const loadSuppliers = async () => {
@@ -104,6 +117,9 @@ export default function NewConsignmentPage() {
       
       showToast('success', `Consignment created successfully! (Total: ₹${totalExpenditure.toLocaleString()})`);
       
+      // Allow navigation after successful save
+      allowNavigation();
+      
       // Redirect to the new consignment detail page
       router.push(`/consignments/${result.id}`);
     } catch (error) {
@@ -131,11 +147,14 @@ export default function NewConsignmentPage() {
             Back
           </Button>
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-900">New Consignment</h1>
           <p className="text-gray-600 mt-1">Create a new granite consignment</p>
         </div>
       </div>
+
+      {/* Unsaved Changes Indicator */}
+      <UnsavedChangesIndicator hasUnsavedChanges={hasUnsavedChanges} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Consignment Details */}

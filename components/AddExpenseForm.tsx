@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
+import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
 
 interface Category {
   id: string;
@@ -28,7 +29,7 @@ export function AddExpenseForm({ onClose, onSuccess }: AddExpenseFormProps) {
   const [loading, setLoading] = useState(false);
   
   // Simplified form state for petty transactions
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     date: new Date().toISOString().split('T')[0],
     category_id: "",
     account_id: "",
@@ -36,7 +37,15 @@ export function AddExpenseForm({ onClose, onSuccess }: AddExpenseFormProps) {
     amount: "",
     payment_method: "CASH",
     notes: ""
-  });
+  };
+  
+  const [formData, setFormData] = useState(initialFormData);
+  
+  // Track if form has unsaved changes
+  const hasUnsavedChanges = JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn before closing with unsaved changes
+  const { allowNavigation } = useUnsavedChangesWarning(hasUnsavedChanges);
 
   useEffect(() => {
     loadData();
@@ -99,6 +108,9 @@ export function AddExpenseForm({ onClose, onSuccess }: AddExpenseFormProps) {
         throw new Error("Failed to create expense");
       }
 
+      // Allow navigation after successful save
+      allowNavigation();
+      
       onSuccess();
       onClose();
     } catch (error) {
@@ -114,7 +126,19 @@ export function AddExpenseForm({ onClose, onSuccess }: AddExpenseFormProps) {
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-semibold">Add New Expense</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <button 
+            onClick={() => {
+              if (hasUnsavedChanges) {
+                if (window.confirm('You have unsaved changes. Are you sure you want to close?')) {
+                  allowNavigation();
+                  onClose();
+                }
+              } else {
+                onClose();
+              }
+            }} 
+            className="text-gray-500 hover:text-gray-700"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
