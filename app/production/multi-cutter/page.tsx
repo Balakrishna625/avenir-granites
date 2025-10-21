@@ -9,6 +9,8 @@ import { Plus, Edit3, Trash2, Factory, BarChart3, Layers, TrendingUp, Box, Ruler
 import { formatDisplayDate } from '@/lib/date-utils';
 import { useTableSort } from '@/hooks/useTableSort';
 import { SortButton } from '@/components/ui/SortButton';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
+import { UnsavedChangesIndicator } from '@/components/ui/UnsavedChangesIndicator';
 
 type MaterialType = 
   | 'S/G'
@@ -93,8 +95,8 @@ export default function MultiCutterPage() {
   const [machine3Total, setMachine3Total] = useState(0);
   const [yesterdayProduction, setYesterdayProduction] = useState(0);
 
-  // Form state
-  const [formData, setFormData] = useState<FormData>({
+  // Initial form state (for comparison)
+  const initialFormState: FormData = {
     date: new Date().toISOString().split('T')[0],
     machine1: {
       blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
@@ -105,7 +107,17 @@ export default function MultiCutterPage() {
     machine3: {
       blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
     }
-  });
+  };
+
+  // Form state
+  const [formData, setFormData] = useState<FormData>(initialFormState);
+  const [initialFormData, setInitialFormData] = useState<FormData>(initialFormState);
+
+  // Track if form has unsaved changes (only when form is shown)
+  const hasUnsavedChanges = showForm && JSON.stringify(formData) !== JSON.stringify(initialFormData);
+  
+  // Warn before navigating away with unsaved changes
+  const { allowNavigation } = useUnsavedChangesWarning(hasUnsavedChanges);
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -343,6 +355,7 @@ export default function MultiCutterPage() {
       }
       
       // Reset form and reload
+      allowNavigation(); // Allow navigation after successful save
       resetForm();
       setShowForm(false);
       setEditingId(null);
@@ -355,7 +368,7 @@ export default function MultiCutterPage() {
   }
 
   function resetForm() {
-    setFormData({
+    const freshFormData: FormData = {
       date: new Date().toISOString().split('T')[0],
       machine1: {
         blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
@@ -366,7 +379,9 @@ export default function MultiCutterPage() {
       machine3: {
         blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       }
-    });
+    };
+    setFormData(freshFormData);
+    setInitialFormData(freshFormData); // Reset initial state too
   }
 
   async function handleDelete(id: string) {
@@ -395,7 +410,7 @@ export default function MultiCutterPage() {
     const machineNum = report.machine.split('-')[1];
     const machineKey = `machine${machineNum}` as 'machine1' | 'machine2' | 'machine3';
     
-    setFormData({
+    const editFormData: FormData = {
       date: report.date,
       machine1: machineKey === 'machine1' ? {
         blockRows: report.blocks.map(b => ({
@@ -433,8 +448,10 @@ export default function MultiCutterPage() {
       } : {
         blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       }
-    });
+    };
     
+    setFormData(editFormData);
+    setInitialFormData(editFormData); // Set as initial state for edit mode
     setShowForm(true);
   }
 
@@ -642,6 +659,13 @@ export default function MultiCutterPage() {
         {/* Add/Edit Form - Balanced Design */}
         {showForm && (
           <Card className="p-6">
+            {/* Unsaved Changes Indicator */}
+            {hasUnsavedChanges && (
+              <div className="mb-4">
+                <UnsavedChangesIndicator hasUnsavedChanges={hasUnsavedChanges} />
+              </div>
+            )}
+            
             <div className="mb-6 pb-5 border-b border-gray-200">
               <div className="flex items-center gap-2 mb-6">
                 <label className="text-sm font-medium text-gray-700">Date:</label>
@@ -964,9 +988,18 @@ export default function MultiCutterPage() {
                   type="button" 
                   variant="outline" 
                   onClick={() => {
-                    setShowForm(false);
-                    setEditingId(null);
-                    resetForm();
+                    if (hasUnsavedChanges) {
+                      if (window.confirm('You have unsaved changes. Are you sure you want to cancel?')) {
+                        allowNavigation();
+                        setShowForm(false);
+                        setEditingId(null);
+                        resetForm();
+                      }
+                    } else {
+                      setShowForm(false);
+                      setEditingId(null);
+                      resetForm();
+                    }
                   }}
                 >
                   Cancel
