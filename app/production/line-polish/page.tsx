@@ -654,6 +654,44 @@ export default function LinePolishPage() {
     return months;
   };
 
+  // Generate dynamic months for dropdown (12 months back, current month, 3 months forward)
+  const getDynamicMonths = () => {
+    const months: string[] = [];
+    const today = new Date();
+    
+    // 12 months back
+    for (let i = 12; i >= 1; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.push(yearMonth);
+    }
+    
+    // Current month
+    const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    months.push(currentYearMonth);
+    
+    // 3 months forward
+    for (let i = 1; i <= 3; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.push(yearMonth);
+    }
+    
+    return months;
+  };
+
+  // Generate dynamic years (3 years back, current year, 2 years forward)
+  const getDynamicYears = () => {
+    const currentYear = new Date().getFullYear();
+    const years: number[] = [];
+    
+    for (let i = 3; i >= -2; i--) {
+      years.push(currentYear - i);
+    }
+    
+    return years;
+  };
+
   // Calculate metrics for the selected month
   const calculateMetrics = () => {
     // Filter reports for selected month only (not by activity for totals)
@@ -742,9 +780,9 @@ export default function LinePolishPage() {
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
-                <option value="2024">2024</option>
-                <option value="2025">2025</option>
-                <option value="2026">2026</option>
+                {getDynamicYears().map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
               </select>
             </div>
 
@@ -756,7 +794,7 @@ export default function LinePolishPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">All Months</option>
-                {getAvailableMonths().map(month => {
+                {getDynamicMonths().map(month => {
                   const date = new Date(month + '-01');
                   const monthName = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
                   return (

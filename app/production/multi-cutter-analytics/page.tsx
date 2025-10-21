@@ -203,7 +203,11 @@ export default function MultiCutterAnalyticsPage() {
     { value: '12', label: 'December' }
   ];
 
-  const years = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
+  // Generate dynamic years (3 years back, current year, 2 years forward)
+  const years = Array.from({ length: 6 }, (_, i) => {
+    const currentYear = new Date().getFullYear();
+    return (currentYear - 3 + i).toString();
+  }).reverse();
 
   return (
     <AppLayout>
