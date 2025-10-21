@@ -1,3 +1,18 @@
+-- ⚠️⚠️⚠️ DO NOT USE THIS MIGRATION ⚠️⚠️⚠️
+-- THIS MIGRATION IS DANGEROUS - IT UPDATES ALL CUSTOMERS AT ONCE
+-- IT WILL RESET old_due_amount FOR ALL CUSTOMERS, NOT JUST ONE
+-- 
+-- Problem: This was designed to fix a systemic issue but it affects ALL customers globally
+-- Issue: When run, it resets old_due_amount for EVERY customer in the database
+-- Result: Data loss for customers who had correct old_due_amount values
+-- 
+-- ❌ DO NOT RUN THIS MIGRATION ❌
+-- 
+-- Instead: Use individual customer updates through the UI or settlement history edit feature
+-- 
+-- If you already ran this migration, run: migrations/urgent_restore_old_due_amounts.sql
+-- 
+-- Original description (for reference only):
 -- Fix Old Due Amount Calculation Issue
 -- Problem: Total Previous Dues showing ₹22,54,806 which includes old values from settled customers
 -- Solution: Update all customers' old_due_amount to match their active period's old_due_amount
