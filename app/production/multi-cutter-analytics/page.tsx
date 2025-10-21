@@ -86,6 +86,20 @@ export default function MultiCutterAnalyticsPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
+  // Extract data (use empty arrays while loading to prevent hook issues)
+  const summary = analytics?.summary || {} as AnalyticsSummary;
+  const machineBreakdown = analytics?.machine_breakdown || [];
+  const dailyTrends = analytics?.daily_trends || [];
+  const materialBreakdown = analytics?.material_breakdown || [];
+  const topBlocks = analytics?.top_blocks || [];
+
+  // ⚠️ HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
+  // Add sorting for Material Breakdown table
+  const { sortedData: sortedMaterialBreakdown, sortConfig: materialSortConfig, requestSort: requestMaterialSort } = useTableSort(materialBreakdown);
+  
+  // Add sorting for Top Blocks table
+  const { sortedData: sortedTopBlocks, sortConfig: topBlocksSortConfig, requestSort: requestTopBlocksSort } = useTableSort(topBlocks);
+
   useEffect(() => {
     loadAnalytics();
   }, [dateFrom, dateTo, selectedMonth, selectedYear]);
@@ -119,18 +133,6 @@ export default function MultiCutterAnalyticsPage() {
       </div>
     );
   }
-
-  const summary = analytics?.summary || {} as AnalyticsSummary;
-  const machineBreakdown = analytics?.machine_breakdown || [];
-  const dailyTrends = analytics?.daily_trends || [];
-  const materialBreakdown = analytics?.material_breakdown || [];
-  const topBlocks = analytics?.top_blocks || [];
-
-  // Add sorting for Material Breakdown table
-  const { sortedData: sortedMaterialBreakdown, sortConfig: materialSortConfig, requestSort: requestMaterialSort } = useTableSort(materialBreakdown);
-  
-  // Add sorting for Top Blocks table
-  const { sortedData: sortedTopBlocks, sortConfig: topBlocksSortConfig, requestSort: requestTopBlocksSort } = useTableSort(topBlocks);
 
   // ============ BUSINESS ANALYTICS CALCULATIONS ============
   
