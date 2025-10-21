@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE!
-);
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 // GET: Fetch monthly balance for a specific month or all balances
 export async function GET(request: NextRequest) {
@@ -12,7 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const monthParam = searchParams.get('month'); // Format: YYYY-MM
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('line_polish_monthly_balances')
       .select('*')
       .order('year', { ascending: false })
@@ -48,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if balance already exists for this month
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseAdmin
       .from('line_polish_monthly_balances')
       .select('*')
       .eq('year', year)
@@ -58,7 +53,7 @@ export async function POST(request: NextRequest) {
     let result;
     if (existing) {
       // Update existing record
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('line_polish_monthly_balances')
         .update({
           opening_balance: opening_balance ?? existing.opening_balance,
@@ -76,7 +71,7 @@ export async function POST(request: NextRequest) {
       result = data;
     } else {
       // Create new record
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('line_polish_monthly_balances')
         .insert({
           year,
@@ -115,7 +110,7 @@ export async function PUT(request: NextRequest) {
 
     // Get the previous month's closing balance
     const previousMonth = getPreviousMonth(month);
-    const { data: previousBalance } = await supabase
+    const { data: previousBalance } = await supabaseAdmin
       .from('line_polish_monthly_balances')
       .select('closing_balance')
       .eq('month', previousMonth)
@@ -124,7 +119,7 @@ export async function PUT(request: NextRequest) {
     const openingBalance = previousBalance?.closing_balance || 0;
 
     // Calculate total work amount from reports for this month
-    const { data: reports } = await supabase
+    const { data: reports } = await supabaseAdmin
       .from('line_polish_reports')
       .select('polishing_total_amount, grinding_total_amount')
       .gte('date', `${month}-01`)
@@ -135,7 +130,7 @@ export async function PUT(request: NextRequest) {
     }, 0) || 0;
 
     // Calculate total payments for this month
-    const { data: payments } = await supabase
+    const { data: payments } = await supabaseAdmin
       .from('line_polish_payments')
       .select('amount')
       .gte('payment_date', `${month}-01`)
@@ -147,7 +142,7 @@ export async function PUT(request: NextRequest) {
     const closingBalance = openingBalance + totalWorkAmount - totalPayments;
 
     // Upsert the monthly balance
-    const { data: balance, error } = await supabase
+    const { data: balance, error } = await supabaseAdmin
       .from('line_polish_monthly_balances')
       .upsert({
         month,
@@ -169,7 +164,7 @@ export async function PUT(request: NextRequest) {
 
     // If there's a next month balance, update its opening balance
     const nextMonth = getNextMonth(month);
-    const { data: nextMonthBalance } = await supabase
+    const { data: nextMonthBalance } = await supabaseAdmin
       .from('line_polish_monthly_balances')
       .select('*')
       .eq('month', nextMonth)
@@ -177,7 +172,7 @@ export async function PUT(request: NextRequest) {
 
     if (nextMonthBalance) {
       // Recalculate next month with new opening balance
-      await supabase
+      await supabaseAdmin
         .from('line_polish_monthly_balances')
         .update({
           opening_balance: closingBalance,

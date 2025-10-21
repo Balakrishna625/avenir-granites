@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE!
-);
 
 export async function DELETE() {
   try {
     // Delete all line polish reports
-    const { error: reportsError } = await supabase
+    const { error: reportsError } = await supabaseAdmin
       .from('line_polish_reports')
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
@@ -20,7 +16,7 @@ export async function DELETE() {
     }
 
     // Delete all line polish payments
-    const { error: paymentsError } = await supabase
+    const { error: paymentsError } = await supabaseAdmin
       .from('line_polish_payments')
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
@@ -31,7 +27,7 @@ export async function DELETE() {
     }
 
     // Delete all monthly balances
-    const { error: balancesError } = await supabase
+    const { error: balancesError } = await supabaseAdmin
       .from('line_polish_monthly_balances')
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
