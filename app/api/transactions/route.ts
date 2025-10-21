@@ -8,10 +8,30 @@ export async function GET(req: Request) {
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
   const mode = url.searchParams.get("mode");
+  const activeOnly = url.searchParams.get("activeOnly") === "true";
 
   let q = supabaseAdmin.from("transactions").select("*");
   if (customerId && customerId !== "all") q = q.eq("customer_id", customerId);
   if (periodId) q = q.eq("period_id", periodId);
+  
+  // If activeOnly is true, only get transactions from the active period
+  if (activeOnly && customerId && customerId !== "all") {
+    // First, get the active period ID for this customer
+    const { data: activePeriod } = await supabaseAdmin
+      .from("customer_account_periods")
+      .select("id")
+      .eq("customer_id", customerId)
+      .eq("is_active", true)
+      .single();
+    
+    if (activePeriod) {
+      q = q.eq("period_id", activePeriod.id);
+    } else {
+      // No active period means no transactions should be shown
+      return NextResponse.json([]);
+    }
+  }
+  
   if (from) q = q.gte("date", from);
   if (to) q = q.lte("date", to);
   if (mode) q = q.eq("mode", mode);

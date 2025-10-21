@@ -48,6 +48,7 @@ export default function Page() {
   const [customerId, setCustomerId] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [showAllHistory, setShowAllHistory] = useState(false); // Toggle for viewing all periods vs current period only
   const [consignmentSubmitted, setConsignmentSubmitted] = useState(false);
   const [transactionSubmitted, setTransactionSubmitted] = useState(false);
   const [editingOldDue, setEditingOldDue] = useState(false);
@@ -76,6 +77,12 @@ export default function Page() {
     if (customerId) p.set("customerId", customerId);
     if (dateFrom) p.set("from", dateFrom);
     if (dateTo) p.set("to", dateTo);
+    
+    // Only filter by active period when a specific customer is selected and showAllHistory is false
+    if (customerId && customerId !== "all" && !showAllHistory) {
+      p.set("activeOnly", "true");
+    }
+    
     fetch(`/api/consignments?${p.toString()}`).then((r) => r.json()).then(setConsignments);
     fetch(`/api/transactions?${p.toString()}`).then((r) => r.json()).then(setTxns);
     
@@ -87,7 +94,7 @@ export default function Page() {
     } else {
       setWaivedTransactions([]);
     }
-  }, [customerId, dateFrom, dateTo]);
+  }, [customerId, dateFrom, dateTo, showAllHistory]);
 
   const kpi = useMemo(() => {
     const expectedTotal = consignments.reduce((s, r) => s + (r.total || 0), 0);
@@ -600,6 +607,12 @@ export default function Page() {
     if (customerId) p.set("customerId", customerId);
     if (dateFrom) p.set("from", dateFrom);
     if (dateTo) p.set("to", dateTo);
+    
+    // Only filter by active period when a specific customer is selected and showAllHistory is false
+    if (customerId && customerId !== "all" && !showAllHistory) {
+      p.set("activeOnly", "true");
+    }
+    
     fetch(`/api/consignments?${p.toString()}`).then((r) => r.json()).then(setConsignments);
     fetch(`/api/transactions?${p.toString()}`).then((r) => r.json()).then(setTxns);
     
@@ -663,8 +676,22 @@ export default function Page() {
           </div>
 
           <div className="flex justify-between items-center">
-            <div className="px-6 py-2 rounded-full border text-lg font-semibold bg-blue-50 text-blue-700 border-blue-200 shadow-sm">
-              {currentCustomerName || "Select a customer"}
+            <div className="flex items-center gap-4">
+              <div className="px-6 py-2 rounded-full border text-lg font-semibold bg-blue-50 text-blue-700 border-blue-200 shadow-sm">
+                {currentCustomerName || "Select a customer"}
+              </div>
+              {customerId && customerId !== "all" && (
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showAllHistory}
+                    onChange={(e) => setShowAllHistory(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="font-medium">Show All History</span>
+                  <span className="text-xs text-gray-500">(includes settled periods)</span>
+                </label>
+              )}
             </div>
             <div className="flex gap-3">
               {customerId && customerId !== "all" && (
