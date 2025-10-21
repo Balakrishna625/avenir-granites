@@ -29,6 +29,10 @@ import Link from 'next/link';
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
 
+// Formatter for cost metrics with 2 decimal places
+const INR_DECIMAL = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDecimal = (n: number) => INR_DECIMAL.format(n || 0);
+
 interface AnalyticsSummary {
   total_entries: number;
   total_days: number;
@@ -361,7 +365,7 @@ export default function ProductionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Cost per Slab</p>
-                <p className="text-2xl font-bold text-gray-900">{fmt(costPerSlab)}</p>
+                <p className="text-2xl font-bold text-gray-900">{fmtDecimal(costPerSlab)}</p>
                 <p className="text-xs text-gray-500 mt-1">Labor Cost / Slab</p>
               </div>
               <DollarSign className="w-8 h-8 text-gray-500" />
@@ -372,7 +376,7 @@ export default function ProductionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Cost per SqFt</p>
-                <p className="text-2xl font-bold text-gray-900">{fmt(costPerSqft)}</p>
+                <p className="text-2xl font-bold text-gray-900">{fmtDecimal(costPerSqft)}</p>
                 <p className="text-xs text-gray-500 mt-1">Labor Cost / SqFt</p>
               </div>
               <DollarSign className="w-8 h-8 text-gray-500" />
@@ -637,10 +641,10 @@ export default function ProductionPage() {
                         {fmt(trend.debit)}
                       </td>
                       <td className="py-3 px-3 text-sm text-right text-gray-600">
-                        {fmt(costPerSlab)}
+                        {fmtDecimal(costPerSlab)}
                       </td>
                       <td className="py-3 px-3 text-sm text-right text-gray-600">
-                        {fmt(costPerSqft)}
+                        {fmtDecimal(costPerSqft)}
                       </td>
                     </tr>
                   );
