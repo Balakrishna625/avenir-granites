@@ -109,3 +109,99 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// PUT: Edit settlement details
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const {
+      periodId,
+      settlementAmount,
+      settlementMode,
+      settlementReference,
+      settlementNotes,
+      editedBy
+    } = body;
+
+    // Validation
+    if (!periodId) {
+      return NextResponse.json({ error: 'Period ID is required' }, { status: 400 });
+    }
+
+    // Validate settlement mode if provided
+    if (settlementMode) {
+      const validModes = ['RTGS', 'CASH', 'CHEQUE', 'UPI', 'PARTIAL_WAIVER', 'FULL_WAIVER'];
+      if (!validModes.includes(settlementMode)) {
+        return NextResponse.json({ error: 'Invalid settlement mode' }, { status: 400 });
+      }
+    }
+
+    // Call the edit settlement function
+    const { data, error } = await supabaseAdmin.rpc('edit_settlement', {
+      p_period_id: periodId,
+      p_settlement_amount: settlementAmount || null,
+      p_settlement_mode: settlementMode || null,
+      p_settlement_reference: settlementReference || null,
+      p_settlement_notes: settlementNotes || null,
+      p_edited_by: editedBy || 'system'
+    });
+
+    if (error) {
+      console.error('Error editing settlement:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Check if the function returned an error
+    if (data && !data.success) {
+      return NextResponse.json({ error: data.error }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Settlement updated successfully',
+      data
+    });
+  } catch (error) {
+    console.error('Error in edit settlement API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// DELETE: Reverse/delete a settlement
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const periodId = searchParams.get('periodId');
+    const deletedBy = searchParams.get('deletedBy');
+
+    // Validation
+    if (!periodId) {
+      return NextResponse.json({ error: 'Period ID is required' }, { status: 400 });
+    }
+
+    // Call the reverse settlement function
+    const { data, error } = await supabaseAdmin.rpc('reverse_settlement', {
+      p_period_id: periodId,
+      p_user: deletedBy || 'system'
+    });
+
+    if (error) {
+      console.error('Error reversing settlement:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Check if the function returned an error
+    if (data && !data.success) {
+      return NextResponse.json({ error: data.error }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Settlement reversed successfully',
+      data
+    });
+  } catch (error) {
+    console.error('Error in delete settlement API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

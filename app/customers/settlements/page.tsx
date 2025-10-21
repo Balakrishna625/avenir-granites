@@ -18,7 +18,11 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Edit,
+  Trash2,
+  X,
+  Save
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDisplayDate } from '@/lib/date-utils';
@@ -52,6 +56,14 @@ interface PeriodDetails {
   expanded: boolean;
 }
 
+interface EditingSettlement {
+  id: string;
+  amount: string;
+  mode: string;
+  reference: string;
+  notes: string;
+}
+
 export default function SettlementsPage() {
   const [settlements, setSettlements] = useState<SettlementPeriod[]>([]);
   const [filteredSettlements, setFilteredSettlements] = useState<SettlementPeriod[]>([]);
@@ -61,6 +73,9 @@ export default function SettlementsPage() {
   const [dateTo, setDateTo] = useState('');
   const [expandedPeriods, setExpandedPeriods] = useState<{ [key: string]: PeriodDetails }>({});
   const [loadingDetails, setLoadingDetails] = useState<{ [key: string]: boolean }>({});
+  const [editingSettlement, setEditingSettlement] = useState<EditingSettlement | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     loadSettlements();
@@ -154,6 +169,76 @@ export default function SettlementsPage() {
       console.error('Failed to load period details:', error);
     } finally {
       setLoadingDetails({ ...loadingDetails, [periodId]: false });
+    }
+  }
+
+  function openEditModal(settlement: SettlementPeriod) {
+    setEditingSettlement({
+      id: settlement.id,
+      amount: settlement.settlement_amount.toString(),
+      mode: settlement.settlement_mode,
+      reference: settlement.settlement_reference || '',
+      notes: settlement.settlement_notes || ''
+    });
+  }
+
+  async function handleEditSubmit() {
+    if (!editingSettlement) return;
+
+    try {
+      setActionLoading(true);
+      const response = await fetch('/api/customers/settlement', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodId: editingSettlement.id,
+          settlementAmount: parseFloat(editingSettlement.amount),
+          settlementMode: editingSettlement.mode,
+          settlementReference: editingSettlement.reference,
+          settlementNotes: editingSettlement.notes,
+          editedBy: 'admin'
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update settlement');
+      }
+
+      alert('Settlement updated successfully!');
+      setEditingSettlement(null);
+      await loadSettlements();
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleDelete(periodId: string) {
+    if (!confirm('Are you sure you want to reverse this settlement? This will reactivate the period and delete the next empty period.')) {
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const response = await fetch(`/api/customers/settlement?periodId=${periodId}&deletedBy=admin`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reverse settlement');
+      }
+
+      alert('Settlement reversed successfully!');
+      await loadSettlements();
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -342,22 +427,42 @@ export default function SettlementsPage() {
                             </div>
                           </div>
                         </div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => togglePeriodDetails(settlement.id, settlement.customer_id)}
-                          className="flex items-center gap-2"
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronUp className="w-4 h-4" /> Hide Details
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="w-4 h-4" /> View Details
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditModal(settlement)}
+                            className="flex items-center gap-2 text-blue-600 border-blue-300 hover:bg-blue-50"
+                            disabled={actionLoading}
+                          >
+                            <Edit className="w-4 h-4" /> Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(settlement.id)}
+                            className="flex items-center gap-2 text-red-600 border-red-300 hover:bg-red-50"
+                            disabled={actionLoading}
+                          >
+                            <Trash2 className="w-4 h-4" /> Reverse
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => togglePeriodDetails(settlement.id, settlement.customer_id)}
+                            className="flex items-center gap-2"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="w-4 h-4" /> Hide Details
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-4 h-4" /> View Details
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Financial Summary */}
@@ -512,6 +617,125 @@ export default function SettlementsPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Settlement Modal */}
+      {editingSettlement && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Edit className="w-5 h-5 text-blue-600" />
+                <h2 className="text-xl font-bold text-gray-900">Edit Settlement</h2>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setEditingSettlement(null)}
+                disabled={actionLoading}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <CardContent className="p-6 space-y-4">
+              {/* Settlement Amount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Settlement Amount <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    type="number"
+                    value={editingSettlement.amount}
+                    onChange={(e) => setEditingSettlement({ ...editingSettlement, amount: e.target.value })}
+                    className="pl-10"
+                    placeholder="0.00"
+                    disabled={actionLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Settlement Mode */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Payment Mode <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={editingSettlement.mode}
+                  onChange={(e) => setEditingSettlement({ ...editingSettlement, mode: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={actionLoading}
+                >
+                  <option value="RTGS">RTGS/NEFT/Bank Transfer</option>
+                  <option value="CASH">Cash</option>
+                  <option value="CHEQUE">Cheque</option>
+                  <option value="UPI">UPI</option>
+                  <option value="PARTIAL_WAIVER">Partial Payment + Waive Rest</option>
+                  <option value="FULL_WAIVER">Full Waiver (No Payment)</option>
+                </select>
+              </div>
+
+              {/* Reference Number */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reference Number
+                </label>
+                <div className="relative">
+                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    type="text"
+                    value={editingSettlement.reference}
+                    onChange={(e) => setEditingSettlement({ ...editingSettlement, reference: e.target.value })}
+                    className="pl-10"
+                    placeholder="Transaction reference, cheque number, etc."
+                    disabled={actionLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Settlement Notes
+                </label>
+                <textarea
+                  value={editingSettlement.notes}
+                  onChange={(e) => setEditingSettlement({ ...editingSettlement, notes: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                  placeholder="Any notes about this settlement..."
+                  disabled={actionLoading}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setEditingSettlement(null)} 
+                  className="flex-1"
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleEditSubmit} 
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? (
+                    <>Saving...</>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" /> Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </AppLayout>
   );
 }
