@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppLayout } from '@/components/AppLayout';
 import { formatDisplayDate } from '@/lib/date-utils';
+import { useMasking } from '@/contexts/MaskingContext';
 import { 
   BarChart3, 
   Users, 
@@ -17,7 +18,9 @@ import {
   Download,
   Star,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -40,12 +43,29 @@ interface CustomerSummary {
 }
 
 export default function CustomersPage() {
+  const { isUnlocked, attemptUnlock, lock, maskName } = useMasking();
   const [customerSummaries, setCustomerSummaries] = useState<CustomerSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingWaivedAmount, setEditingWaivedAmount] = useState<{ id: string; amount: string } | null>(null);
+
+  const handleUnlockToggle = () => {
+    if (isUnlocked) {
+      // Lock names
+      lock();
+    } else {
+      // Prompt for PIN
+      const pin = prompt('Enter PIN to unlock customer names:');
+      if (pin) {
+        const success = attemptUnlock(pin);
+        if (!success) {
+          alert('Incorrect PIN');
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     loadCustomerSummaries();
@@ -149,6 +169,26 @@ export default function CustomersPage() {
           <h1 className="text-3xl font-bold text-gray-900">Customer Analytics</h1>
         </div>
         <div className="flex space-x-3">
+          <Button 
+            onClick={handleUnlockToggle}
+            className={`flex items-center space-x-2 ${
+              isUnlocked 
+                ? 'bg-green-600 hover:bg-green-700' 
+                : 'bg-orange-600 hover:bg-orange-700'
+            }`}
+          >
+            {isUnlocked ? (
+              <>
+                <Unlock className="w-4 h-4" />
+                <span>Lock Names</span>
+              </>
+            ) : (
+              <>
+                <Lock className="w-4 h-4" />
+                <span>Unlock Names</span>
+              </>
+            )}
+          </Button>
           <Button variant="secondary">
             <Download className="w-4 h-4 mr-2" />
             Export Report
@@ -247,7 +287,7 @@ export default function CustomersPage() {
             <Card key={customer.id} className="p-4 hover:shadow-lg transition-shadow">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg text-gray-900">{customer.name}</h3>
+                  <h3 className="font-semibold text-lg text-gray-900">{maskName(customer.name)}</h3>
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                     customer.collectionEfficiency > 80 
                       ? 'bg-green-100 text-green-800' 
@@ -367,7 +407,7 @@ export default function CustomersPage() {
               return (
                 <div key={customer.id} className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900 truncate flex-1 mr-4">{customer.name}</span>
+                    <span className="font-medium text-gray-900 truncate flex-1 mr-4">{maskName(customer.name)}</span>
                     <span className="text-gray-700 font-semibold text-sm whitespace-nowrap">
                       {fmt(receivablesAmount)}
                     </span>
@@ -405,7 +445,7 @@ export default function CustomersPage() {
                   <span className="w-6 h-6 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                     {index + 1}
                   </span>
-                  <span className="font-medium">{customer.name}</span>
+                  <span className="font-medium">{maskName(customer.name)}</span>
                 </div>
                 <span className="text-green-600 font-semibold">{fmt(customer.totalInvoiced)}</span>
               </div>
@@ -428,7 +468,7 @@ export default function CustomersPage() {
                     <span className="w-6 h-6 bg-red-100 text-red-800 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                       {index + 1}
                     </span>
-                    <span className="font-medium">{customer.name}</span>
+                    <span className="font-medium">{maskName(customer.name)}</span>
                   </div>
                   <span className="text-red-600 font-semibold">{fmt(receivablesAmount)}</span>
                 </div>
@@ -450,7 +490,7 @@ export default function CustomersPage() {
                   <span className="w-6 h-6 bg-orange-100 text-orange-800 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                     {index + 1}
                   </span>
-                  <span className="font-medium">{customer.name}</span>
+                  <span className="font-medium">{maskName(customer.name)}</span>
                 </div>
                 <span className="text-orange-600 font-semibold">{customer.avgPaymentDelay.toFixed(0)}d</span>
               </div>

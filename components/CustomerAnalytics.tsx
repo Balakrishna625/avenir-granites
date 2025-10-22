@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useMasking } from '@/contexts/MaskingContext';
 import { 
   BarChart3, 
   Users, 
@@ -43,6 +44,7 @@ interface CustomerAnalyticsProps {
 }
 
 export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) {
+  const { maskName } = useMasking();
   const [customerSummaries, setCustomerSummaries] = useState<CustomerSummary[]>([]);
   const [bankAccountsSummary, setBankAccountsSummary] = useState<BankAccountSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,7 +186,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
             <Card key={customer.id} className="p-4 hover:shadow-lg transition-shadow">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-lg text-gray-900">{customer.name}</h4>
+                  <h4 className="font-semibold text-lg text-gray-900">{maskName(customer.name)}</h4>
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                     customer.collectionEfficiency > 80 
                       ? 'bg-green-100 text-green-800' 
@@ -261,7 +263,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
               return (
                 <div key={customer.id} className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900 truncate flex-1 mr-4">{customer.name}</span>
+                    <span className="font-medium text-gray-900 truncate flex-1 mr-4">{maskName(customer.name)}</span>
                     <span className="text-gray-700 font-semibold text-sm whitespace-nowrap">
                       {fmt(receivablesAmount)}
                     </span>
@@ -299,7 +301,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
                   <span className="w-6 h-6 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                     {index + 1}
                   </span>
-                  <span className="font-medium">{customer.name}</span>
+                  <span className="font-medium">{maskName(customer.name)}</span>
                 </div>
                 <span className="text-green-600 font-semibold">{fmt(customer.totalInvoiced)}</span>
               </div>
@@ -322,7 +324,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
                     <span className="w-6 h-6 bg-red-100 text-red-800 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                       {index + 1}
                     </span>
-                    <span className="font-medium">{customer.name}</span>
+                    <span className="font-medium">{maskName(customer.name)}</span>
                   </div>
                   <span className="text-red-600 font-semibold">{fmt(receivablesAmount)}</span>
                 </div>
@@ -347,7 +349,7 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
                   <span className="w-6 h-6 bg-amber-200 text-amber-900 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                     {index + 1}
                   </span>
-                  <span className="font-medium text-gray-900">{customer.name}</span>
+                  <span className="font-medium text-gray-900">{maskName(customer.name)}</span>
                 </div>
                 <span className="text-amber-700 font-semibold">{fmt(customer.waivedAmount || 0)}</span>
               </div>
