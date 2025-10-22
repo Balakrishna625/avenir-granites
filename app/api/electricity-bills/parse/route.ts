@@ -13,35 +13,47 @@ function parseElectricityBillText(text: string) {
     todReadings: []
   };
 
-  // Extract Bill Number - try multiple patterns
-  let billNoMatch = text.match(/Bill No[:\s.]*(\d+)/i);
-  if (!billNoMatch) billNoMatch = text.match(/Bill Number[:\s.]*(\d+)/i);
-  if (!billNoMatch) billNoMatch = text.match(/Bill\s*#[:\s.]*(\d+)/i);
-  if (!billNoMatch) billNoMatch = text.match(/Invoice No[:\s.]*(\d+)/i);
-  if (!billNoMatch) billNoMatch = text.match(/Reference No[:\s.]*(\d+)/i);
-  if (!billNoMatch) billNoMatch = text.match(/Bill ID[:\s.]*(\d+)/i);
-  // Try to find any standalone number that could be a bill number (as last resort)
+  // Extract Bill Number - APCPDCL specific patterns
+  // Pattern 1: "Bill No: 2513496777" (with colon and spaces)
+  let billNoMatch = text.match(/Bill\s+No[:\s.]+(\d{8,})/i);
+  
+  // Pattern 2: Just the label and number on same line
+  if (!billNoMatch) billNoMatch = text.match(/Bill\s+Number[:\s.]+(\d{8,})/i);
+  
+  // Pattern 3: APCPDCL format - look for 10-digit bill number near "Dated"
   if (!billNoMatch) {
-    const numbers = text.match(/\b\d{8,}\b/); // Look for 8+ digit numbers
-    if (numbers) billNoMatch = [null, numbers[0]];
+    const billNoLine = text.match(/Dated[:\s]+\d{2}-[A-Z]{3}-\d{4}[\s\S]{0,100}?(\d{10})/i);
+    if (billNoLine) billNoMatch = billNoLine;
+  }
+  
+  // Pattern 4: Look for pattern "Bill No: XXXXXXXXXX" where X is 10 digits
+  if (!billNoMatch) {
+    const match = text.match(/Bill\s+No[:\s]*(\d{10})/i);
+    if (match) billNoMatch = match;
+  }
+  
+  // Pattern 5: Search for 10-digit number in first 500 characters (likely bill number)
+  if (!billNoMatch) {
+    const firstPart = text.substring(0, 500);
+    const tenDigitMatch = firstPart.match(/\b(\d{10})\b/);
+    if (tenDigitMatch) billNoMatch = tenDigitMatch;
   }
   
   if (billNoMatch) extracted.bill.bill_number = billNoMatch[1];
 
-  // Extract Bill Month and Date - try multiple patterns
-  let billMonthMatch = text.match(/Bill for the month of[:\s]+([A-Z]{3}\s*-?\s*\d{4})/i);
-  if (!billMonthMatch) billMonthMatch = text.match(/Month[:\s]+([A-Z]{3}\s*-?\s*\d{4})/i);
-  if (!billMonthMatch) billMonthMatch = text.match(/Period[:\s]+([A-Z]{3}\s*-?\s*\d{4})/i);
-  if (!billMonthMatch) billMonthMatch = text.match(/([A-Z]{3})\s*[-/]\s*(\d{4})/i);
+  // Extract Bill Month - APCPDCL specific patterns
+  // Pattern 1: "H.T. Bill for the month of: OCT - 2025" (with spaces and dash)
+  let billMonthMatch = text.match(/Bill\s+for\s+the\s+month\s+of[:\s]+([A-Z]{3})\s*[-\s]+(\d{4})/i);
+  
+  // Pattern 2: "Month: OCT-2025" or "OCT - 2025"
+  if (!billMonthMatch) billMonthMatch = text.match(/month\s+of[:\s]+([A-Z]{3})\s*[-\s]*(\d{4})/i);
+  
+  // Pattern 3: Just "OCT - 2025" or "OCT-2025" format
+  if (!billMonthMatch) billMonthMatch = text.match(/\b([A-Z]{3})\s*[-\s]+(\d{4})\b/);
   
   if (billMonthMatch) {
-    if (billMonthMatch[2]) {
-      // Format: OCT/2025 or OCT 2025
-      extracted.bill.bill_month = `${billMonthMatch[1]}-${billMonthMatch[2]}`;
-    } else {
-      // Format: OCT-2025
-      extracted.bill.bill_month = billMonthMatch[1].replace(/\s+/g, '-');
-    }
+    // Normalize to "OCT-2025" format (remove extra spaces)
+    extracted.bill.bill_month = `${billMonthMatch[1]}-${billMonthMatch[2]}`;
   }
 
   // Bill Date - multiple patterns
@@ -65,26 +77,30 @@ function parseElectricityBillText(text: string) {
     extracted.bill.disconnection_date = convertDateFormat(disconnectionMatch[1]);
   }
 
-  // Extract Consumer Details - more flexible
-  let consumerMatch = text.match(/Consumer No[:\s.]+([A-Z0-9]+)/i);
-  if (!consumerMatch) consumerMatch = text.match(/Account No[:\s.]+([A-Z0-9]+)/i);
-  if (!consumerMatch) consumerMatch = text.match(/Customer No[:\s.]+([A-Z0-9]+)/i);
-  if (!consumerMatch) consumerMatch = text.match(/Service No[:\s.]+([A-Z0-9]+)/i);
+  // Extract Consumer Details - APCPDCL specific
+  // Pattern: "Consumer No : ONG2181" or "Consumer No: ONG2181"
+  let consumerMatch = text.match(/Consumer\s+No[:\s.]+([A-Z0-9]+)/i);
+  if (!consumerMatch) consumerMatch = text.match(/Consumer\s+Number[:\s.]+([A-Z0-9]+)/i);
+  if (!consumerMatch) consumerMatch = text.match(/Account\s+No[:\s.]+([A-Z0-9]+)/i);
+  if (!consumerMatch) consumerMatch = text.match(/Service\s+No[:\s.]+([A-Z0-9]+)/i);
   if (consumerMatch) extracted.bill.consumer_number = consumerMatch[1];
 
-  const consumerNameMatch = text.match(/Consumer No[^A-Z]+([A-Z\s]+)/);
+  // Consumer name - APCPDCL format (multiple lines after Consumer No)
+  const consumerNameMatch = text.match(/Consumer\s+No[:\s]+[A-Z0-9]+[\s\n]+([A-Z\s]+?)(?=\n|[A-Z]+[:\s]|$)/i);
   if (consumerNameMatch) extracted.bill.consumer_name = consumerNameMatch[1].trim();
 
-  const contractedMatch = text.match(/Contracted MD\(KVA\)[:\s]+([\d.]+)/i);
-  if (contractedMatch) extracted.bill.contracted_demand_kva = parseFloat(contractedMatch[1]);
+  // Contracted MD - APCPDCL format: "Contracted MD(KVA)" or "Contracted MD (KVA)"
+  let contractedMatch = text.match(/Contracted\s+MD\s*\(?\s*KVA\s*\)?[:\s]+([\d.]+)/i);
+  if (contractedMatch) extracted.bill.contracted_demand = parseFloat(contractedMatch[1]);
 
-  const voltageMatch = text.match(/Voltage\(KV\)[:\s]+(\d+)\s*\(([^)]+)\)/i);
+  // Voltage - APCPDCL format: "Voltage(KV) 11 (COMM-FEEDER)"
+  let voltageMatch = text.match(/Voltage\s*\(?\s*KV\s*\)?[:\s]+(\d+)\s*\(([^)]+)\)/i);
   if (voltageMatch) {
-    extracted.bill.voltage_kv = parseFloat(voltageMatch[1]);
-    extracted.bill.connection_type = voltageMatch[2];
+    extracted.bill.voltage_level = `${voltageMatch[1]} KV (${voltageMatch[2]})`;
   }
 
-  const categoryMatch = text.match(/Category[:\s]+(\w+)/i);
+  // Category - APCPDCL format: "Category 3A"
+  let categoryMatch = text.match(/Category[:\s]+([A-Z0-9]+)/i);
   if (categoryMatch) extracted.bill.category = categoryMatch[1];
 
   // Extract Meter Readings
@@ -94,11 +110,16 @@ function parseElectricityBillText(text: string) {
   const kwh_curr_match = text.match(/Reading On[:\s]+\d{2}-[A-Z]{3}-\d{4}[^\d]+\d+\.\d+[^\d]+(\d+)\.(\d+)/);
   if (kwh_curr_match) extracted.bill.current_kwh_reading = parseFloat(kwh_curr_match[1] + kwh_curr_match[2]);
 
-  // Consumption - try multiple patterns
-  let consumptionMatch = text.match(/Total Consumption[:\s]+([\d,]+)/i);
-  if (!consumptionMatch) consumptionMatch = text.match(/Consumption[:\s]+([\d,]+)\s*KWH/i);
-  if (!consumptionMatch) consumptionMatch = text.match(/KWH Consumed[:\s]+([\d,]+)/i);
-  if (!consumptionMatch) consumptionMatch = text.match(/Units[:\s]+([\d,]+)/i);
+  // Consumption - APCPDCL table format
+  // Pattern 1: "Total Consumption" row with value like "53829.00"
+  let consumptionMatch = text.match(/Total\s+Consumption[\s\S]{0,50}?([\d,]+\.?\d*)/i);
+  
+  // Pattern 2: Look in the KWH column for consumption value
+  if (!consumptionMatch) consumptionMatch = text.match(/Difference[\s\S]{0,50}?([\d,]+\.?\d*)/);
+  
+  // Pattern 3: Just "Consumption: XXXXX"
+  if (!consumptionMatch) consumptionMatch = text.match(/Consumption[:\s]+([\d,]+)/i);
+  
   if (consumptionMatch) {
     extracted.bill.kwh_consumption = parseFloat(consumptionMatch[1].replace(/,/g, ''));
   }
@@ -110,67 +131,79 @@ function parseElectricityBillText(text: string) {
   const kvahConsMatch = text.match(/KVAH[^\d]+\d+[^\d]+([\d.]+)/);
   if (kvahConsMatch) extracted.bill.kvah_consumption = parseFloat(kvahConsMatch[1]);
 
-  // Power Quality
-  const kvaMatch = text.match(/KVA[:\s]+([\d.]+)/i);
-  if (kvaMatch) extracted.bill.maximum_demand_kva = parseFloat(kvaMatch[1]);
+  // Power Quality - APCPDCL format
+  // Pattern 1: KVA in table (look for "KVA" header followed by value like "187.20")
+  let kvaMatch = text.match(/\bKVA\b[\s\S]{0,100}?([\d.]+)/i);
+  if (!kvaMatch) kvaMatch = text.match(/Maximum\s+Demand[\s\S]{0,50}?([\d.]+)/i);
+  if (!kvaMatch) kvaMatch = text.match(/Main\s+Consumption[\s\S]{0,50}?KVA[\s\S]{0,50}?([\d.]+)/i);
+  if (kvaMatch) extracted.bill.kva_demand = parseFloat(kvaMatch[1]);
 
-  const pfMatch = text.match(/PF[:\s]+([\d.]+)/i);
+  // Pattern 2: PF in table (look for "PF" header followed by value like "0.93")
+  let pfMatch = text.match(/\bPF\b[\s\S]{0,100}?(0\.\d+)/i);
+  if (!pfMatch) pfMatch = text.match(/Power\s+Factor[:\s]+(0\.\d+)/i);
   if (pfMatch) extracted.bill.power_factor = parseFloat(pfMatch[1]);
 
-  // Charges
-  const demandChargeRateMatch = text.match(/Demand Charges Normal[:\s]+Rs\.\s*([\d.]+)/i);
-  if (demandChargeRateMatch) extracted.bill.demand_charge_rate = parseFloat(demandChargeRateMatch[1]);
+  // Charges - APCPDCL format with better number extraction
+  // Demand Charges: "Demand Charges Normal Rs. 475.00 192.00 91200.00"
+  let demandChargeRateMatch = text.match(/Demand\s+Charges\s+Normal[\s\S]{0,50}?Rs\.?\s*([\d.]+)/i);
+  if (demandChargeRateMatch) extracted.bill.demand_charges_rate = parseFloat(demandChargeRateMatch[1]);
 
-  const demandChargesMatch = text.match(/Demand Charges Normal[^\d]+([\d.]+)/i);
-  if (demandChargesMatch) extracted.bill.demand_charges = parseFloat(demandChargesMatch[1]);
+  let demandChargesMatch = text.match(/Demand\s+Charges\s+Normal[\s\S]{0,100}?([\d,]+\.?\d*)\s*$/im);
+  if (!demandChargesMatch) demandChargesMatch = text.match(/Demand\s+Charges[\s\S]{0,100}AMOUNT\s+Rs\.[\s\S]{0,50}?([\d,]+\.?\d*)/i);
+  if (demandChargesMatch) extracted.bill.demand_charges_amount = parseFloat(demandChargesMatch[1].replace(/,/g, ''));
 
-  const energyRateMatch = text.match(/Energy Charges[:\s]+Rs\.\s*([\d.]+)/i);
-  if (energyRateMatch) extracted.bill.energy_charge_rate = parseFloat(energyRateMatch[1]);
+  // Energy Charges: "Energy Charges Rs. 6.30 57134.00 359944.20"
+  let energyRateMatch = text.match(/Energy\s+Charges[\s\S]{0,50}?Rs\.?\s*([\d.]+)/i);
+  if (energyRateMatch) extracted.bill.energy_charges_rate = parseFloat(energyRateMatch[1]);
 
-  const energyChargesMatch = text.match(/Energy Charges[^\d]+([\d.]+)[^\d]+(\d+)/i);
-  if (energyChargesMatch) extracted.bill.energy_charges = parseFloat(energyChargesMatch[2]);
+  let energyChargesMatch = text.match(/Energy\s+Charges[\s\S]{0,100}?([\d,]+\.?\d*)\s*$/im);
+  if (energyChargesMatch) extracted.bill.energy_charges_amount = parseFloat(energyChargesMatch[1].replace(/,/g, ''));
 
-  const todChargesMatch = text.match(/TOD Charges[^\d]+([\d.]+)/i);
-  if (todChargesMatch) extracted.bill.tod_charges = parseFloat(todChargesMatch[1]);
+  // TOD Charges with complex calculation string
+  let todChargesMatch = text.match(/TOD\s+Charges[\s\S]{0,200}?([\d,]+\.?\d*)\s*$/im);
+  if (!todChargesMatch) todChargesMatch = text.match(/TOD[\s\S]{0,100}?([\d,]+\.?\d*)/i);
+  if (todChargesMatch) extracted.bill.tod_charges = parseFloat(todChargesMatch[1].replace(/,/g, ''));
 
-  const dutyMatch = text.match(/Electricity Duty[^\d]+([\d.]+)/i);
-  if (dutyMatch) extracted.bill.electricity_duty = parseFloat(dutyMatch[1]);
+  // Electricity Duty
+  let dutyMatch = text.match(/Electricity\s+Duty[\s\S]{0,100}?([\d,]+\.?\d*)/i);
+  if (dutyMatch) extracted.bill.electricity_duty = parseFloat(dutyMatch[1].replace(/,/g, ''));
 
-  // FPPCA Charges
-  const fppca1Match = text.match(/FPPCA Charges[^A-Z]+\(JAN-2023\)[^\d]+([\d.]+)/i);
-  if (fppca1Match) extracted.bill.fppca_jan_2023 = parseFloat(fppca1Match[1]);
+  // FPPCA Charges - with comma support
+  let fppca1Match = text.match(/FPPCA\s+Charges\s*\(JAN-2023\)[\s\S]{0,100}?([\d,]+\.?\d*)/i);
+  if (fppca1Match) extracted.bill.fppca_jan_2023 = parseFloat(fppca1Match[1].replace(/,/g, ''));
 
-  const fppca2Match = text.match(/FPPCA Charges[^A-Z]+\(AUG-2023\)[^\d]+([\d.]+)/i);
-  if (fppca2Match) extracted.bill.fppca_aug_2023 = parseFloat(fppca2Match[1]);
+  let fppca2Match = text.match(/FPPCA\s+Charges\s*\(AUG-2023\)[\s\S]{0,100}?([\d,]+\.?\d*)/i);
+  if (fppca2Match) extracted.bill.fppca_aug_2023 = parseFloat(fppca2Match[1].replace(/,/g, ''));
 
-  const fppca3Match = text.match(/FPPCA Charges[^A-Z]+\(AUG-2025\)[^\d]+([\d.]+)/i);
-  if (fppca3Match) extracted.bill.fppca_aug_2025 = parseFloat(fppca3Match[1]);
+  let fppca3Match = text.match(/FPPCA\s+Charges\s*\(AUG-2025\)[\s\S]{0,100}?([\d,]+\.?\d*)/i);
+  if (fppca3Match) extracted.bill.fppca_aug_2025 = parseFloat(fppca3Match[1].replace(/,/g, ''));
 
-  // Additional charges
-  const customerChargesMatch = text.match(/Customer Charges[^\d]+([\d.]+)/i);
-  if (customerChargesMatch) extracted.bill.customer_charges = parseFloat(customerChargesMatch[1]);
+  // Additional charges - with comma support
+  let customerChargesMatch = text.match(/Customer\s+Charges[\s\S]{0,50}?([\d,]+\.?\d*)/i);
+  if (customerChargesMatch) extracted.bill.customer_charges = parseFloat(customerChargesMatch[1].replace(/,/g, ''));
 
-  const latePaymentMatch = text.match(/Late Payment Charges[^\d]+([\d.]+)/i);
-  if (latePaymentMatch) extracted.bill.late_payment_charges = parseFloat(latePaymentMatch[1]);
+  let latePaymentMatch = text.match(/Late\s+Payment\s+Charges[\s\S]{0,50}?([\d,]+\.?\d*)/i);
+  if (latePaymentMatch) extracted.bill.late_payment_charges = parseFloat(latePaymentMatch[1].replace(/,/g, ''));
 
-  const interestMatch = text.match(/Interest On ED[^\d]+([\d.]+)/i);
-  if (interestMatch) extracted.bill.interest_on_ed = parseFloat(interestMatch[1]);
+  let interestMatch = text.match(/Interest\s+On\s+E[DN]D?[\s\S]{0,50}?([\d,]+\.?\d*)/i);
+  if (interestMatch) extracted.bill.interest_on_edd = parseFloat(interestMatch[1].replace(/,/g, ''));
 
-  // Arrears
-  const arrearsMatch = text.match(/Arrears as on[^R]+Rs[^\d]+([\d.]+)/i);
-  if (arrearsMatch) extracted.bill.arrears_amount = parseFloat(arrearsMatch[1]);
+  // Arrears - APCPDCL format
+  let arrearsMatch = text.match(/Arrears\s+as\s+on[\s\S]{0,100}?Sub\s+Total[\s\S]{0,50}?([\d,]+\.?\d*)/i);
+  if (!arrearsMatch) arrearsMatch = text.match(/Arrears[\s\S]{0,100}?Total[\s\S]{0,50}?Rs[\s\S]{0,20}?([\d,]+\.?\d*)/i);
+  if (arrearsMatch) extracted.bill.arrears_total = parseFloat(arrearsMatch[1].replace(/,/g, ''));
 
-  const ccChargeMatch = text.match(/C\.C\.Charge[^\d]+([\d.]+)/i);
-  if (ccChargeMatch) extracted.bill.arrears_cc_charge = parseFloat(ccChargeMatch[1]);
+  let ccChargeMatch = text.match(/C\.?C\.?\s*Charge[\s\S]{0,50}?([\d,]+\.?\d*)/i);
+  if (ccChargeMatch) extracted.bill.arrears_cc_charge = parseFloat(ccChargeMatch[1].replace(/,/g, ''));
 
-  const surchargeMatch = text.match(/Surcharge[^\d]+([\d.]+)/i);
-  if (surchargeMatch) extracted.bill.arrears_surcharge = parseFloat(surchargeMatch[1]);
+  let surchargeMatch = text.match(/Surcharge[\s\S]{0,50}?([\d,]+\.?\d*)/i);
+  if (surchargeMatch) extracted.bill.arrears_surcharge = parseFloat(surchargeMatch[1].replace(/,/g, ''));
 
-  const courtCasesMatch = text.match(/Court Cases[^\d]+Rs[^\d]+([\d.]+)/i);
-  if (courtCasesMatch) extracted.bill.court_cases = parseFloat(courtCasesMatch[1]);
+  let courtCasesMatch = text.match(/Court\s+Cases[\s\S]{0,50}?Rs[\s\S]{0,20}?([\d,]+\.?\d*)/i);
+  if (courtCasesMatch) extracted.bill.arrears_court_cases = parseFloat(courtCasesMatch[1].replace(/,/g, ''));
 
-  const othersMatch = text.match(/Others[^\d]+Rs[^\d]+([\d.]+)/i);
-  if (othersMatch) extracted.bill.others_arrears = parseFloat(othersMatch[1]);
+  let othersMatch = text.match(/Others[\s\S]{0,50}?Rs[\s\S]{0,20}?([\d,]+\.?\d*)/i);
+  if (othersMatch) extracted.bill.arrears_others = parseFloat(othersMatch[1].replace(/,/g, ''));
 
   // Bill totals - multiple patterns with comma handling
   let subTotalMatch = text.match(/Sub Total[:\s]*Rs?[.\s]*([\d,]+)/i);
@@ -217,13 +250,18 @@ function parseElectricityBillText(text: string) {
   }
 
   // Log what was extracted for debugging
-  console.log('Extracted bill data:', {
-    bill_number: extracted.bill.bill_number || 'NOT FOUND',
-    bill_month: extracted.bill.bill_month || 'NOT FOUND',
-    consumer_number: extracted.bill.consumer_number || 'NOT FOUND',
-    kwh_consumption: extracted.bill.kwh_consumption || 'NOT FOUND',
-    total_amount_payable: extracted.bill.total_amount_payable || 'NOT FOUND'
-  });
+  console.log('=== APCPDCL Bill Parser Debug ===');
+  console.log('Bill Number:', extracted.bill.bill_number || '❌ NOT FOUND');
+  console.log('Bill Month:', extracted.bill.bill_month || '❌ NOT FOUND');
+  console.log('Bill Date:', extracted.bill.bill_date || '❌ NOT FOUND');
+  console.log('Consumer No:', extracted.bill.consumer_number || '❌ NOT FOUND');
+  console.log('Contracted Demand:', extracted.bill.contracted_demand || '❌ NOT FOUND');
+  console.log('Category:', extracted.bill.category || '❌ NOT FOUND');
+  console.log('KWH Consumption:', extracted.bill.kwh_consumption || '❌ NOT FOUND');
+  console.log('KVA Demand:', extracted.bill.kva_demand || '❌ NOT FOUND');
+  console.log('Power Factor:', extracted.bill.power_factor || '❌ NOT FOUND');
+  console.log('Total Amount:', extracted.bill.total_amount_payable || '❌ NOT FOUND');
+  console.log('===============================');
 
   return extracted;
 }
