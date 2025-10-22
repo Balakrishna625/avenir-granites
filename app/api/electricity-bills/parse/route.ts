@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
+// Import pdf-parse for PDF text extraction
+// @ts-ignore - pdf-parse doesn't have TypeScript definitions
+import pdfParse from 'pdf-parse';
+
 /**
  * PDF Parser for APCPDCL Electricity Bills
  * Extracts key metrics from the electricity bill text
@@ -298,15 +302,31 @@ export async function POST(request: NextRequest) {
     let billText = textInput || '';
 
     if (file) {
-      // Read file as text (works for text-based PDFs)
-      // For image-based PDFs, you would need OCR library like Tesseract.js
-      billText = await file.text();
+      console.log('📄 Processing PDF file:', file.name, 'Size:', file.size, 'bytes');
       
-      // Alternative: Use pdf-parse library
-      // const pdfParse = require('pdf-parse');
-      // const buffer = await file.arrayBuffer();
-      // const pdfData = await pdfParse(Buffer.from(buffer));
-      // billText = pdfData.text;
+      try {
+        // Convert File to Buffer for pdf-parse
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        console.log('🔍 Extracting text from PDF...');
+        const pdfData = await pdfParse(buffer);
+        billText = pdfData.text;
+        
+        console.log('✅ PDF text extracted successfully');
+        console.log('📝 Text length:', billText.length, 'characters');
+        console.log('📄 First 500 chars:', billText.substring(0, 500));
+        
+      } catch (pdfError: any) {
+        console.error('❌ PDF parsing error:', pdfError);
+        return NextResponse.json(
+          { 
+            error: 'Failed to extract text from PDF. The file may be corrupted or image-based (needs OCR).',
+            details: pdfError.message 
+          },
+          { status: 400 }
+        );
+      }
     }
 
     if (!billText) {
