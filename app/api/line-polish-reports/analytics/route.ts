@@ -126,7 +126,8 @@ export async function GET(req: Request) {
           sqft: 0,
           hours: 0,
           debit: 0,
-          credit: 0
+          credit: 0,
+          remarks: [] // Collect all remarks for this date
         };
       }
       acc[date].workers += report.no_of_workers || 0;
@@ -135,6 +136,10 @@ export async function GET(req: Request) {
       acc[date].hours += report.no_of_hours || 0;
       acc[date].debit += report.debit_amount || 0;
       acc[date].credit += report.credit_amount || 0;
+      // Collect remarks if they exist
+      if (report.remarks && report.remarks.trim()) {
+        acc[date].remarks.push(report.remarks.trim());
+      }
       return acc;
     }, {} as any);
 

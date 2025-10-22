@@ -103,13 +103,22 @@ export async function GET(req: Request) {
           date: report.date,
           machines_active: new Set(),
           slabs: 0,
-          sqft: 0
+          sqft: 0,
+          notes: [] // Collect all notes from blocks on this day
         });
       }
       const daily = dailyMap.get(report.date)!;
       daily.machines_active.add(report.machine);
       daily.slabs += report.total_slabs || 0;
       daily.sqft += Number(report.total_sqft) || 0;
+      
+      // Collect notes from blocks
+      const blocks = report.blocks || [];
+      blocks.forEach((block: any) => {
+        if (block.notes && block.notes.trim()) {
+          daily.notes.push(block.notes.trim());
+        }
+      });
     });
 
     const dailyTrends = Array.from(dailyMap.values())
@@ -117,7 +126,8 @@ export async function GET(req: Request) {
         date: d.date,
         machines_active: d.machines_active.size,
         slabs: d.slabs,
-        sqft: d.sqft
+        sqft: d.sqft,
+        notes: d.notes // Include notes in the output
       }))
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 30);

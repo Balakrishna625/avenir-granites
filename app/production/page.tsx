@@ -67,6 +67,7 @@ interface DailyTrend {
   hours: number;
   debit: number;
   credit: number;
+  remarks?: string[]; // Array of remarks/notes for this day
 }
 
 interface ProductionAnalytics {
@@ -501,6 +502,19 @@ export default function ProductionPage() {
                     <p className="text-red-700">Rate: <span className="font-bold">{worstDay.hours > 0 ? (worstDay.sqft / worstDay.hours).toFixed(0) : 0} sqft/hr</span></p>
                   </div>
                 </div>
+                {/* Display remarks/notes if available */}
+                {worstDay.remarks && worstDay.remarks.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-red-200">
+                    <p className="text-xs font-semibold text-red-800 mb-1">Notes/Comments:</p>
+                    <div className="space-y-1">
+                      {worstDay.remarks.map((remark: string, idx: number) => (
+                        <p key={idx} className="text-xs text-red-700 bg-white px-2 py-1 rounded">
+                          • {remark}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           </div>

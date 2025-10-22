@@ -53,6 +53,7 @@ interface DailyTrend {
   machines_active: number;
   slabs: number;
   sqft: number;
+  notes?: string[]; // Array of notes from all blocks on this day
 }
 
 interface MaterialBreakdown {
@@ -582,6 +583,19 @@ export default function MultiCutterAnalyticsPage() {
                     <p className="text-red-700">Avg: <span className="font-bold">{worstDay.machines_active > 0 ? fmt(worstDay.sqft / worstDay.machines_active) : 0} sqft/machine</span></p>
                   </div>
                 </div>
+                {/* Display notes if available */}
+                {worstDay.notes && worstDay.notes.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-red-200">
+                    <p className="text-xs font-semibold text-red-800 mb-1">Notes/Comments:</p>
+                    <div className="space-y-1">
+                      {worstDay.notes.map((note: string, idx: number) => (
+                        <p key={idx} className="text-xs text-red-700 bg-white px-2 py-1 rounded">
+                          • {note}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           </div>
