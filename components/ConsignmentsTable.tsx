@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar, PlusCircle, Edit, Trash2, Save, X, Check } from "lucide-react";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { useMasking } from "@/contexts/MaskingContext";
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
@@ -29,6 +30,7 @@ interface ConsignmentsTableProps {
 }
 
 export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsignment, onDeleteConsignment, customerId, customers, showSubmissionSuccess }: ConsignmentsTableProps) {
+  const { maskName } = useMasking();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Consignment>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -217,7 +219,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
                         )}
                       </td>
                       
-                      <td className="px-6 py-4 text-sm text-gray-900">{customer?.name || 'Unknown'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{maskName(customer?.name || 'Unknown')}</td>
                       
                       {/* Total Amount */}
                       <td className="px-6 py-4 text-sm text-gray-900 text-right font-medium">

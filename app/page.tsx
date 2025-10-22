@@ -4,12 +4,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar, Download, PlusCircle, BarChart3, Settings, Archive } from "lucide-react";
+import { Calendar, Download, PlusCircle, BarChart3, Settings, Archive, Lock, Unlock } from "lucide-react";
 import { ConsignmentsTable } from "@/components/ConsignmentsTable";
 import { TransactionsTable } from "@/components/TransactionsTable";
 import { CustomerAnalytics } from "@/components/CustomerAnalytics";
 import { CustomerSettlementModal } from "@/components/CustomerSettlementModal";
 import { useToast } from "@/components/ui/toast";
+import { useMasking } from "@/contexts/MaskingContext";
 import * as XLSX from "xlsx";
 import { formatDisplayDate } from "@/lib/date-utils";
 
@@ -40,6 +41,7 @@ const fmt = (n: number) => INR.format(n || 0);
 function __safeName(s: string) { return (s || "all").replace(/[^a-z0-9]+/gi, "_").toLowerCase(); }
 
 export default function Page() {
+  const { maskName, isUnlocked, attemptUnlock, lock } = useMasking();
   const [customers, setCustomers] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [consignments, setConsignments] = useState<any[]>([]);
@@ -59,6 +61,20 @@ export default function Page() {
   const [waivedNotesInput, setWaivedNotesInput] = useState("");
   const [showSettlementModal, setShowSettlementModal] = useState(false);
   const { showToast } = useToast();
+
+  const handleUnlockToggle = () => {
+    if (isUnlocked) {
+      lock();
+    } else {
+      const pin = prompt('Enter PIN to unlock customer names:');
+      if (pin) {
+        const success = attemptUnlock(pin);
+        if (!success) {
+          alert('Incorrect PIN');
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     async function boot() {
@@ -634,6 +650,26 @@ export default function Page() {
             <p className="text-gray-600">Manage consignments and payments with comprehensive table views</p>
           </div>
           <div className="flex space-x-3">
+            <Button 
+              onClick={handleUnlockToggle}
+              className={`flex items-center space-x-2 ${
+                isUnlocked 
+                  ? 'bg-green-600 hover:bg-green-700' 
+                  : 'bg-orange-600 hover:bg-orange-700'
+              }`}
+            >
+              {isUnlocked ? (
+                <>
+                  <Unlock className="w-4 h-4" />
+                  <span>Lock Names</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4" />
+                  <span>Unlock Names</span>
+                </>
+              )}
+            </Button>
             <a 
               href="/analytics" 
               className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors"
@@ -655,7 +691,7 @@ export default function Page() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <select className="border rounded-xl px-3 py-2 md:col-span-4" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
               <option value="all">All customers</option>
-              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {customers.map((c) => <option key={c.id} value={c.id}>{maskName(c.name)}</option>)}
             </select>
 
             <div className="flex items-center gap-2 border rounded-xl px-3 py-2 md:col-span-2">
@@ -678,7 +714,7 @@ export default function Page() {
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
               <div className="px-6 py-2 rounded-full border text-lg font-semibold bg-blue-50 text-blue-700 border-blue-200 shadow-sm">
-                {currentCustomerName || "Select a customer"}
+                {maskName(currentCustomerName || "Select a customer")}
               </div>
               {customerId && customerId !== "all" && (
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
