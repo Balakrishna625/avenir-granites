@@ -86,6 +86,7 @@ export default function MultiCutterAnalyticsPage() {
   const [dateTo, setDateTo] = useState("");
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [blockLimit, setBlockLimit] = useState<number>(10); // Default to Top 10
 
   // Extract data (use empty arrays while loading to prevent hook issues)
   const summary = analytics?.summary || {} as AnalyticsSummary;
@@ -94,12 +95,15 @@ export default function MultiCutterAnalyticsPage() {
   const materialBreakdown = analytics?.material_breakdown || [];
   const topBlocks = analytics?.top_blocks || [];
 
+  // Filter blocks based on selected limit
+  const filteredTopBlocks = blockLimit === 0 ? topBlocks : topBlocks.slice(0, blockLimit);
+
   // ⚠️ HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
   // Add sorting for Material Breakdown table
   const { sortedData: sortedMaterialBreakdown, sortConfig: materialSortConfig, requestSort: requestMaterialSort } = useTableSort(materialBreakdown);
   
-  // Add sorting for Top Blocks table
-  const { sortedData: sortedTopBlocks, sortConfig: topBlocksSortConfig, requestSort: requestTopBlocksSort } = useTableSort(topBlocks);
+  // Add sorting for Top Blocks table (use filtered blocks)
+  const { sortedData: sortedTopBlocks, sortConfig: topBlocksSortConfig, requestSort: requestTopBlocksSort } = useTableSort(filteredTopBlocks);
 
   useEffect(() => {
     loadAnalytics();
@@ -714,10 +718,32 @@ export default function MultiCutterAnalyticsPage() {
 
         {/* ========== TOP PERFORMING BLOCKS ========== */}
         <Card className="p-6">
-          <div className="flex items-center mb-4">
-            <Award className="w-5 h-5 text-amber-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Top 10 Performing Blocks</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Award className="w-5 h-5 text-amber-600 mr-2" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                {blockLimit === 0 ? 'All Blocks' : `Top ${blockLimit} Performing Blocks`}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 font-medium">Show:</label>
+              <select
+                value={blockLimit}
+                onChange={(e) => setBlockLimit(Number(e.target.value))}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium bg-white hover:border-amber-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-colors"
+              >
+                <option value={10}>Top 10</option>
+                <option value={20}>Top 20</option>
+                <option value={50}>Top 50</option>
+                <option value={0}>All Blocks</option>
+              </select>
+            </div>
           </div>
+          {sortedTopBlocks.length > 0 && (
+            <p className="text-sm text-gray-600 mb-3">
+              Showing <span className="font-semibold text-gray-900">{sortedTopBlocks.length}</span> of <span className="font-semibold text-gray-900">{topBlocks.length}</span> total blocks
+            </p>
+          )}
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>

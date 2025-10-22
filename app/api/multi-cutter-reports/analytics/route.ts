@@ -183,8 +183,8 @@ export async function GET(req: Request) {
     });
 
     const topBlocks = Array.from(blockMap.values())
-      .sort((a, b) => b.total_sqft - a.total_sqft)
-      .slice(0, 10);
+      .sort((a, b) => b.total_sqft - a.total_sqft);
+      // Return all blocks, let frontend decide how many to show
 
     console.log(`🏆 Top blocks (${topBlocks.length})`);
 
