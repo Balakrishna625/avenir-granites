@@ -19,7 +19,9 @@ import {
   Scissors,
   Calculator,
   Factory,
-  Wrench
+  Wrench,
+  Zap,
+  TrendingUp
 } from 'lucide-react';
 
 interface MenuItem {
@@ -110,6 +112,22 @@ const menuItems: MenuItem[] = [
     ]
   },
   {
+    title: 'Electricity Info',
+    icon: <Zap className="w-5 h-5" />,
+    children: [
+      {
+        title: 'Bills & Upload',
+        href: '/electricity',
+        icon: <FileText className="w-4 h-4" />
+      },
+      {
+        title: 'Production Correlation',
+        href: '/electricity/analytics',
+        icon: <TrendingUp className="w-4 h-4" />
+      }
+    ]
+  },
+  {
     title: 'Expense Management',
     icon: <Receipt className="w-5 h-5" />,
     children: [
@@ -129,7 +147,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Consignment Management', 'Production Management', 'Expense Management']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Consignment Management', 'Production Management', 'Electricity Info', 'Expense Management']);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems(prev => 
