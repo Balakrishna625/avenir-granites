@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { useTableSort } from '@/hooks/useTableSort';
 import { SortButton } from '@/components/ui/SortButton';
@@ -95,15 +95,101 @@ export default function MultiCutterAnalyticsPage() {
   const materialBreakdown = analytics?.material_breakdown || [];
   const topBlocks = analytics?.top_blocks || [];
 
-  // Filter blocks based on selected limit
-  const filteredTopBlocks = blockLimit === 0 ? topBlocks : topBlocks.slice(0, blockLimit);
+  // Apply limit to top blocks first
+  const limitedBlocks = blockLimit === 0 ? topBlocks : topBlocks.slice(0, blockLimit);
+
+  // Custom sorting for blocks with grouped block names
+  // Default to sorting by block_name in ascending order to group related blocks
+  const [blockSortConfig, setBlockSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' | null }>({
+    key: 'block_name',
+    direction: 'asc'
+  });
+
+  // Function to parse block names for intelligent sorting
+  const parseBlockName = (name: string) => {
+    const match = name.match(/^([A-Za-z]+[-]?)(\d+)([A-Za-z]?)$/);
+    if (match) {
+      return {
+        prefix: match[1],
+        number: parseInt(match[2]),
+        suffix: match[3] || '',
+        original: name
+      };
+    }
+    return { prefix: name, number: 0, suffix: '', original: name };
+  };
+
+  // Sort blocks with custom logic
+  const sortedTopBlocks = useMemo(() => {
+    let sorted = [...limitedBlocks];
+
+    if (blockSortConfig.key && blockSortConfig.direction) {
+      sorted.sort((a: any, b: any) => {
+        let aValue = a[blockSortConfig.key!];
+        let bValue = b[blockSortConfig.key!];
+
+        // Special handling for block_name to group related blocks
+        if (blockSortConfig.key === 'block_name') {
+          const aParsed = parseBlockName(a.block_name);
+          const bParsed = parseBlockName(b.block_name);
+
+          // Sort by prefix first
+          if (aParsed.prefix !== bParsed.prefix) {
+            const cmp = aParsed.prefix.localeCompare(bParsed.prefix);
+            return blockSortConfig.direction === 'asc' ? cmp : -cmp;
+          }
+
+          // Then by number
+          if (aParsed.number !== bParsed.number) {
+            return blockSortConfig.direction === 'asc' 
+              ? aParsed.number - bParsed.number 
+              : bParsed.number - aParsed.number;
+          }
+
+          // Finally by suffix
+          const suffixCmp = aParsed.suffix.localeCompare(bParsed.suffix);
+          return blockSortConfig.direction === 'asc' ? suffixCmp : -suffixCmp;
+        }
+
+        // Handle null/undefined
+        if (aValue == null && bValue == null) return 0;
+        if (aValue == null) return blockSortConfig.direction === 'asc' ? 1 : -1;
+        if (bValue == null) return blockSortConfig.direction === 'asc' ? -1 : 1;
+
+        // Handle numbers
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return blockSortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+
+        // Handle strings
+        const aString = String(aValue).toLowerCase();
+        const bString = String(bValue).toLowerCase();
+        if (aString < bString) return blockSortConfig.direction === 'asc' ? -1 : 1;
+        if (aString > bString) return blockSortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return sorted;
+  }, [limitedBlocks, blockSortConfig]);
+
+  const requestTopBlocksSort = (key: string) => {
+    let direction: 'asc' | 'desc' | null = 'asc';
+    if (blockSortConfig.key === key) {
+      if (blockSortConfig.direction === 'asc') {
+        direction = 'desc';
+      } else if (blockSortConfig.direction === 'desc') {
+        direction = null;
+      }
+    }
+    setBlockSortConfig({ key, direction });
+  };
+
+  const topBlocksSortConfig = blockSortConfig;
 
   // ⚠️ HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
   // Add sorting for Material Breakdown table
   const { sortedData: sortedMaterialBreakdown, sortConfig: materialSortConfig, requestSort: requestMaterialSort } = useTableSort(materialBreakdown);
-  
-  // Add sorting for Top Blocks table (use filtered blocks)
-  const { sortedData: sortedTopBlocks, sortConfig: topBlocksSortConfig, requestSort: requestTopBlocksSort } = useTableSort(filteredTopBlocks);
 
   useEffect(() => {
     loadAnalytics();
