@@ -9,6 +9,7 @@ import { ConsignmentsTable } from "@/components/ConsignmentsTable";
 import { TransactionsTable } from "@/components/TransactionsTable";
 import { CustomerAnalytics } from "@/components/CustomerAnalytics";
 import { CustomerSettlementModal } from "@/components/CustomerSettlementModal";
+import { PinUnlockModal } from "@/components/PinUnlockModal";
 import { useToast } from "@/components/ui/toast";
 import { useMasking } from "@/contexts/MaskingContext";
 import * as XLSX from "xlsx";
@@ -60,19 +61,23 @@ export default function Page() {
   const [waivedDateInput, setWaivedDateInput] = useState("");
   const [waivedNotesInput, setWaivedNotesInput] = useState("");
   const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
   const { showToast } = useToast();
 
   const handleUnlockToggle = () => {
     if (isUnlocked) {
       lock();
     } else {
-      const pin = prompt('Enter PIN to unlock customer names:');
-      if (pin) {
-        const success = attemptUnlock(pin);
-        if (!success) {
-          alert('Incorrect PIN');
-        }
-      }
+      setShowPinModal(true);
+    }
+  };
+
+  const handlePinSubmit = (pin: string) => {
+    const success = attemptUnlock(pin);
+    if (success) {
+      setShowPinModal(false);
+    } else {
+      alert('Incorrect PIN');
     }
   };
 
@@ -1028,6 +1033,13 @@ export default function Page() {
           onSuccess={handleSettlementSuccess}
         />
       )}
+
+      {/* PIN Unlock Modal */}
+      <PinUnlockModal
+        isOpen={showPinModal}
+        onClose={() => setShowPinModal(false)}
+        onSubmit={handlePinSubmit}
+      />
     </AppLayout>
   );
 }

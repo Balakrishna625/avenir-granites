@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppLayout } from '@/components/AppLayout';
+import { PinUnlockModal } from '@/components/PinUnlockModal';
 import { formatDisplayDate } from '@/lib/date-utils';
 import { useMasking } from '@/contexts/MaskingContext';
 import { 
@@ -50,20 +51,22 @@ export default function CustomersPage() {
   const [dateTo, setDateTo] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingWaivedAmount, setEditingWaivedAmount] = useState<{ id: string; amount: string } | null>(null);
+  const [showPinModal, setShowPinModal] = useState(false);
 
   const handleUnlockToggle = () => {
     if (isUnlocked) {
-      // Lock names
       lock();
     } else {
-      // Prompt for PIN
-      const pin = prompt('Enter PIN to unlock customer names:');
-      if (pin) {
-        const success = attemptUnlock(pin);
-        if (!success) {
-          alert('Incorrect PIN');
-        }
-      }
+      setShowPinModal(true);
+    }
+  };
+
+  const handlePinSubmit = (pin: string) => {
+    const success = attemptUnlock(pin);
+    if (success) {
+      setShowPinModal(false);
+    } else {
+      alert('Incorrect PIN');
     }
   };
 
@@ -499,6 +502,13 @@ export default function CustomersPage() {
         </Card>
       </div>
     </div>
+
+    {/* PIN Unlock Modal */}
+    <PinUnlockModal
+      isOpen={showPinModal}
+      onClose={() => setShowPinModal(false)}
+      onSubmit={handlePinSubmit}
+    />
     </AppLayout>
   );
 }
