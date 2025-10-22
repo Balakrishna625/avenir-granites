@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 /**
  * PDF Parser for APCPDCL Electricity Bills
@@ -245,7 +240,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if bill already exists
-    const { data: existingBill } = await supabase
+    const { data: existingBill } = await supabaseAdmin
       .from('electricity_bills')
       .select('id, bill_number')
       .eq('bill_number', parsedData.bill.bill_number)
@@ -263,7 +258,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save to database
-    const { data: bill, error: billError } = await supabase
+    const { data: bill, error: billError } = await supabaseAdmin
       .from('electricity_bills')
       .insert([parsedData.bill])
       .select()
@@ -278,7 +273,7 @@ export async function POST(request: NextRequest) {
         bill_id: bill.id
       }));
 
-      await supabase
+      await supabaseAdmin
         .from('electricity_tod_readings')
         .insert(todData);
     }
