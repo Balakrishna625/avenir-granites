@@ -13,31 +13,63 @@ function parseElectricityBillText(text: string) {
     todReadings: []
   };
 
-  // Extract Bill Number
-  const billNoMatch = text.match(/Bill No[:\s]+(\d+)/i);
+  // Extract Bill Number - try multiple patterns
+  let billNoMatch = text.match(/Bill No[:\s.]*(\d+)/i);
+  if (!billNoMatch) billNoMatch = text.match(/Bill Number[:\s.]*(\d+)/i);
+  if (!billNoMatch) billNoMatch = text.match(/Bill\s*#[:\s.]*(\d+)/i);
+  if (!billNoMatch) billNoMatch = text.match(/Invoice No[:\s.]*(\d+)/i);
+  if (!billNoMatch) billNoMatch = text.match(/Reference No[:\s.]*(\d+)/i);
+  if (!billNoMatch) billNoMatch = text.match(/Bill ID[:\s.]*(\d+)/i);
+  // Try to find any standalone number that could be a bill number (as last resort)
+  if (!billNoMatch) {
+    const numbers = text.match(/\b\d{8,}\b/); // Look for 8+ digit numbers
+    if (numbers) billNoMatch = [null, numbers[0]];
+  }
+  
   if (billNoMatch) extracted.bill.bill_number = billNoMatch[1];
 
-  // Extract Bill Month and Date
-  const billMonthMatch = text.match(/Bill for the month of[:\s]+([A-Z]{3}\s*-\s*\d{4})/i);
-  if (billMonthMatch) extracted.bill.bill_month = billMonthMatch[1];
+  // Extract Bill Month and Date - try multiple patterns
+  let billMonthMatch = text.match(/Bill for the month of[:\s]+([A-Z]{3}\s*-?\s*\d{4})/i);
+  if (!billMonthMatch) billMonthMatch = text.match(/Month[:\s]+([A-Z]{3}\s*-?\s*\d{4})/i);
+  if (!billMonthMatch) billMonthMatch = text.match(/Period[:\s]+([A-Z]{3}\s*-?\s*\d{4})/i);
+  if (!billMonthMatch) billMonthMatch = text.match(/([A-Z]{3})\s*[-/]\s*(\d{4})/i);
+  
+  if (billMonthMatch) {
+    if (billMonthMatch[2]) {
+      // Format: OCT/2025 or OCT 2025
+      extracted.bill.bill_month = `${billMonthMatch[1]}-${billMonthMatch[2]}`;
+    } else {
+      // Format: OCT-2025
+      extracted.bill.bill_month = billMonthMatch[1].replace(/\s+/g, '-');
+    }
+  }
 
-  const billDateMatch = text.match(/Dated[:\s]+(\d{2}-[A-Z]{3}-\d{4})/i);
+  // Bill Date - multiple patterns
+  let billDateMatch = text.match(/Dated[:\s]+(\d{2}[-/][A-Z]{3}[-/]\d{4})/i);
+  if (!billDateMatch) billDateMatch = text.match(/Bill Date[:\s]+(\d{2}[-/][A-Z]{3}[-/]\d{4})/i);
+  if (!billDateMatch) billDateMatch = text.match(/Date[:\s]+(\d{2}[-/][A-Z]{3}[-/]\d{4})/i);
   if (billDateMatch) {
     extracted.bill.bill_date = convertDateFormat(billDateMatch[1]);
   }
 
-  const dueDateMatch = text.match(/Payable on or before[:\s]+(\d{2}-[A-Z]{3}-\d{4})/i);
+  // Due Date - multiple patterns
+  let dueDateMatch = text.match(/Payable on or before[:\s]+(\d{2}[-/][A-Z]{3}[-/]\d{4})/i);
+  if (!dueDateMatch) dueDateMatch = text.match(/Due Date[:\s]+(\d{2}[-/][A-Z]{3}[-/]\d{4})/i);
+  if (!dueDateMatch) dueDateMatch = text.match(/Pay by[:\s]+(\d{2}[-/][A-Z]{3}[-/]\d{4})/i);
   if (dueDateMatch) {
     extracted.bill.due_date = convertDateFormat(dueDateMatch[1]);
   }
 
-  const disconnectionMatch = text.match(/Disconnection Date[:\s]+(\d{2}-[A-Z]{3}-\d{4})/i);
+  const disconnectionMatch = text.match(/Disconnection Date[:\s]+(\d{2}[-/][A-Z]{3}[-/]\d{4})/i);
   if (disconnectionMatch) {
     extracted.bill.disconnection_date = convertDateFormat(disconnectionMatch[1]);
   }
 
-  // Extract Consumer Details
-  const consumerMatch = text.match(/Consumer No[:\s]+([A-Z0-9]+)/i);
+  // Extract Consumer Details - more flexible
+  let consumerMatch = text.match(/Consumer No[:\s.]+([A-Z0-9]+)/i);
+  if (!consumerMatch) consumerMatch = text.match(/Account No[:\s.]+([A-Z0-9]+)/i);
+  if (!consumerMatch) consumerMatch = text.match(/Customer No[:\s.]+([A-Z0-9]+)/i);
+  if (!consumerMatch) consumerMatch = text.match(/Service No[:\s.]+([A-Z0-9]+)/i);
   if (consumerMatch) extracted.bill.consumer_number = consumerMatch[1];
 
   const consumerNameMatch = text.match(/Consumer No[^A-Z]+([A-Z\s]+)/);
@@ -62,8 +94,14 @@ function parseElectricityBillText(text: string) {
   const kwh_curr_match = text.match(/Reading On[:\s]+\d{2}-[A-Z]{3}-\d{4}[^\d]+\d+\.\d+[^\d]+(\d+)\.(\d+)/);
   if (kwh_curr_match) extracted.bill.current_kwh_reading = parseFloat(kwh_curr_match[1] + kwh_curr_match[2]);
 
-  const consumptionMatch = text.match(/Total Consumption[:\s]+([\d.]+)/i);
-  if (consumptionMatch) extracted.bill.kwh_consumption = parseFloat(consumptionMatch[1]);
+  // Consumption - try multiple patterns
+  let consumptionMatch = text.match(/Total Consumption[:\s]+([\d,]+)/i);
+  if (!consumptionMatch) consumptionMatch = text.match(/Consumption[:\s]+([\d,]+)\s*KWH/i);
+  if (!consumptionMatch) consumptionMatch = text.match(/KWH Consumed[:\s]+([\d,]+)/i);
+  if (!consumptionMatch) consumptionMatch = text.match(/Units[:\s]+([\d,]+)/i);
+  if (consumptionMatch) {
+    extracted.bill.kwh_consumption = parseFloat(consumptionMatch[1].replace(/,/g, ''));
+  }
 
   // KVAH readings
   const kvahPrevMatch = text.match(/KVAH[^\d]+(\d+)/);
@@ -134,15 +172,21 @@ function parseElectricityBillText(text: string) {
   const othersMatch = text.match(/Others[^\d]+Rs[^\d]+([\d.]+)/i);
   if (othersMatch) extracted.bill.others_arrears = parseFloat(othersMatch[1]);
 
-  // Bill totals
-  const subTotalMatch = text.match(/Sub Total[^\d]+([\d.]+)/i);
-  if (subTotalMatch) extracted.bill.sub_total = parseFloat(subTotalMatch[1]);
+  // Bill totals - multiple patterns with comma handling
+  let subTotalMatch = text.match(/Sub Total[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (!subTotalMatch) subTotalMatch = text.match(/Subtotal[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (subTotalMatch) extracted.bill.sub_total = parseFloat(subTotalMatch[1].replace(/,/g, ''));
 
-  const netBillMatch = text.match(/Net Bill Amount[^\d]+([\d.]+)/i);
-  if (netBillMatch) extracted.bill.net_bill_amount = parseFloat(netBillMatch[1]);
+  let netBillMatch = text.match(/Net Bill Amount[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (!netBillMatch) netBillMatch = text.match(/Net Amount[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (!netBillMatch) netBillMatch = text.match(/Bill Amount[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (netBillMatch) extracted.bill.net_bill_amount = parseFloat(netBillMatch[1].replace(/,/g, ''));
 
-  const totalPayableMatch = text.match(/Total Amount Payable[^\d]+([\d.]+)/i);
-  if (totalPayableMatch) extracted.bill.total_amount_payable = parseFloat(totalPayableMatch[1]);
+  let totalPayableMatch = text.match(/Total Amount Payable[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (!totalPayableMatch) totalPayableMatch = text.match(/Total Payable[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (!totalPayableMatch) totalPayableMatch = text.match(/Amount Payable[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (!totalPayableMatch) totalPayableMatch = text.match(/Total Amount[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (totalPayableMatch) extracted.bill.total_amount_payable = parseFloat(totalPayableMatch[1].replace(/,/g, ''));
 
   const lastPaidMatch = text.match(/Last Paid Amount Rs\.\s*([\d.]+)\((\d{2}-[A-Z]{3}-\d{4})\)/i);
   if (lastPaidMatch) {
@@ -171,6 +215,15 @@ function parseElectricityBillText(text: string) {
   if (Object.keys(todNew).length > 1) {
     extracted.todReadings.push(todNew);
   }
+
+  // Log what was extracted for debugging
+  console.log('Extracted bill data:', {
+    bill_number: extracted.bill.bill_number || 'NOT FOUND',
+    bill_month: extracted.bill.bill_month || 'NOT FOUND',
+    consumer_number: extracted.bill.consumer_number || 'NOT FOUND',
+    kwh_consumption: extracted.bill.kwh_consumption || 'NOT FOUND',
+    total_amount_payable: extracted.bill.total_amount_payable || 'NOT FOUND'
+  });
 
   return extracted;
 }
@@ -228,15 +281,23 @@ export async function POST(request: NextRequest) {
     // Parse the bill text
     const parsedData = parseElectricityBillText(billText);
 
-    // Validate required fields
+    // Auto-generate bill number if extraction failed but we have month and consumer
     if (!parsedData.bill.bill_number) {
-      return NextResponse.json(
-        { 
-          error: 'Could not extract bill number. Please check the file or enter manually.',
-          parsedData 
-        },
-        { status: 400 }
-      );
+      if (parsedData.bill.bill_month && parsedData.bill.consumer_number) {
+        // Generate bill number: CONSUMER-MONTH (e.g., 123456789-OCT-2025)
+        parsedData.bill.bill_number = `${parsedData.bill.consumer_number}-${parsedData.bill.bill_month}`;
+      } else if (parsedData.bill.bill_month) {
+        // Use timestamp if no consumer number
+        parsedData.bill.bill_number = `BILL-${parsedData.bill.bill_month}-${Date.now()}`;
+      } else {
+        return NextResponse.json(
+          { 
+            error: 'Could not extract enough information to create a bill. Please ensure the file is a valid electricity bill or enter details manually.',
+            parsedData 
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Check if bill already exists
