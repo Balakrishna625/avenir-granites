@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
-// Import pdf-parse for PDF text extraction
-// @ts-ignore - pdf-parse doesn't have TypeScript definitions
-import pdfParse from 'pdf-parse';
-
 /**
  * PDF Parser for APCPDCL Electricity Bills
  * Extracts key metrics from the electricity bill text
@@ -310,6 +306,10 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(arrayBuffer);
         
         console.log('🔍 Extracting text from PDF...');
+        
+        // Use require for pdf-parse (CommonJS module compatibility)
+        // @ts-ignore - pdf-parse is a CommonJS module
+        const pdfParse = require('pdf-parse');
         const pdfData = await pdfParse(buffer);
         billText = pdfData.text;
         
