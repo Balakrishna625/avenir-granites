@@ -28,8 +28,9 @@ interface Expense {
   date: string;
   account_id: string;
   amount: number;
-  notes: string;
-  bank_accounts: {
+  notes?: string;
+  description?: string;
+  bank_accounts?: {
     name: string;
   };
 }
