@@ -294,74 +294,80 @@ export default function ExpensesPage() {
             </div>
 
             {showAddForm && (
-              <form onSubmit={handleAddExpense} className="bg-gray-50 p-6 rounded-lg space-y-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+              <form onSubmit={handleAddExpense} className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6">
+                <div className="flex flex-col md:flex-row gap-4 items-end">
+                  <div className="flex-shrink-0 w-full md:w-40">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Date <span className="text-red-500">*</span>
                     </label>
                     <Input
                       type="date"
                       value={formDate}
                       onChange={(e) => setFormDate(e.target.value)}
+                      className="w-full"
                       required
                     />
                   </div>
 
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="flex-shrink-0 w-full md:w-36">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Amount <span className="text-red-500">*</span>
                     </label>
                     <Input
                       type="number"
-                      placeholder="Enter amount"
+                      placeholder="₹ 0.00"
                       value={formAmount}
                       onChange={(e) => setFormAmount(e.target.value)}
+                      className="w-full"
                       required
                       min="0"
                       step="0.01"
                     />
                   </div>
 
-                  <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="flex-shrink-0 w-full md:w-56">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Debited From <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={formAccount}
                       onChange={(e) => setFormAccount(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     >
                       <option value="">Select Account</option>
                       {bankCollections.map(acc => (
-                        <option key={acc.id} value={acc.id}>{acc.name} - Available: {fmt(acc.currentBalance)}</option>
+                        <option key={acc.id} value={acc.id}>{acc.name} - {fmt(acc.currentBalance)}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="md:col-span-5">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                  <div className="flex-1 w-full">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      Notes
+                    </label>
                     <Input
                       type="text"
-                      placeholder="Enter notes"
+                      placeholder="Enter description or notes"
                       value={formNotes}
                       onChange={(e) => setFormNotes(e.target.value)}
+                      className="w-full"
                     />
                   </div>
-                </div>
 
-                <div className="flex justify-end gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowAddForm(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                    Add Expense
-                  </Button>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowAddForm(false)}
+                      className="px-4"
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700 px-6">
+                      Add Expense
+                    </Button>
+                  </div>
                 </div>
               </form>
             )}
