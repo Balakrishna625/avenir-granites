@@ -71,6 +71,8 @@ export default function ExpensesPage() {
       const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString().split('T')[0];
       const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0];
 
+      console.log(`Loading expenses from ${startDate} to ${endDate}`);
+
       const [expensesRes, collectionsRes] = await Promise.all([
         fetch(`/api/expenses?from=${startDate}&to=${endDate}`),
         fetch(`/api/bank-accounts/balance-after-expenses?from=${startDate}&to=${endDate}`)
@@ -80,6 +82,8 @@ export default function ExpensesPage() {
         expensesRes.json(),
         collectionsRes.json()
       ]);
+
+      console.log(`Loaded ${Array.isArray(expensesData) ? expensesData.length : 0} expenses:`, expensesData);
 
       setExpenses(Array.isArray(expensesData) ? expensesData : []);
       setBankCollections(Array.isArray(collectionsData) ? collectionsData : []);
@@ -357,43 +361,58 @@ export default function ExpensesPage() {
                 <div>
                   <p className="text-sm text-gray-600">Total Expenses for {monthNames[selectedMonth - 1]} {selectedYear}</p>
                   <p className="text-2xl font-bold text-blue-700">{fmt(totalExpenses)}</p>
+                  <p className="text-xs text-gray-500 mt-1">{expenses.length} transaction(s)</p>
                 </div>
                 <Calendar className="w-8 h-8 text-blue-600" />
               </div>
             </div>
 
-            {/* Expenses List */}
-            <div className="space-y-2">
+            {/* Expenses Table */}
+            <div className="overflow-x-auto">
               {expenses.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-gray-500">No expenses for this month</p>
                 </div>
               ) : (
-                expenses.map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <p className="font-semibold text-gray-900">{formatDisplayDate(expense.date)}</p>
-                        <span className="text-sm text-gray-500">•</span>
-                        <p className="text-sm text-gray-600">{expense.bank_accounts?.name || 'Unknown Account'}</p>
-                      </div>
-                      {expense.notes && (
-                        <p className="text-sm text-gray-500 mt-1">{expense.notes}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <p className="text-lg font-bold text-red-600">{fmt(expense.amount)}</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteExpense(expense.id)}
-                        className="text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₹)</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {expenses.map((expense) => (
+                      <tr key={expense.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {formatDisplayDate(expense.date)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {expense.bank_accounts?.name || 'Unknown Account'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {expense.notes || expense.description || '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-red-600">
+                          {fmt(expense.amount)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteExpense(expense.id)}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           </CardContent>
