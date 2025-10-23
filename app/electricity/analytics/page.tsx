@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { AppLayout } from '@/components/AppLayout';
 import { TrendingUp, Zap, Factory, DollarSign, Activity, AlertCircle, Info, TrendingDown, Minus } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
+import { formatCurrency, formatShortMonth } from '@/lib/formatters';
 
 interface MonthlyData {
   month: string;
@@ -147,10 +148,9 @@ export default function ElectricityAnalyticsPage() {
             </p>
             <div className="flex items-center gap-1 mt-1">
               <p className="text-xs text-gray-500">KWH/month</p>
-              {trends && (
-                <span className={`flex items-center gap-1 text-xs ${getTrendColor(trends.consumption_trend)}`}>
-                  {getTrendIcon(trends.consumption_trend)}
-                  {trends.consumption_trend}
+              {trends && trends.consumption_trend !== 'stable' && (
+                <span className={`text-xs ${getTrendColor(trends.consumption_trend)}`}>
+                  — {trends.consumption_trend}
                 </span>
               )}
             </div>
@@ -162,14 +162,13 @@ export default function ElectricityAnalyticsPage() {
               <DollarSign className="w-5 h-5 text-green-500" />
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              ₹{(stats.avg_cost / 100000).toFixed(2)}L
+              {formatCurrency(stats.avg_cost)}
             </p>
             <div className="flex items-center gap-1 mt-1">
               <p className="text-xs text-gray-500">Per month</p>
-              {trends && (
-                <span className={`flex items-center gap-1 text-xs ${getTrendColor(trends.cost_trend)}`}>
-                  {getTrendIcon(trends.cost_trend)}
-                  {trends.cost_trend}
+              {trends && trends.cost_trend !== 'stable' && (
+                <span className={`text-xs ${getTrendColor(trends.cost_trend)}`}>
+                  — {trends.cost_trend}
                 </span>
               )}
             </div>
@@ -187,9 +186,9 @@ export default function ElectricityAnalyticsPage() {
               <p className="text-xs text-gray-500">
                 {stats.avg_power_factor < 0.95 ? 'Needs improvement' : 'Good'}
               </p>
-              {trends && (
-                <span className={`flex items-center gap-1 text-xs ${getTrendColor(trends.pf_trend, true)}`}>
-                  {getTrendIcon(trends.pf_trend)}
+              {trends && trends.pf_trend !== 'stable' && (
+                <span className={`text-xs ${getTrendColor(trends.pf_trend, true)}`}>
+                  — {trends.pf_trend}
                 </span>
               )}
             </div>
@@ -205,9 +204,9 @@ export default function ElectricityAnalyticsPage() {
             </p>
             <div className="flex items-center gap-1 mt-1">
               <p className="text-xs text-gray-500">KVA max</p>
-              {trends && (
-                <span className={`flex items-center gap-1 text-xs ${getTrendColor(trends.demand_trend)}`}>
-                  {getTrendIcon(trends.demand_trend)}
+              {trends && trends.demand_trend !== 'stable' && (
+                <span className={`text-xs ${getTrendColor(trends.demand_trend)}`}>
+                  — {trends.demand_trend}
                 </span>
               )}
             </div>
@@ -223,19 +222,20 @@ export default function ElectricityAnalyticsPage() {
                 <h3 className="text-lg font-semibold text-yellow-900 mb-2">
                   💡 Power Factor Improvement Opportunity
                 </h3>
-                <p className="text-sm text-yellow-800 mb-3">
-                  Your average power factor is {stats.avg_power_factor.toFixed(3)}. Improving it to 0.99 could save approximately:
+                <p className="text-yellow-800 mb-4">
+                  Your average power factor is <strong>{stats.avg_power_factor.toFixed(3)}</strong>. 
+                  Improving it to 0.99+ could save approximately:
                 </p>
-                <div className="bg-white rounded-lg p-4 border border-yellow-300">
-                  <p className="text-3xl font-bold text-yellow-900">
-                    ₹{(pfSavings / 100000).toFixed(2)}L per year
+                <div className="bg-white p-4 rounded-lg">
+                  <p className="text-3xl font-bold text-green-600">
+                    {formatCurrency(pfSavings)} per year
                   </p>
                   <p className="text-sm text-gray-600 mt-1">
-                    ≈ ₹{(pfSavings / 12 / 1000).toFixed(1)}K per month
+                    ≈ {formatCurrency(pfSavings / 12)} per month
                   </p>
                 </div>
-                <p className="text-sm text-yellow-800 mt-3">
-                  <strong>Recommendation:</strong> Install capacitor banks (KVAR rating: {((stats.peak_demand * (1 - stats.avg_power_factor)) / Math.sqrt(1 - Math.pow(stats.avg_power_factor, 2))).toFixed(0)} KVAR) to improve power factor
+                <p className="text-sm text-yellow-700 mt-4">
+                  <strong>Recommendation:</strong> Install capacitor banks (KVAR rating: {(stats.avg_demand * (0.99 - stats.avg_power_factor) / Math.sqrt(1 - 0.99 * 0.99)).toFixed(0)} KVAR) to improve power factor
                 </p>
               </div>
             </div>
@@ -246,9 +246,9 @@ export default function ElectricityAnalyticsPage() {
         <Card className="p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Monthly Consumption Comparison</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={monthlyData}>
+            <BarChart data={monthlyData.map(d => ({ ...d, monthLabel: formatShortMonth(d.month) }))}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
+              <XAxis dataKey="monthLabel" angle={-45} textAnchor="end" height={80} />
               <YAxis />
               <Tooltip 
                 formatter={(value: number) => `${value.toLocaleString()} KWH`}
@@ -265,7 +265,7 @@ export default function ElectricityAnalyticsPage() {
             </div>
             <div className="bg-green-50 p-3 rounded">
               <p className="text-gray-600">Lowest Month</p>
-              <p className="font-semibold">{stats.lowest_consumption.toLocaleString()} KWH</p>
+              <p className="font-semibold">{stats.lowest_consumption === 0 ? '0 KWH' : `${stats.lowest_consumption.toLocaleString()} KWH`}</p>
             </div>
             <div className="bg-gray-50 p-3 rounded">
               <p className="text-gray-600">Average</p>
@@ -278,17 +278,17 @@ export default function ElectricityAnalyticsPage() {
         <Card className="p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Monthly Cost Comparison</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={monthlyData}>
+            <ComposedChart data={monthlyData.map(d => ({ ...d, monthLabel: formatShortMonth(d.month) }))}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
+              <XAxis dataKey="monthLabel" angle={-45} textAnchor="end" height={80} />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
               <Tooltip 
                 formatter={(value: number, name: string) => {
-                  if (name.includes('Cost') || name.includes('Charges')) {
-                    return `₹${(value / 1000).toFixed(1)}K`;
+                  if (name.includes('Cost') || name.includes('Total Cost')) {
+                    return formatCurrency(value);
                   }
-                  return value.toFixed(2);
+                  return `₹${value.toFixed(2)}`;
                 }}
                 contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc' }}
               />
@@ -303,9 +303,9 @@ export default function ElectricityAnalyticsPage() {
         <Card className="p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Power Factor Trend</h2>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={monthlyData}>
+            <LineChart data={monthlyData.map(d => ({ ...d, monthLabel: formatShortMonth(d.month) }))}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
+              <XAxis dataKey="monthLabel" angle={-45} textAnchor="end" height={80} />
               <YAxis domain={[0.85, 1.0]} />
               <Tooltip 
                 formatter={(value: number) => value.toFixed(3)}
@@ -331,12 +331,12 @@ export default function ElectricityAnalyticsPage() {
         <Card className="p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Charges Breakdown by Month</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={monthlyData}>
+            <BarChart data={monthlyData.map(d => ({ ...d, monthLabel: formatShortMonth(d.month) }))}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" angle={-45} textAnchor="end" height={80} />
+              <XAxis dataKey="monthLabel" angle={-45} textAnchor="end" height={80} />
               <YAxis />
               <Tooltip 
-                formatter={(value: number) => `₹${(value / 1000).toFixed(1)}K`}
+                formatter={(value: number) => formatCurrency(value)}
                 contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc' }}
               />
               <Legend />
@@ -367,9 +367,9 @@ export default function ElectricityAnalyticsPage() {
               <tbody>
                 {monthlyData.map((data, index) => (
                   <tr key={data.month} className="border-b hover:bg-gray-50">
-                    <td className="py-2 px-3 font-medium">{data.month}</td>
+                    <td className="py-2 px-3 font-medium">{formatShortMonth(data.month)}</td>
                     <td className="py-2 px-3 text-right">
-                      {index > 0 ? (
+                      {index < monthlyData.length - 1 ? (
                         <span className={`${data.consumption_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {data.consumption_change > 0 ? '↑' : '↓'} {Math.abs(data.consumption_change).toFixed(1)}%
                         </span>
@@ -378,7 +378,7 @@ export default function ElectricityAnalyticsPage() {
                       )}
                     </td>
                     <td className="py-2 px-3 text-right">
-                      {index > 0 ? (
+                      {index < monthlyData.length - 1 ? (
                         <span className={`${data.cost_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {data.cost_change > 0 ? '↑' : '↓'} {Math.abs(data.cost_change).toFixed(1)}%
                         </span>
@@ -387,7 +387,7 @@ export default function ElectricityAnalyticsPage() {
                       )}
                     </td>
                     <td className="py-2 px-3 text-right">
-                      {index > 0 ? (
+                      {index < monthlyData.length - 1 ? (
                         <span className={`${data.pf_change > 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {data.pf_change > 0 ? '↑' : '↓'} {Math.abs(data.pf_change).toFixed(1)}%
                         </span>
@@ -396,7 +396,7 @@ export default function ElectricityAnalyticsPage() {
                       )}
                     </td>
                     <td className="py-2 px-3 text-right">
-                      {index > 0 ? (
+                      {index < monthlyData.length - 1 ? (
                         <span className={`${data.demand_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {data.demand_change > 0 ? '↑' : '↓'} {Math.abs(data.demand_change).toFixed(1)}%
                         </span>

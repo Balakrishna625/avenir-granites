@@ -85,10 +85,6 @@ function parseElectricityBillText(text: string) {
   if (!consumerMatch) consumerMatch = text.match(/Service\s+No[:\s.]+([A-Z0-9]+)/i);
   if (consumerMatch) extracted.bill.consumer_number = consumerMatch[1];
 
-  // Consumer name - APCPDCL format (multiple lines after Consumer No)
-  const consumerNameMatch = text.match(/Consumer\s+No[:\s]+[A-Z0-9]+[\s\n]+([A-Z\s]+?)(?=\n|[A-Z]+[:\s]|$)/i);
-  if (consumerNameMatch) extracted.bill.consumer_name = consumerNameMatch[1].trim();
-
   // Contracted MD - APCPDCL format: "Contracted MD(KVA)" or "Contracted MD (KVA)"
   let contractedMatch = text.match(/Contracted\s+MD\s*\(?\s*KVA\s*\)?[:\s]+([\d.]+)/i);
   if (contractedMatch) extracted.bill.contracted_demand = parseFloat(contractedMatch[1]);
@@ -105,10 +101,10 @@ function parseElectricityBillText(text: string) {
 
   // Extract Meter Readings
   const kwh_prev_match = text.match(/Reading On[:\s]+\d{2}-[A-Z]{3}-\d{4}[^\d]+(\d+)\.(\d+)/);
-  if (kwh_prev_match) extracted.bill.previous_kwh_reading = parseFloat(kwh_prev_match[1] + kwh_prev_match[2]);
+  if (kwh_prev_match) extracted.bill.kwh_previous = parseFloat(kwh_prev_match[1] + kwh_prev_match[2]);
 
   const kwh_curr_match = text.match(/Reading On[:\s]+\d{2}-[A-Z]{3}-\d{4}[^\d]+\d+\.\d+[^\d]+(\d+)\.(\d+)/);
-  if (kwh_curr_match) extracted.bill.current_kwh_reading = parseFloat(kwh_curr_match[1] + kwh_curr_match[2]);
+  if (kwh_curr_match) extracted.bill.kwh_current = parseFloat(kwh_curr_match[1] + kwh_curr_match[2]);
 
   // Consumption - APCPDCL table format
   // Pattern 1: "Total Consumption" row with value like "53829.00"
@@ -126,7 +122,7 @@ function parseElectricityBillText(text: string) {
 
   // KVAH readings
   const kvahPrevMatch = text.match(/KVAH[^\d]+(\d+)/);
-  if (kvahPrevMatch) extracted.bill.previous_kvah_reading = parseFloat(kvahPrevMatch[1]);
+  if (kvahPrevMatch) extracted.bill.kvah_previous = parseFloat(kvahPrevMatch[1]);
 
   const kvahConsMatch = text.match(/KVAH[^\d]+\d+[^\d]+([\d.]+)/);
   if (kvahConsMatch) extracted.bill.kvah_consumption = parseFloat(kvahConsMatch[1]);
@@ -208,11 +204,12 @@ function parseElectricityBillText(text: string) {
   // Bill totals - multiple patterns with comma handling
   let subTotalMatch = text.match(/Sub Total[:\s]*Rs?[.\s]*([\d,]+)/i);
   if (!subTotalMatch) subTotalMatch = text.match(/Subtotal[:\s]*Rs?[.\s]*([\d,]+)/i);
-  if (subTotalMatch) extracted.bill.sub_total = parseFloat(subTotalMatch[1].replace(/,/g, ''));
+  if (subTotalMatch) extracted.bill.current_charges_subtotal = parseFloat(subTotalMatch[1].replace(/,/g, ''));
 
   let netBillMatch = text.match(/Net Bill Amount[:\s]*Rs?[.\s]*([\d,]+)/i);
   if (!netBillMatch) netBillMatch = text.match(/Net Amount[:\s]*Rs?[.\s]*([\d,]+)/i);
   if (!netBillMatch) netBillMatch = text.match(/Bill Amount[:\s]*Rs?[.\s]*([\d,]+)/i);
+  if (!netBillMatch) netBillMatch = text.match(/Current\s+Bill\s+Amount[:\s]*Rs?[.\s]*([\d,]+)/i);
   if (netBillMatch) extracted.bill.net_bill_amount = parseFloat(netBillMatch[1].replace(/,/g, ''));
 
   let totalPayableMatch = text.match(/Total Amount Payable[:\s]*Rs?[.\s]*([\d,]+)/i);
@@ -220,6 +217,33 @@ function parseElectricityBillText(text: string) {
   if (!totalPayableMatch) totalPayableMatch = text.match(/Amount Payable[:\s]*Rs?[.\s]*([\d,]+)/i);
   if (!totalPayableMatch) totalPayableMatch = text.match(/Total Amount[:\s]*Rs?[.\s]*([\d,]+)/i);
   if (totalPayableMatch) extracted.bill.total_amount_payable = parseFloat(totalPayableMatch[1].replace(/,/g, ''));
+  
+  // CRITICAL FALLBACK: Calculate required fields from extracted charges if not found
+  // This ensures we ALWAYS have values for required database fields
+  if (!extracted.bill.net_bill_amount || !extracted.bill.total_amount_payable) {
+    // Calculate from individual charges
+    const calculatedTotal = (
+      (extracted.bill.demand_charges_amount || 0) +
+      (extracted.bill.energy_charges_amount || 0) +
+      (extracted.bill.tod_charges || 0) +
+      (extracted.bill.electricity_duty || 0) +
+      (extracted.bill.fppca_jan_2023 || 0) +
+      (extracted.bill.fppca_aug_2023 || 0) +
+      (extracted.bill.fppca_aug_2025 || 0) +
+      (extracted.bill.customer_charges || 0) +
+      (extracted.bill.arrears_total || 0)
+    );
+    
+    if (!extracted.bill.net_bill_amount) {
+      extracted.bill.net_bill_amount = calculatedTotal;
+      console.log('⚠️ Calculated net_bill_amount from charges:', calculatedTotal);
+    }
+    
+    if (!extracted.bill.total_amount_payable) {
+      extracted.bill.total_amount_payable = calculatedTotal;
+      console.log('⚠️ Calculated total_amount_payable from charges:', calculatedTotal);
+    }
+  }
 
   const lastPaidMatch = text.match(/Last Paid Amount Rs\.\s*([\d.]+)\((\d{2}-[A-Z]{3}-\d{4})\)/i);
   if (lastPaidMatch) {
@@ -260,8 +284,19 @@ function parseElectricityBillText(text: string) {
   console.log('KWH Consumption:', extracted.bill.kwh_consumption || '❌ NOT FOUND');
   console.log('KVA Demand:', extracted.bill.kva_demand || '❌ NOT FOUND');
   console.log('Power Factor:', extracted.bill.power_factor || '❌ NOT FOUND');
+  console.log('Net Bill Amount:', extracted.bill.net_bill_amount || '❌ NOT FOUND');
   console.log('Total Amount:', extracted.bill.total_amount_payable || '❌ NOT FOUND');
+  console.log('Due Date:', extracted.bill.due_date || '❌ NOT FOUND');
   console.log('===============================');
+
+  // Ensure required fields have values (fallbacks)
+  // If due_date not found, use bill_date + 15 days as reasonable default
+  if (!extracted.bill.due_date && extracted.bill.bill_date) {
+    const billDate = new Date(extracted.bill.bill_date);
+    billDate.setDate(billDate.getDate() + 15);
+    extracted.bill.due_date = billDate.toISOString().split('T')[0];
+    console.log('⚠️ Due date not found, using bill_date + 15 days:', extracted.bill.due_date);
+  }
 
   return extracted;
 }
@@ -301,28 +336,48 @@ export async function POST(request: NextRequest) {
       console.log('📄 Processing PDF file:', file.name, 'Size:', file.size, 'bytes');
       
       try {
-        // Convert File to Buffer for pdf-parse
+        // Convert File to Buffer
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         
         console.log('🔍 Extracting text from PDF...');
+        console.log('📦 Buffer size:', buffer.length, 'bytes');
+        console.log('📦 File type:', file.type);
         
-        // Use require for pdf-parse (CommonJS module compatibility)
-        // @ts-ignore - pdf-parse is a CommonJS module
-        const pdfParse = require('pdf-parse');
-        const pdfData = await pdfParse(buffer);
-        billText = pdfData.text;
+        // Use unpdf - lightweight PDF text extraction for Next.js
+        const { extractText } = await import('unpdf');
+        
+        const { text, totalPages } = await extractText(new Uint8Array(buffer));
+        billText = Array.isArray(text) ? text.join('\n') : text;
         
         console.log('✅ PDF text extracted successfully');
         console.log('📝 Text length:', billText.length, 'characters');
-        console.log('📄 First 500 chars:', billText.substring(0, 500));
+        console.log('📄 Number of pages:', totalPages);
+        console.log('📄 Full extracted text:');
+        console.log(billText);
+        
+        if (billText.length < 50) {
+          console.warn('⚠️ Extracted text is very short - PDF might be image-based');
+          return NextResponse.json(
+            { 
+              error: 'PDF appears to be image-based or empty. Please upload a text-based PDF or use manual entry.',
+              details: `Extracted only ${billText.length} characters. This PDF may need OCR processing.`,
+              extractedText: billText
+            },
+            { status: 400 }
+          );
+        }
         
       } catch (pdfError: any) {
         console.error('❌ PDF parsing error:', pdfError);
+        console.error('❌ Error name:', pdfError.name);
+        console.error('❌ Error message:', pdfError.message);
+        console.error('❌ Error stack:', pdfError.stack);
         return NextResponse.json(
           { 
             error: 'Failed to extract text from PDF. The file may be corrupted or image-based (needs OCR).',
-            details: pdfError.message 
+            details: pdfError.message,
+            errorType: pdfError.name
           },
           { status: 400 }
         );

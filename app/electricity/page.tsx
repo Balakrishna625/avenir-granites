@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppLayout } from '@/components/AppLayout';
 import { Upload, FileText, TrendingUp, TrendingDown, Zap, DollarSign, Activity, AlertCircle } from 'lucide-react';
+import { formatCurrency, formatMonthName } from '@/lib/formatters';
 
 interface ElectricityBill {
   id: string;
@@ -240,7 +241,7 @@ export default function ElectricityBillsPage() {
               <div>
                 <p className="text-sm text-gray-600">Total Cost</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  ₹{(summary.totalCost / 100000).toFixed(1)}L
+                  {formatCurrency(summary.totalCost)}
                 </p>
                 <p className="text-xs text-gray-500">Last {bills.length} bills</p>
               </div>
@@ -281,7 +282,7 @@ export default function ElectricityBillsPage() {
               <div>
                 <p className="text-sm text-gray-600">Total Arrears</p>
                 <p className="text-2xl font-bold text-red-600">
-                  ₹{(summary.totalArrears / 100000).toFixed(1)}L
+                  {formatCurrency(summary.totalArrears)}
                 </p>
                 <p className="text-xs text-gray-500">Outstanding</p>
               </div>
@@ -308,33 +309,52 @@ export default function ElectricityBillsPage() {
               const monthTotal = monthBills.reduce((sum, b) => sum + (b.total_amount_payable || 0), 0);
               const monthConsumption = monthBills.reduce((sum, b) => sum + (b.kwh_consumption || 0), 0);
               const avgPF = monthBills.reduce((sum, b) => sum + (b.power_factor || 0), 0) / monthBills.length;
+              const maxDemand = Math.max(...monthBills.map(b => b.maximum_demand_kva || 0));
+              const avgCostPerKWH = monthConsumption > 0 ? monthTotal / monthConsumption : 0;
               
               return (
-                <Card key={month} className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900">{month}</h3>
-                      <p className="text-sm text-gray-600">{monthBills.length} bill(s)</p>
+                <Card key={month} className="p-6 border-l-4 border-blue-500">
+                  <div className="mb-4">
+                    <h3 className="text-2xl font-bold text-gray-900">{formatMonthName(month)}</h3>
+                    <p className="text-sm text-gray-600">{monthBills.length} bill(s) • {new Date(monthBills[0].bill_date).toLocaleDateString()}</p>
+                  </div>
+                  
+                  {/* Key Metrics Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <p className="text-xs text-gray-600 mb-1">Consumption</p>
+                      <p className="text-xl font-bold text-blue-700">
+                        {monthConsumption.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-500">KWH</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-4 text-right">
-                      <div>
-                        <p className="text-sm text-gray-600">Consumption</p>
-                        <p className="text-lg font-semibold text-gray-900">
-                          {monthConsumption.toLocaleString()} KWH
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Avg Power Factor</p>
-                        <p className={`text-lg font-semibold ${avgPF < 0.95 ? 'text-yellow-600' : 'text-green-600'}`}>
-                          {avgPF.toFixed(3)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Total Cost</p>
-                        <p className="text-lg font-semibold text-gray-900">
-                          ₹{(monthTotal / 100000).toFixed(2)}L
-                        </p>
-                      </div>
+                    <div className="bg-green-50 p-3 rounded-lg">
+                      <p className="text-xs text-gray-600 mb-1">Total Cost</p>
+                      <p className="text-xl font-bold text-green-700">
+                        {formatCurrency(monthTotal)}
+                      </p>
+                      <p className="text-xs text-gray-500">Per month</p>
+                    </div>
+                    <div className="bg-orange-50 p-3 rounded-lg">
+                      <p className="text-xs text-gray-600 mb-1">Cost/KWH</p>
+                      <p className="text-xl font-bold text-orange-700">
+                        ₹{avgCostPerKWH.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-gray-500">Per unit</p>
+                    </div>
+                    <div className={`${avgPF < 0.95 ? 'bg-yellow-50' : 'bg-green-50'} p-3 rounded-lg`}>
+                      <p className="text-xs text-gray-600 mb-1">Power Factor</p>
+                      <p className={`text-xl font-bold ${avgPF < 0.95 ? 'text-yellow-700' : 'text-green-700'}`}>
+                        {avgPF.toFixed(3)}
+                      </p>
+                      <p className="text-xs text-gray-500">{avgPF < 0.95 ? 'Needs improvement' : 'Good'}</p>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded-lg">
+                      <p className="text-xs text-gray-600 mb-1">Peak Demand</p>
+                      <p className="text-xl font-bold text-red-700">
+                        {maxDemand.toFixed(1)}
+                      </p>
+                      <p className="text-xs text-gray-500">KVA max</p>
                     </div>
                   </div>
 
@@ -375,10 +395,10 @@ export default function ElectricityBillsPage() {
                                 </span>
                               </td>
                               <td className="py-2 px-3 text-right text-sm">
-                                {bill.cost_per_kwh?.toFixed(2) || '0.00'}
+                                ₹{bill.cost_per_kwh?.toFixed(2) || '0.00'}
                               </td>
-                              <td className="py-2 px-3 text-right text-sm font-semibold">
-                                ₹{(bill.total_amount_payable / 1000).toFixed(1)}K
+                              <td className="py-2 px-3 text-right text-sm font-semibold text-green-700">
+                                {formatCurrency(bill.total_amount_payable)}
                               </td>
                               <td className="py-2 px-3 text-center">
                                 {isOverdue ? (

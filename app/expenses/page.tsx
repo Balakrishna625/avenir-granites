@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/AppLayout";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { formatCurrency, formatMonthName } from "@/lib/formatters";
 import { 
   Plus, 
   Search, 
@@ -23,7 +24,10 @@ import {
   Building2,
   Package,
   CreditCard,
-  DollarSign
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Wallet
 } from "lucide-react";
 
 interface Expense {
@@ -74,6 +78,23 @@ interface Account {
   current_balance: number;
 }
 
+interface MonthlyFinancialSummary {
+  month: string;
+  monthDate: string;
+  totalReceived: number;
+  totalExpenses: number;
+  outstandingBalance: number;
+  transactionCount: number;
+  expenseCount: number;
+}
+
+interface FinancialTotals {
+  totalReceived: number;
+  totalExpenses: number;
+  totalOutstanding: number;
+  totalMonths: number;
+}
+
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
 
@@ -82,6 +103,8 @@ export default function ExpensesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [monthlySummary, setMonthlySummary] = useState<MonthlyFinancialSummary[]>([]);
+  const [totals, setTotals] = useState<FinancialTotals | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showCategoryManagement, setShowCategoryManagement] = useState(false);
@@ -93,10 +116,26 @@ export default function ExpensesPage() {
   const [selectedAccount, setSelectedAccount] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState<string>(""); // For filtering expenses by month
 
   useEffect(() => {
     loadData();
   }, [selectedCategory, selectedAccount, dateFrom, dateTo]);
+
+  useEffect(() => {
+    loadMonthlySummary();
+  }, []);
+
+  async function loadMonthlySummary() {
+    try {
+      const response = await fetch("/api/expenses/monthly-summary?months=12");
+      const data = await response.json();
+      setMonthlySummary(data.monthlySummary || []);
+      setTotals(data.totals || null);
+    } catch (error) {
+      console.error("Failed to load monthly summary:", error);
+    }
+  }
 
   async function loadData() {
     try {
@@ -123,6 +162,9 @@ export default function ExpensesPage() {
       setExpenses(expensesData);
       setCategories(categoriesData);
       setAccounts(accountsData);
+      
+      // Reload monthly summary to get latest data
+      await loadMonthlySummary();
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -193,64 +235,196 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Expenses</p>
-                  <p className="text-2xl font-bold text-gray-900">{fmt(totalExpenses)}</p>
+        {/* Overall Financial Summary Cards */}
+        {totals && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Received</p>
+                    <p className="text-2xl font-bold text-green-700">{formatCurrency(totals.totalReceived)}</p>
+                    <p className="text-xs text-gray-500 mt-1">From all transactions</p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-green-600" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-red-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">This Month</p>
-                  <p className="text-2xl font-bold text-gray-900">{fmt(monthlyExpenses)}</p>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Expenses</p>
+                    <p className="text-2xl font-bold text-red-700">{formatCurrency(totals.totalExpenses)}</p>
+                    <p className="text-xs text-gray-500 mt-1">{filteredExpenses.length} records</p>
+                  </div>
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <TrendingDown className="w-6 h-6 text-red-600" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Records</p>
-                  <p className="text-2xl font-bold text-gray-900">{filteredExpenses.length}</p>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Outstanding Balance</p>
+                    <p className={`text-2xl font-bold ${totals.totalOutstanding >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                      {formatCurrency(totals.totalOutstanding)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Received - Expenses</p>
+                  </div>
+                  <div className={`w-12 h-12 ${totals.totalOutstanding >= 0 ? 'bg-blue-100' : 'bg-red-100'} rounded-lg flex items-center justify-center`}>
+                    <Wallet className={`w-6 h-6 ${totals.totalOutstanding >= 0 ? 'text-blue-600' : 'text-red-600'}`} />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Receipt className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowCategoryManagement(true)}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Categories</p>
-                  <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
-                  <p className="text-xs text-blue-600 mt-1">Click to manage</p>
+            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowCategoryManagement(true)}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Categories</p>
+                    <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
+                    <p className="text-xs text-blue-600 mt-1">Click to manage</p>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Package className="w-6 h-6 text-purple-600" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Package className="w-6 h-6 text-purple-600" />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Month-wise Financial Tracking */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Month-wise Financial Tracking</h2>
+            <p className="text-sm text-gray-600">
+              Amounts received are auto-calculated from all customer transactions
+            </p>
+          </div>
+
+          {monthlySummary.length === 0 ? (
+            <Card>
+              <CardContent className="p-12">
+                <div className="text-center">
+                  <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-2">No financial data available</p>
+                  <p className="text-sm text-gray-500">Add transactions and expenses to see monthly tracking</p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : (
+            monthlySummary.map((month) => {
+              // Filter expenses for this specific month
+              const monthExpenses = expenses.filter(expense => {
+                const expenseDate = new Date(expense.date);
+                const monthDate = new Date(month.monthDate);
+                return expenseDate.getMonth() === monthDate.getMonth() && 
+                       expenseDate.getFullYear() === monthDate.getFullYear();
+              });
+
+              return (
+                <Card key={month.month} className="border-l-4 border-blue-500">
+                  <CardContent className="p-6">
+                    {/* Month Header */}
+                    <div className="mb-4">
+                      <h3 className="text-2xl font-bold text-gray-900">{formatMonthName(month.month)}</h3>
+                      <p className="text-sm text-gray-600">
+                        {month.transactionCount} transactions • {month.expenseCount} expenses
+                      </p>
+                    </div>
+
+                    {/* Financial Summary Tiles */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <TrendingUp className="w-5 h-5 text-green-600" />
+                          <p className="text-sm font-medium text-green-900">Total Received</p>
+                        </div>
+                        <p className="text-2xl font-bold text-green-700">{formatCurrency(month.totalReceived)}</p>
+                        <p className="text-xs text-green-600 mt-1">From {month.transactionCount} transaction(s)</p>
+                      </div>
+
+                      <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <TrendingDown className="w-5 h-5 text-red-600" />
+                          <p className="text-sm font-medium text-red-900">Total Expenses</p>
+                        </div>
+                        <p className="text-2xl font-bold text-red-700">{formatCurrency(month.totalExpenses)}</p>
+                        <p className="text-xs text-red-600 mt-1">From {month.expenseCount} expense(s)</p>
+                      </div>
+
+                      <div className={`${month.outstandingBalance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'} p-4 rounded-lg border`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Wallet className={`w-5 h-5 ${month.outstandingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`} />
+                          <p className={`text-sm font-medium ${month.outstandingBalance >= 0 ? 'text-blue-900' : 'text-orange-900'}`}>
+                            Outstanding Balance
+                          </p>
+                        </div>
+                        <p className={`text-2xl font-bold ${month.outstandingBalance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
+                          {formatCurrency(month.outstandingBalance)}
+                        </p>
+                        <p className={`text-xs ${month.outstandingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'} mt-1`}>
+                          {month.outstandingBalance >= 0 ? 'Surplus' : 'Deficit'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Expenses List for this month */}
+                    {monthExpenses.length > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-semibold text-gray-700">Expenses Details</h4>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedMonth(month.month);
+                              setDateFrom(new Date(month.monthDate).toISOString().split('T')[0]);
+                              const monthEnd = new Date(new Date(month.monthDate).getFullYear(), new Date(month.monthDate).getMonth() + 1, 0);
+                              setDateTo(monthEnd.toISOString().split('T')[0]);
+                            }}
+                          >
+                            View Details
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {monthExpenses.slice(0, 5).map((expense) => (
+                            <div key={expense.id} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                              <div className="flex items-center gap-3">
+                                <div 
+                                  className="w-3 h-3 rounded-full" 
+                                  style={{ backgroundColor: expense.expense_categories.color }}
+                                />
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{expense.expense_categories.name}</p>
+                                  <p className="text-xs text-gray-500">{expense.description}</p>
+                                </div>
+                              </div>
+                              <p className="text-sm font-semibold text-gray-900">{formatCurrency(expense.total_amount)}</p>
+                            </div>
+                          ))}
+                          {monthExpenses.length > 5 && (
+                            <p className="text-xs text-gray-500 text-center py-2">
+                              +{monthExpenses.length - 5} more expenses
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
         </div>
 
         {/* Filters */}
