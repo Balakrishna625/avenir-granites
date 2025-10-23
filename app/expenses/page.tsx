@@ -295,8 +295,8 @@ export default function ExpensesPage() {
 
             {showAddForm && (
               <form onSubmit={handleAddExpense} className="bg-gray-50 p-6 rounded-lg space-y-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  <div className="md:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Date <span className="text-red-500">*</span>
                     </label>
@@ -308,7 +308,7 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  <div>
+                  <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Amount <span className="text-red-500">*</span>
                     </label>
@@ -323,7 +323,7 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  <div>
+                  <div className="md:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Debited From <span className="text-red-500">*</span>
                     </label>
@@ -340,7 +340,7 @@ export default function ExpensesPage() {
                     </select>
                   </div>
 
-                  <div>
+                  <div className="md:col-span-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                     <Input
                       type="text"
