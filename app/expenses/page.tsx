@@ -242,30 +242,32 @@ export default function ExpensesPage() {
 
         {/* Bank Collections Tiles */}
         <div>
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
             <DollarSign className="w-5 h-5 text-green-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Bank Collections - Current Balance</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Bank Collections - Current Balance</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {bankCollections.map((collection) => (
               <Card key={collection.id} className="border border-gray-200 hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-1">{collection.name}</h3>
-                  <p className="text-2xl font-bold text-green-700 mb-2">{fmt(collection.currentBalance)}</p>
-                  <div className="space-y-1 text-xs">
+                <CardContent className="p-3">
+                  <h3 className="text-xs font-semibold text-gray-700 mb-1.5 truncate" title={collection.name}>
+                    {collection.name}
+                  </h3>
+                  <p className="text-xl font-bold text-green-700 mb-2">{fmt(collection.currentBalance)}</p>
+                  <div className="space-y-0.5 text-[10px]">
                     <div className="flex justify-between text-gray-600">
                       <span>Received:</span>
                       <span className="font-semibold text-blue-600">{fmt(collection.totalReceived)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span className="ml-2">RTGS:</span>
+                    <div className="flex justify-between text-gray-500 ml-1">
+                      <span>RTGS:</span>
                       <span className="font-medium">{fmt(collection.rtgs)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span className="ml-2">Cash:</span>
+                    <div className="flex justify-between text-gray-500 ml-1">
+                      <span>Cash:</span>
                       <span className="font-medium">{fmt(collection.cash)}</span>
                     </div>
-                    <div className="flex justify-between text-red-600 pt-1 border-t">
+                    <div className="flex justify-between text-red-600 pt-0.5 border-t border-gray-200 mt-1">
                       <span>Expenses:</span>
                       <span className="font-semibold">-{fmt(collection.totalExpenses)}</span>
                     </div>
@@ -365,63 +367,98 @@ export default function ExpensesPage() {
             )}
 
             {/* Expenses Summary */}
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Expenses for {monthNames[selectedMonth - 1]} {selectedYear}</p>
-                  <p className="text-2xl font-bold text-blue-700">{fmt(totalExpenses)}</p>
-                  <p className="text-xs text-gray-500 mt-1">{expenses.length} transaction(s)</p>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Expenses - {monthNames[selectedMonth - 1]} {selectedYear}</p>
+                  <p className="text-3xl font-bold text-blue-700 mt-1">{fmt(totalExpenses)}</p>
+                  <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
+                    {expenses.length} transaction{expenses.length !== 1 ? 's' : ''}
+                  </p>
                 </div>
-                <Calendar className="w-8 h-8 text-blue-600" />
+                <div className="bg-white rounded-full p-3 shadow-sm">
+                  <Calendar className="w-8 h-8 text-blue-600" />
+                </div>
               </div>
             </div>
 
             {/* Expenses Table */}
-            <div className="overflow-x-auto">
+            <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
               {expenses.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No expenses for this month</p>
+                <div className="text-center py-16 bg-gray-50">
+                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 font-medium">No expenses recorded for this month</p>
+                  <p className="text-xs text-gray-400 mt-1">Add an expense to get started</p>
                 </div>
               ) : (
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₹)</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {expenses.map((expense) => (
-                      <tr key={expense.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {formatDisplayDate(expense.date)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          {expense.bank_accounts?.name || 'Unknown Account'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {expense.notes || expense.description || '-'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-red-600">
-                          {fmt(expense.amount)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteExpense(expense.id)}
-                            className="text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Account
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Description
+                        </th>
+                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Amount (₹)
+                        </th>
+                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                      {expenses.map((expense, index) => (
+                        <tr 
+                          key={expense.id} 
+                          className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                <Calendar className="w-4 h-4 text-blue-600" />
+                              </div>
+                              <span className="text-sm font-medium text-gray-900">
+                                {formatDisplayDate(expense.date)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-900 font-medium">
+                              {expense.bank_accounts?.name || 'Unknown Account'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-gray-600">
+                              {expense.notes || expense.description || '-'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className="text-sm font-bold text-red-600">
+                              {fmt(expense.amount)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteExpense(expense.id)}
+                              className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
                           </Button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </CardContent>
