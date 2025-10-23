@@ -15,7 +15,7 @@ export async function GET(req: Request) {
       *,
       expense_categories(name, color),
       vendors(name, vendor_code),
-      bank_accounts(name, account_type),
+      bank_accounts(name),
       expense_items(*)
     `);
 

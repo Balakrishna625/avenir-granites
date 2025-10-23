@@ -142,6 +142,8 @@ export default function ExpensesPage() {
         notes: formNotes
       };
 
+      console.log('Submitting expense:', expense);
+
       const response = await fetch("/api/expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -149,6 +151,9 @@ export default function ExpensesPage() {
       });
 
       if (response.ok) {
+        const addedExpense = await response.json();
+        console.log('Expense added successfully:', addedExpense);
+        
         // Reset form but keep date in current month
         const year = new Date().getFullYear();
         const month = String(new Date().getMonth() + 1).padStart(2, '0');
@@ -161,8 +166,11 @@ export default function ExpensesPage() {
         
         // Reload data (this will show updated collections minus expenses)
         await loadData();
+        
+        alert('Expense added successfully!');
       } else {
         const error = await response.json();
+        console.error('Failed to add expense:', error);
         alert(`Failed to add expense: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {

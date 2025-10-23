@@ -77,7 +77,7 @@ create table if not exists expenses (
   date date not null,
   category_id uuid not null references expense_categories(id),
   vendor_id uuid references vendors(id),
-  account_id uuid not null references expense_accounts(id),
+  account_id uuid not null references bank_accounts(id), -- Changed from expense_accounts to bank_accounts
   amount numeric not null,
   tax_amount numeric default 0,
   total_amount numeric not null,
