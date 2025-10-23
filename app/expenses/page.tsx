@@ -44,7 +44,13 @@ export default function ExpensesPage() {
   
   // Form state
   const [showAddForm, setShowAddForm] = useState(false);
-  const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formDate, setFormDate] = useState(() => {
+    // Initialize with current month and year
+    const year = new Date().getFullYear();
+    const month = String(new Date().getMonth() + 1).padStart(2, '0');
+    const day = String(new Date().getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
   const [formAmount, setFormAmount] = useState("");
   const [formAccount, setFormAccount] = useState("");
   const [formNotes, setFormNotes] = useState("");
@@ -126,8 +132,8 @@ export default function ExpensesPage() {
         total_amount: parseFloat(formAmount),
         account_id: formAccount, // This is bank_account_id
         description: formNotes || "Expense",
-        payment_method: "Bank Transfer",
-        payment_status: "Paid",
+        payment_method: "RTGS", // Valid values: CASH, CHEQUE, RTGS, UPI, CREDIT_CARD
+        payment_status: "PAID", // Use uppercase to match database convention
         notes: formNotes
       };
 
@@ -138,8 +144,11 @@ export default function ExpensesPage() {
       });
 
       if (response.ok) {
-        // Reset form
-        setFormDate(new Date().toISOString().split('T')[0]);
+        // Reset form but keep date in current month
+        const year = new Date().getFullYear();
+        const month = String(new Date().getMonth() + 1).padStart(2, '0');
+        const day = String(new Date().getDate()).padStart(2, '0');
+        setFormDate(`${year}-${month}-${day}`);
         setFormAmount("");
         setFormAccount("");
         setFormNotes("");
@@ -366,7 +375,7 @@ export default function ExpensesPage() {
                       <div className="flex items-center gap-3">
                         <p className="font-semibold text-gray-900">{formatDisplayDate(expense.date)}</p>
                         <span className="text-sm text-gray-500">•</span>
-                        <p className="text-sm text-gray-600">{expense.bank_accounts.name}</p>
+                        <p className="text-sm text-gray-600">{expense.bank_accounts?.name || 'Unknown Account'}</p>
                       </div>
                       {expense.notes && (
                         <p className="text-sm text-gray-500 mt-1">{expense.notes}</p>
