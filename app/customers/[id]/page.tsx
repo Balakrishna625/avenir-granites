@@ -15,7 +15,8 @@ import {
   FileText,
   History,
   AlertCircle,
-  Archive
+  Archive,
+  Calendar
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -56,11 +57,15 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   const [loading, setLoading] = useState(true);
   const [showSettlementModal, setShowSettlementModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
+  
+  // Month selector state
+  const [selectedYear, setSelectedYear] = useState<number | "all">("all");
+  const [selectedMonth, setSelectedMonth] = useState<number | "all">("all");
 
   useEffect(() => {
     loadCustomerData();
     loadCommonData();
-  }, [customerId]);
+  }, [customerId, selectedYear, selectedMonth]);
 
   async function loadCommonData() {
     try {
@@ -79,12 +84,35 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     try {
       setLoading(true);
 
+      // Calculate date range from month selector
+      let dateFrom = "";
+      let dateTo = "";
+      
+      if (selectedYear !== "all" && selectedMonth !== "all") {
+        // Specific month selected
+        const yearNum = typeof selectedYear === "number" ? selectedYear : parseInt(selectedYear as string);
+        const monthNum = typeof selectedMonth === "number" ? selectedMonth : parseInt(selectedMonth as string);
+        dateFrom = new Date(yearNum, monthNum - 1, 1).toISOString().split('T')[0];
+        dateTo = new Date(yearNum, monthNum, 0).toISOString().split('T')[0];
+      } else if (selectedYear !== "all") {
+        // Only year selected, show full year
+        const yearNum = typeof selectedYear === "number" ? selectedYear : parseInt(selectedYear as string);
+        dateFrom = new Date(yearNum, 0, 1).toISOString().split('T')[0];
+        dateTo = new Date(yearNum, 11, 31).toISOString().split('T')[0];
+      }
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("from", dateFrom);
+      if (dateTo) params.set("to", dateTo);
+      const queryString = params.toString();
+
       // Parallel load all data with optimized summary endpoint
       const [customerRes, summaryRes, consignmentsRes, transactionsRes] = await Promise.all([
         fetch(`/api/customers?id=${customerId}`),
-        fetch(`/api/customers/summary?customerId=${customerId}`),
-        fetch(`/api/consignments?customerId=${customerId}`),
-        fetch(`/api/transactions?customerId=${customerId}`)
+        fetch(`/api/customers/summary?customerId=${customerId}${queryString ? '&' + queryString : ''}`),
+        fetch(`/api/consignments?customerId=${customerId}${queryString ? '&' + queryString : ''}`),
+        fetch(`/api/transactions?customerId=${customerId}${queryString ? '&' + queryString : ''}`)
       ]);
 
       const [customerData, summaryData, consignmentsData, transactionsData] = await Promise.all([
@@ -131,6 +159,14 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
 
   // Removed duplicate totalReceivables calculation (now using memoized value)
 
+  // Generate year and month options
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i); // 2 years back, current, 2 years forward
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
   return (
     <AppLayout>
       <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
@@ -160,6 +196,50 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
             Settle Account
           </Button>
         </div>
+
+        {/* Month Selector */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <select 
+                value={selectedYear} 
+                onChange={(e) => {
+                  const val = e.target.value === "all" ? "all" : parseInt(e.target.value);
+                  setSelectedYear(val);
+                  if (val === "all") setSelectedMonth("all");
+                }}
+                className="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Years</option>
+                {years.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+              <select 
+                value={selectedMonth} 
+                onChange={(e) => {
+                  const val = e.target.value === "all" ? "all" : parseInt(e.target.value);
+                  setSelectedMonth(val);
+                }}
+                disabled={selectedYear === "all"}
+                className="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="all">All Months</option>
+                {months.map((month, index) => (
+                  <option key={month} value={index + 1}>{month}</option>
+                ))}
+              </select>
+              {selectedYear !== "all" && (
+                <span className="text-sm text-gray-600">
+                  {selectedMonth !== "all" 
+                    ? `Showing ${months[(selectedMonth as number) - 1]} ${selectedYear}` 
+                    : `Showing all of ${selectedYear}`}
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Customer Info Card */}
         <Card>

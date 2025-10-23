@@ -49,6 +49,8 @@ export default function Page() {
   const [txns, setTxns] = useState<any[]>([]);
   const [waivedTransactions, setWaivedTransactions] = useState<any[]>([]);
   const [customerId, setCustomerId] = useState("all");
+  const [selectedYear, setSelectedYear] = useState<number | "all">("all");
+  const [selectedMonth, setSelectedMonth] = useState<number | "all">("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showAllHistory, setShowAllHistory] = useState(false); // Toggle for viewing all periods vs current period only
@@ -94,10 +96,22 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
+    // Calculate date range from month selector
+    let from = dateFrom;
+    let to = dateTo;
+    
+    if (selectedYear !== "all" && selectedMonth !== "all") {
+      from = new Date(selectedYear, selectedMonth - 1, 1).toISOString().split('T')[0];
+      to = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0];
+    } else if (selectedYear !== "all") {
+      from = new Date(selectedYear, 0, 1).toISOString().split('T')[0];
+      to = new Date(selectedYear, 11, 31).toISOString().split('T')[0];
+    }
+    
     const p = new URLSearchParams();
     if (customerId) p.set("customerId", customerId);
-    if (dateFrom) p.set("from", dateFrom);
-    if (dateTo) p.set("to", dateTo);
+    if (from) p.set("from", from);
+    if (to) p.set("to", to);
     
     // Only filter by active period when a specific customer is selected and showAllHistory is false
     if (customerId && customerId !== "all" && !showAllHistory) {
@@ -115,7 +129,7 @@ export default function Page() {
     } else {
       setWaivedTransactions([]);
     }
-  }, [customerId, dateFrom, dateTo, showAllHistory]);
+  }, [customerId, dateFrom, dateTo, showAllHistory, selectedYear, selectedMonth]);
 
   const kpi = useMemo(() => {
     const expectedTotal = consignments.reduce((s, r) => s + (r.total || 0), 0);
@@ -694,21 +708,47 @@ export default function Page() {
 
         <div className="w-full space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <select className="border rounded-xl px-3 py-2 md:col-span-4" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            <select className="border rounded-xl px-3 py-2 md:col-span-3" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
               <option value="all">All customers</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{maskName(c.name)}</option>)}
             </select>
 
-            <div className="flex items-center gap-2 border rounded-xl px-3 py-2 md:col-span-2">
-              <Calendar className="w-4 h-4" />
-              <Input type="date" className="border-0 p-0 focus-visible:ring-0 w-full min-w-[160px]" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-            </div>
-            <div className="flex items-center gap-2 border rounded-xl px-3 py-2 md:col-span-2">
-              <Calendar className="w-4 h-4" />
-              <Input type="date" className="border-0 p-0 focus-visible:ring-0 w-full min-w-[160px]" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <div className="flex items-center gap-2 md:col-span-3">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <select 
+                className="border rounded-xl px-3 py-2 flex-1" 
+                value={selectedYear}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedYear(val === "all" ? "all" : parseInt(val));
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+              >
+                <option value="all">All Years</option>
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+              <select 
+                className="border rounded-xl px-3 py-2 flex-1" 
+                value={selectedMonth}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedMonth(val === "all" ? "all" : parseInt(val));
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+                disabled={selectedYear === "all"}
+              >
+                <option value="all">All Months</option>
+                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((month, index) => (
+                  <option key={index} value={index + 1}>{month}</option>
+                ))}
+              </select>
             </div>
 
-            <form onSubmit={addCustomer} className="flex items-stretch gap-2 md:col-span-4 justify-self-end w-full md:w-auto">
+            <form onSubmit={addCustomer} className="flex items-stretch gap-2 md:col-span-6 justify-self-end w-full md:w-auto">
               <Input name="new_customer" placeholder="Add customer (unique)" className="border rounded-xl px-3 py-2 h-11 text-base flex-1 md:w-[260px]" />
               <Button type="submit" className="h-11 rounded-2xl shrink-0">
                 <PlusCircle className="w-4 h-4 mr-2" /> Add
