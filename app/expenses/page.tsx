@@ -20,7 +20,8 @@ import {
   Save,
   X,
   Filter,
-  Download
+  Download,
+  Settings
 } from "lucide-react";
 
 interface BankCollection {
@@ -139,6 +140,12 @@ export default function ExpensesPage() {
     account_id: '',
     notes: ''
   });
+
+  // Adjustment modal state
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [selectedAccountForAdjustment, setSelectedAccountForAdjustment] = useState<BankCollection | null>(null);
+  const [adjustmentAmount, setAdjustmentAmount] = useState("");
+  const [adjustmentNotes, setAdjustmentNotes] = useState("");
 
   useEffect(() => {
     loadData();
@@ -342,6 +349,50 @@ export default function ExpensesPage() {
         showToast('success', 'Expense updated successfully!');
       } else {
         const error = await response.json();
+        console.error('Failed to update expense:', error);
+        showToast('error', `Failed to update expense: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error("Error updating expense:", error);
+      showToast('error', 'Failed to update expense');
+    }
+  }
+
+  function openAdjustmentModal(account: BankCollection) {
+    setSelectedAccountForAdjustment(account);
+    setAdjustmentAmount("");
+    setAdjustmentNotes("");
+    setShowAdjustmentModal(true);
+  }
+
+  function closeAdjustmentModal() {
+    setShowAdjustmentModal(false);
+    setSelectedAccountForAdjustment(null);
+    setAdjustmentAmount("");
+    setAdjustmentNotes("");
+  }
+
+  async function handleSaveAdjustment() {
+    if (!selectedAccountForAdjustment) return;
+
+    try {
+      const response = await fetch("/api/bank-accounts/adjustments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bank_account_id: selectedAccountForAdjustment.id,
+          adjustment_amount: parseFloat(adjustmentAmount) || 0,
+          notes: adjustmentNotes || "Opening balance adjustment for pre-tracking settlements",
+          effective_date: new Date().toISOString().split('T')[0]
+        })
+      });
+
+      if (response.ok) {
+        await loadData();
+        closeAdjustmentModal();
+        showToast('success', 'Opening balance adjusted successfully!');
+      } else {
+        const error = await response.json();
         showToast('error', `Failed to update expense: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {
@@ -525,8 +576,17 @@ export default function ExpensesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {bankCollections.map((collection) => (
               <Card key={collection.id} className="border border-gray-200 hover:shadow-md transition-shadow">
-                <CardContent className="p-3">
-                  <h3 className="text-xs font-semibold text-gray-700 mb-1.5 truncate" title={collection.name}>
+                <CardContent className="p-3 relative">
+                  {/* Settings button for adjustment */}
+                  <button
+                    onClick={() => openAdjustmentModal(collection)}
+                    className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 transition-colors"
+                    title="Adjust opening balance"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
+
+                  <h3 className="text-xs font-semibold text-gray-700 mb-1.5 truncate pr-6" title={collection.name}>
                     {collection.name}
                   </h3>
                   <p className="text-xl font-bold text-green-700 mb-2">{fmt(collection.currentBalance)}</p>
@@ -864,6 +924,83 @@ export default function ExpensesPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Adjustment Modal */}
+        {showAdjustmentModal && selectedAccountForAdjustment && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Adjust Opening Balance
+                  </h3>
+                  <button
+                    onClick={closeAdjustmentModal}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-2">
+                    Account: <span className="font-semibold">{selectedAccountForAdjustment.name}</span>
+                  </p>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Use this to set the correct opening balance for settlements that happened before you started tracking in the system.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Adjustment Amount (₹)
+                    </label>
+                    <Input
+                      type="text"
+                      value={formatIndianNumber(adjustmentAmount)}
+                      onChange={(e) => setAdjustmentAmount(parseIndianNumber(e.target.value))}
+                      placeholder="Enter amount (e.g., -43704 to reduce balance)"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter negative amount to reduce opening balance, positive to increase
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Notes (Optional)
+                    </label>
+                    <textarea
+                      value={adjustmentNotes}
+                      onChange={(e) => setAdjustmentNotes(e.target.value)}
+                      placeholder="e.g., Previous settlements before Oct 2025"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    onClick={closeAdjustmentModal}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveAdjustment}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Save Adjustment
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   );

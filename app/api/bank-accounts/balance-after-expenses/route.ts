@@ -17,6 +17,21 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: accountsError.message }, { status: 500 });
     }
 
+    // Get opening balance adjustments (for pre-tracking settlements)
+    const { data: adjustments, error: adjustmentsError } = await supabaseAdmin
+      .from("bank_account_adjustments")
+      .select("bank_account_id, adjustment_amount");
+
+    if (adjustmentsError) {
+      console.error("Error fetching adjustments:", adjustmentsError);
+      // Continue without adjustments if table doesn't exist yet
+    }
+
+    // Create adjustment map for quick lookup
+    const adjustmentMap = new Map(
+      (adjustments || []).map(adj => [adj.bank_account_id, adj.adjustment_amount || 0])
+    );
+
     // Get OPENING BALANCE (all transactions BEFORE the selected period)
     let openingTransactionsQuery = supabaseAdmin
       .from("transactions")
@@ -73,6 +88,9 @@ export async function GET(req: Request) {
 
     // Calculate balance for each bank account
     const accountBalances = bankAccounts.map(account => {
+      // Get adjustment amount for this account (for pre-tracking settlements)
+      const adjustmentAmount = adjustmentMap.get(account.id) || 0;
+
       // Calculate OPENING BALANCE (carried forward from previous months)
       const openingReceived = openingTransactions
         .filter(t => t.account_id === account.id)
@@ -82,7 +100,8 @@ export async function GET(req: Request) {
         .filter(e => e.account_id === account.id)
         .reduce((sum, e) => sum + (e.total_amount || 0), 0);
       
-      const openingBalance = openingReceived - openingSpent;
+      // Opening balance includes adjustment for pre-tracking settlements
+      const openingBalance = openingReceived - openingSpent + adjustmentAmount;
 
       // Filter CURRENT PERIOD transactions for this account
       const accountTransactions = transactions.filter(t => t.account_id === account.id);
