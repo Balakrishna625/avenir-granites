@@ -703,6 +703,7 @@ export default function SettlementsPage() {
                                     <thead className="bg-gray-100">
                                       <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Date</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Account</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Mode</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Amount</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Note</th>
@@ -712,6 +713,9 @@ export default function SettlementsPage() {
                                       {details.transactions.map((t: any) => (
                                         <tr key={t.id} className="hover:bg-gray-50">
                                           <td className="px-4 py-3 text-sm">{formatDisplayDate(t.date)}</td>
+                                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                            {t.bank_accounts?.name || 'N/A'}
+                                          </td>
                                           <td className="px-4 py-3 text-sm">
                                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                               t.mode === 'RTGS' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'

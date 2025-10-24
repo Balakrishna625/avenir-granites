@@ -10,7 +10,14 @@ export async function GET(req: Request) {
   const mode = url.searchParams.get("mode");
   const activeOnly = url.searchParams.get("activeOnly") === "true";
 
-  let q = supabaseAdmin.from("transactions").select("*");
+  // Include bank account name in the select
+  let q = supabaseAdmin.from("transactions").select(`
+    *,
+    bank_accounts (
+      id,
+      name
+    )
+  `);
   if (customerId && customerId !== "all") q = q.eq("customer_id", customerId);
   if (periodId) q = q.eq("period_id", periodId);
   
