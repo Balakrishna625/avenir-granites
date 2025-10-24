@@ -11,7 +11,14 @@ import {
   Plus, 
   Trash2,
   Calendar,
-  DollarSign
+  DollarSign,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Edit2,
+  Save,
+  X,
+  Filter
 } from "lucide-react";
 
 interface BankCollection {
@@ -62,6 +69,24 @@ export default function ExpensesPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
 
+  // Sort and filter state
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc'); // asc = oldest first (default)
+  const [filterAccount, setFilterAccount] = useState<string>(''); // empty = show all
+
+  // Edit state
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<{
+    date: string;
+    amount: string;
+    account_id: string;
+    notes: string;
+  }>({
+    date: '',
+    amount: '',
+    account_id: '',
+    notes: ''
+  });
+
   useEffect(() => {
     loadData();
   }, [selectedYear, selectedMonth]);
@@ -88,9 +113,13 @@ export default function ExpensesPage() {
 
       console.log(`Loaded ${Array.isArray(expensesData) ? expensesData.length : 0} expenses:`, expensesData);
 
-      // Sort expenses by date (newest first, but when dates are same, maintain order)
+      // Sort expenses by date (respects sortOrder state)
       const sortedExpenses = Array.isArray(expensesData) 
-        ? expensesData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        ? expensesData.sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+          })
         : [];
 
       setExpenses(sortedExpenses);
@@ -196,11 +225,95 @@ export default function ExpensesPage() {
 
       if (response.ok) {
         await loadData();
+        showToast('success', 'Expense deleted successfully!');
       }
     } catch (error) {
       console.error("Error deleting expense:", error);
+      showToast('error', 'Failed to delete expense');
     }
   }
+
+  function handleEditExpense(expense: Expense) {
+    setEditingExpenseId(expense.id);
+    setEditFormData({
+      date: expense.date,
+      amount: expense.amount.toString(),
+      account_id: expense.account_id,
+      notes: expense.notes || ''
+    });
+  }
+
+  function handleCancelEdit() {
+    setEditingExpenseId(null);
+    setEditFormData({
+      date: '',
+      amount: '',
+      account_id: '',
+      notes: ''
+    });
+  }
+
+  async function handleSaveEdit(expenseId: string) {
+    try {
+      // Get category_id from the existing expense
+      const categoriesRes = await fetch("/api/expense-categories");
+      const categories = await categoriesRes.json();
+      
+      let categoryId;
+      if (categories && categories.length > 0) {
+        categoryId = categories[0].id;
+      }
+
+      const updatedExpense = {
+        date: editFormData.date,
+        category_id: categoryId,
+        amount: parseFloat(editFormData.amount),
+        tax_amount: 0,
+        total_amount: parseFloat(editFormData.amount),
+        account_id: editFormData.account_id,
+        description: editFormData.notes || "Expense",
+        payment_method: "RTGS",
+        payment_status: "PAID",
+        notes: editFormData.notes
+      };
+
+      const response = await fetch(`/api/expenses/${expenseId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedExpense)
+      });
+
+      if (response.ok) {
+        await loadData();
+        setEditingExpenseId(null);
+        showToast('success', 'Expense updated successfully!');
+      } else {
+        const error = await response.json();
+        showToast('error', `Failed to update expense: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error("Error updating expense:", error);
+      showToast('error', 'Failed to update expense');
+    }
+  }
+
+  function toggleSortOrder() {
+    const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    setSortOrder(newOrder);
+    
+    // Re-sort the existing expenses
+    const sorted = [...expenses].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return newOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+    setExpenses(sorted);
+  }
+
+  // Filter expenses by account
+  const filteredExpenses = filterAccount 
+    ? expenses.filter(exp => exp.account_id === filterAccount)
+    : expenses;
 
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
@@ -374,7 +487,7 @@ export default function ExpensesPage() {
                   <p className="text-3xl font-bold text-blue-700 mt-1">{fmt(totalExpenses)}</p>
                   <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
                     <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
-                    {expenses.length} transaction{expenses.length !== 1 ? 's' : ''}
+                    {filteredExpenses.length} transaction{filteredExpenses.length !== 1 ? 's' : ''} {filterAccount && '(filtered)'}
                   </p>
                 </div>
                 <div className="bg-white rounded-full p-3 shadow-sm">
@@ -383,13 +496,54 @@ export default function ExpensesPage() {
               </div>
             </div>
 
+            {/* Filter and Sort Controls */}
+            <div className="mb-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-600" />
+                <label className="text-sm font-medium text-gray-700">Filter by Account:</label>
+                <select
+                  value={filterAccount}
+                  onChange={(e) => setFilterAccount(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Accounts</option>
+                  {bankCollections.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <Button
+                onClick={toggleSortOrder}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                {sortOrder === 'asc' ? (
+                  <>
+                    <ArrowUp className="w-4 h-4" />
+                    <span>Oldest First</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDown className="w-4 h-4" />
+                    <span>Newest First</span>
+                  </>
+                )}
+              </Button>
+            </div>
+
             {/* Expenses Table */}
             <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-              {expenses.length === 0 ? (
+              {filteredExpenses.length === 0 ? (
                 <div className="text-center py-16 bg-gray-50">
                   <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No expenses recorded for this month</p>
-                  <p className="text-xs text-gray-400 mt-1">Add an expense to get started</p>
+                  <p className="text-gray-500 font-medium">
+                    {filterAccount ? 'No expenses for selected account' : 'No expenses recorded for this month'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {filterAccount ? 'Try selecting a different account' : 'Add an expense to get started'}
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -414,12 +568,23 @@ export default function ExpensesPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
-                      {expenses.map((expense, index) => (
+                      {filteredExpenses.map((expense, index) => {
+                        const isEditing = editingExpenseId === expense.id;
+                        
+                        return (
                         <tr 
                           key={expense.id} 
                           className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
+                            {isEditing ? (
+                              <Input
+                                type="date"
+                                value={editFormData.date}
+                                onChange={(e) => setEditFormData({...editFormData, date: e.target.value})}
+                                className="w-full"
+                              />
+                            ) : (
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
                                 <Calendar className="w-4 h-4 text-blue-600" />
@@ -428,34 +593,102 @@ export default function ExpensesPage() {
                                 {formatDisplayDate(expense.date)}
                               </span>
                             </div>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
+                            {isEditing ? (
+                              <select
+                                value={editFormData.account_id}
+                                onChange={(e) => setEditFormData({...editFormData, account_id: e.target.value})}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                              >
+                                {bankCollections.map(acc => (
+                                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                ))}
+                              </select>
+                            ) : (
                             <span className="text-sm text-gray-900 font-medium">
                               {expense.bank_accounts?.name || 'Unknown Account'}
                             </span>
+                            )}
                           </td>
                           <td className="px-6 py-4">
+                            {isEditing ? (
+                              <Input
+                                type="text"
+                                value={editFormData.notes}
+                                onChange={(e) => setEditFormData({...editFormData, notes: e.target.value})}
+                                className="w-full"
+                                placeholder="Enter notes"
+                              />
+                            ) : (
                             <span className="text-sm text-gray-600">
                               {expense.notes || expense.description || '-'}
                             </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
+                            {isEditing ? (
+                              <Input
+                                type="number"
+                                value={editFormData.amount}
+                                onChange={(e) => setEditFormData({...editFormData, amount: e.target.value})}
+                                className="w-full text-right"
+                                min="0"
+                                step="0.01"
+                              />
+                            ) : (
                             <span className="text-sm font-bold text-red-600">
                               {fmt(expense.amount)}
                             </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteExpense(expense.id)}
-                              className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                            <div className="flex items-center justify-center gap-2">
+                              {isEditing ? (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleSaveEdit(expense.id)}
+                                    className="text-green-600 hover:bg-green-50 hover:border-green-200"
+                                  >
+                                    <Save className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleCancelEdit}
+                                    className="text-gray-600 hover:bg-gray-50"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditExpense(expense)}
+                                    className="text-blue-600 hover:bg-blue-50 hover:border-blue-200"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteExpense(expense.id)}
+                                    className="text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
                 </div>

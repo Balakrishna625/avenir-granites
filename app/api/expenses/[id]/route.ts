@@ -58,3 +58,33 @@ export async function PATCH(
     );
   }
 }
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const id = params.id;
+    const body = await request.json();
+
+    const { error, data } = await supabaseAdmin
+      .from("expenses")
+      .update(body)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating expense:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Failed to update expense:", error);
+    return NextResponse.json(
+      { error: "Failed to update expense" },
+      { status: 500 }
+    );
+  }
+}
