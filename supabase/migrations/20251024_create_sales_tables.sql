@@ -74,7 +74,13 @@ COMMENT ON COLUMN sales.gross_total IS 'Subtotal + tax + mining + loading';
 COMMENT ON COLUMN sales.consignment_id IS 'Auto-created consignment record for this sale';
 COMMENT ON COLUMN sale_items.total_amount IS 'square_feet * rate_per_sqft';
 
--- Insert default material types
+-- Insert default material types in specified order
+-- First, delete any existing material types that might have been added
+DELETE FROM material_types WHERE name IN (
+  'Granite Slab', 'Marble Slab', 'Quartz', 'Tiles', 'Other'
+);
+
+-- Insert new material types in the exact sequence
 INSERT INTO material_types(name, description) VALUES
   ('S/G Polish Black line', 'Steel Grey Polish Black line'),
   ('S/G Polish White line', 'Steel Grey Polish White line'),

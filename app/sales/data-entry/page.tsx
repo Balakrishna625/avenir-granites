@@ -5,6 +5,7 @@ import { Plus, X, Save, Edit3, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { AppLayout } from '@/components/AppLayout'
 
 interface Customer {
   id: string
@@ -306,17 +307,18 @@ export default function SalesDataEntryPage() {
   const paymentDifference = Math.abs(paymentTotal - grossTotal)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Sales Data Entry</h1>
-        <p className="text-gray-600 text-sm mt-1">Record new sales and automatically create consignments</p>
-      </div>
+    <AppLayout>
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Sales Data Entry</h1>
+          <p className="text-gray-600 text-sm mt-1">Record new sales and automatically create consignments</p>
+        </div>
 
-      {/* Sales Entry Form */}
-      <Card className="p-6 mb-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Date and Customer Row */}
-          <div className="grid grid-cols-2 gap-4">
+        {/* Sales Entry Form */}
+        <Card className="p-6 mb-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Date and Customer Row */}
+            <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Date *</label>
               <Input
@@ -446,90 +448,85 @@ export default function SalesDataEntryPage() {
           </div>
 
           {/* Additional Charges & Payment Split */}
-          <div className="grid grid-cols-2 gap-6">
-            {/* Left: Additional Charges */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium">Additional Charges</label>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-600 w-24">Tax:</label>
+          <div className="space-y-4">
+            {/* Additional Charges in one line */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Additional Charges</label>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs text-gray-600 block mb-1">Tax</label>
                   <Input
                     type="number"
                     step="0.01"
                     value={formData.tax_amount}
                     onChange={(e) => handleInputChange('tax_amount', e.target.value)}
                     placeholder="0.00"
-                    className="flex-1"
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-600 w-24">Mining:</label>
+                <div>
+                  <label className="text-xs text-gray-600 block mb-1">Mining</label>
                   <Input
                     type="number"
                     step="0.01"
                     value={formData.mining_amount}
                     onChange={(e) => handleInputChange('mining_amount', e.target.value)}
                     placeholder="0.00"
-                    className="flex-1"
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-600 w-24">Loading:</label>
+                <div>
+                  <label className="text-xs text-gray-600 block mb-1">Loading</label>
                   <Input
                     type="number"
                     step="0.01"
                     value={formData.loading_amount}
                     onChange={(e) => handleInputChange('loading_amount', e.target.value)}
                     placeholder="0.00"
-                    className="flex-1"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Right: Payment Split */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium">Payment Split *</label>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-600 w-24">RTGS:</label>
+            {/* Gross Total Display */}
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Gross Total:</span>
+                <span className="font-bold text-xl text-green-700">₹{formatIndianNumber(grossTotal)}</span>
+              </div>
+            </div>
+
+            {/* Payment Split in one line */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Payment Split *</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-600 block mb-1">RTGS Expected</label>
                   <Input
                     type="number"
                     step="0.01"
                     value={formData.rtgs_expected}
                     onChange={(e) => handleInputChange('rtgs_expected', e.target.value)}
                     placeholder="0.00"
-                    className="flex-1"
                     required
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-600 w-24">Cash:</label>
+                <div>
+                  <label className="text-xs text-gray-600 block mb-1">Cash Expected</label>
                   <Input
                     type="number"
                     step="0.01"
                     value={formData.cash_expected}
                     onChange={(e) => handleInputChange('cash_expected', e.target.value)}
                     placeholder="0.00"
-                    className="flex-1"
                     required
                   />
                 </div>
               </div>
+              {paymentDifference > 0.01 && (
+                <p className="text-red-600 text-sm mt-2">
+                  ⚠️ Payment total (₹{formatIndianNumber(paymentTotal)}) must equal Gross Total - Difference: ₹{formatIndianNumber(paymentDifference)}
+                </p>
+              )}
             </div>
-          </div>
-
-          {/* Gross Total Display */}
-          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold">Gross Total:</span>
-              <span className="font-bold text-xl text-green-700">₹{formatIndianNumber(grossTotal)}</span>
-            </div>
-            {paymentDifference > 0.01 && (
-              <p className="text-red-600 text-sm mt-2">
-                ⚠️ Payment total (₹{formatIndianNumber(paymentTotal)}) must equal Gross Total - Difference: ₹{formatIndianNumber(paymentDifference)}
-              </p>
-            )}
           </div>
 
           {/* Remarks */}
@@ -606,6 +603,7 @@ export default function SalesDataEntryPage() {
           </div>
         )}
       </Card>
-    </div>
+      </div>
+    </AppLayout>
   )
 }

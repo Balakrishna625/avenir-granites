@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { BarChart3, TrendingUp, Package, DollarSign, Users, Layers } from 'lucide-react'
+import { AppLayout } from '@/components/AppLayout'
 
 interface Sale {
   id: string
@@ -116,7 +117,8 @@ export default function SalesAnalyticsPage() {
     .slice(0, 5)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <AppLayout>
+      <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Sales Analytics</h1>
@@ -334,6 +336,7 @@ export default function SalesAnalyticsPage() {
           </Card>
         </>
       )}
-    </div>
+      </div>
+    </AppLayout>
   )
 }
