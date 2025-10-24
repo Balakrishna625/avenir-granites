@@ -63,7 +63,18 @@ const menuItems: MenuItem[] = [
   {
     title: 'Sales Management',
     icon: <ShoppingBag className="w-5 h-5" />,
-    href: '/sales'
+    children: [
+      {
+        title: 'Sales Data Entry',
+        href: '/sales/data-entry',
+        icon: <FileText className="w-4 h-4" />
+      },
+      {
+        title: 'Sales Analytics',
+        href: '/sales/analytics',
+        icon: <BarChart3 className="w-4 h-4" />
+      }
+    ]
   },
   {
     title: 'Consignment Management',

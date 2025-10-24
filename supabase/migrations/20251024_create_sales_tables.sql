@@ -76,11 +76,14 @@ COMMENT ON COLUMN sale_items.total_amount IS 'square_feet * rate_per_sqft';
 
 -- Insert default material types
 INSERT INTO material_types(name, description) VALUES
-  ('Granite Slab', 'Standard granite slabs'),
-  ('Marble Slab', 'Standard marble slabs'),
-  ('Quartz', 'Engineered quartz slabs'),
-  ('Tiles', 'Granite or marble tiles'),
-  ('Other', 'Other materials')
+  ('S/G Polish Black line', 'Steel Grey Polish Black line'),
+  ('S/G Polish White line', 'Steel Grey Polish White line'),
+  ('S/G Laputra', 'Steel Grey Laputra'),
+  ('S/G Polish Fresh', 'Steel Grey Polish Fresh'),
+  ('B/P Polish', 'Black Pearl Polish'),
+  ('B/P Laputra', 'Black Pearl Laputra'),
+  ('B/P Fresh', 'Black Pearl Fresh'),
+  ('Burgandy', 'Burgandy')
 ON CONFLICT (name) DO NOTHING;
 
 -- Function to generate next sale number
