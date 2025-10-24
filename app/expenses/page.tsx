@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/AppLayout";
 import { formatDisplayDate } from "@/lib/date-utils";
 import { useToast } from "@/components/ui/toast";
+import * as XLSX from 'xlsx';
 import { 
   Plus, 
   Trash2,
@@ -18,7 +19,8 @@ import {
   Edit2,
   Save,
   X,
-  Filter
+  Filter,
+  Download
 } from "lucide-react";
 
 interface BankCollection {
@@ -46,6 +48,33 @@ interface Expense {
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
+
+// Helper function to format number with Indian comma style (1,00,000)
+const formatIndianNumber = (value: string): string => {
+  if (!value) return '';
+  
+  // Remove existing commas and non-numeric characters except decimal point
+  const numStr = value.replace(/[^\d.]/g, '');
+  
+  // Split into integer and decimal parts
+  const parts = numStr.split('.');
+  let intPart = parts[0];
+  const decPart = parts.length > 1 ? '.' + parts[1] : '';
+  
+  // Apply Indian number system formatting
+  if (intPart.length > 3) {
+    const lastThree = intPart.slice(-3);
+    const remaining = intPart.slice(0, -3);
+    intPart = remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree;
+  }
+  
+  return intPart + decPart;
+};
+
+// Helper function to remove commas for saving to database
+const parseIndianNumber = (value: string): string => {
+  return value.replace(/,/g, '');
+};
 
 export default function ExpensesPage() {
   const { showToast } = useToast();
@@ -315,6 +344,79 @@ export default function ExpensesPage() {
     ? expenses.filter(exp => exp.account_id === filterAccount)
     : expenses;
 
+  // Export to Excel function
+  function exportToExcel() {
+    if (!filterAccount) {
+      showToast('error', 'Please select an account to export');
+      return;
+    }
+
+    // Get the selected account details
+    const selectedAccount = bankCollections.find(acc => acc.id === filterAccount);
+    if (!selectedAccount) {
+      showToast('error', 'Account not found');
+      return;
+    }
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // Account Summary Sheet
+    const summaryData = [
+      ['EXPENSE REPORT'],
+      ['Account Name:', selectedAccount.name],
+      ['Period:', `${monthNames[selectedMonth - 1]} ${selectedYear}`],
+      [''],
+      ['ACCOUNT BALANCE SUMMARY'],
+      ['Opening Balance:', selectedAccount.openingBalance],
+      ['Received (RTGS):', selectedAccount.rtgs],
+      ['Received (Cash):', selectedAccount.cash],
+      ['Total Received:', selectedAccount.totalReceived],
+      ['Total Expenses:', selectedAccount.totalExpenses],
+      ['Current Balance:', selectedAccount.currentBalance],
+      [''],
+      ['EXPENSE DETAILS']
+    ];
+
+    // Expense details headers
+    const expenseHeaders = ['Date', 'Description', 'Amount'];
+    summaryData.push(expenseHeaders);
+
+    // Add expense rows
+    filteredExpenses.forEach(expense => {
+      summaryData.push([
+        formatDisplayDate(expense.date),
+        expense.notes || expense.description || '-',
+        expense.amount
+      ]);
+    });
+
+    // Add total row
+    const totalFilteredExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    summaryData.push(['', 'TOTAL:', totalFilteredExpenses]);
+
+    // Create worksheet
+    const ws = XLSX.utils.aoa_to_sheet(summaryData);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 20 },
+      { wch: 40 },
+      { wch: 15 }
+    ];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Expense Report');
+
+    // Generate filename
+    const filename = `${selectedAccount.name}_Expenses_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`;
+
+    // Save file
+    XLSX.writeFile(wb, filename);
+
+    showToast('success', 'Excel file exported successfully!');
+  }
+
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
@@ -429,14 +531,12 @@ export default function ExpensesPage() {
                       Amount <span className="text-red-500">*</span>
                     </label>
                     <Input
-                      type="number"
-                      placeholder="₹ 0.00"
-                      value={formAmount}
-                      onChange={(e) => setFormAmount(e.target.value)}
+                      type="text"
+                      placeholder="50,000"
+                      value={formatIndianNumber(formAmount)}
+                      onChange={(e) => setFormAmount(parseIndianNumber(e.target.value))}
                       className="w-full"
                       required
-                      min="0"
-                      step="0.01"
                     />
                   </div>
 
@@ -513,12 +613,25 @@ export default function ExpensesPage() {
                 </select>
               </div>
 
-              <Button
-                onClick={toggleSortOrder}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
+              <div className="flex items-center gap-2">
+                {filterAccount && (
+                  <Button
+                    onClick={exportToExcel}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Export to Excel</span>
+                  </Button>
+                )}
+                
+                <Button
+                  onClick={toggleSortOrder}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
                 {sortOrder === 'asc' ? (
                   <>
                     <ArrowUp className="w-4 h-4" />
@@ -531,6 +644,7 @@ export default function ExpensesPage() {
                   </>
                 )}
               </Button>
+              </div>
             </div>
 
             {/* Expenses Table */}
@@ -630,12 +744,10 @@ export default function ExpensesPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             {isEditing ? (
                               <Input
-                                type="number"
-                                value={editFormData.amount}
-                                onChange={(e) => setEditFormData({...editFormData, amount: e.target.value})}
+                                type="text"
+                                value={formatIndianNumber(editFormData.amount)}
+                                onChange={(e) => setEditFormData({...editFormData, amount: parseIndianNumber(e.target.value)})}
                                 className="w-full text-right"
-                                min="0"
-                                step="0.01"
                               />
                             ) : (
                             <span className="text-sm font-bold text-red-600">
