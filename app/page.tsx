@@ -12,7 +12,7 @@ import { CustomerSettlementModal } from "@/components/CustomerSettlementModal";
 import { PinUnlockModal } from "@/components/PinUnlockModal";
 import { useToast } from "@/components/ui/toast";
 import { useMasking } from "@/contexts/MaskingContext";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { formatDisplayDate } from "@/lib/date-utils";
 
 declare global {

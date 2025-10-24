@@ -49,8 +49,8 @@ export default function ImportDataPage() {
     try {
       setError('');
       
-      // Dynamically import xlsx library
-      const XLSX = await import('xlsx');
+      // Dynamically import xlsx-js-style library
+      const XLSX = await import('xlsx-js-style');
       
       const reader = new FileReader();
       reader.onload = (e) => {
