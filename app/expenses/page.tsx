@@ -16,11 +16,12 @@ import {
 interface BankCollection {
   id: string;
   name: string;
-  totalReceived: number;      // Total collected from customers
-  rtgs: number;               // RTGS collections
-  cash: number;               // Cash collections
-  totalExpenses: number;      // Total spent from this account
-  currentBalance: number;     // Remaining balance (received - spent)
+  openingBalance: number;     // Balance carried forward from previous months
+  totalReceived: number;      // Total collected from customers in current period
+  rtgs: number;               // RTGS collections in current period
+  cash: number;               // Cash collections in current period
+  totalExpenses: number;      // Total spent from this account in current period
+  currentBalance: number;     // Closing balance (opening + received - spent)
 }
 
 interface Expense {
@@ -255,6 +256,10 @@ export default function ExpensesPage() {
                   </h3>
                   <p className="text-xl font-bold text-green-700 mb-2">{fmt(collection.currentBalance)}</p>
                   <div className="space-y-0.5 text-[10px]">
+                    <div className="flex justify-between text-purple-600 pb-0.5 border-b border-gray-200 mb-1">
+                      <span>Opening Balance:</span>
+                      <span className="font-semibold">{fmt(collection.openingBalance)}</span>
+                    </div>
                     <div className="flex justify-between text-gray-600">
                       <span>Received:</span>
                       <span className="font-semibold text-blue-600">{fmt(collection.totalReceived)}</span>

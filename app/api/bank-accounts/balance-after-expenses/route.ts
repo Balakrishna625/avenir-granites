@@ -17,7 +17,33 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: accountsError.message }, { status: 500 });
     }
 
-    // Get transactions data (money received) with date filtering
+    // Get OPENING BALANCE (all transactions BEFORE the selected period)
+    let openingTransactionsQuery = supabaseAdmin
+      .from("transactions")
+      .select("account_id, amount, mode");
+    
+    if (from) openingTransactionsQuery = openingTransactionsQuery.lt("date", from);
+    
+    const { data: openingTransactions, error: openingTransactionsError } = await openingTransactionsQuery;
+
+    if (openingTransactionsError) {
+      return NextResponse.json({ error: openingTransactionsError.message }, { status: 500 });
+    }
+
+    // Get OPENING EXPENSES (all expenses BEFORE the selected period)
+    let openingExpensesQuery = supabaseAdmin
+      .from("expenses")
+      .select("account_id, total_amount");
+    
+    if (from) openingExpensesQuery = openingExpensesQuery.lt("date", from);
+    
+    const { data: openingExpenses, error: openingExpensesError } = await openingExpensesQuery;
+
+    if (openingExpensesError) {
+      return NextResponse.json({ error: openingExpensesError.message }, { status: 500 });
+    }
+
+    // Get CURRENT PERIOD transactions (money received) with date filtering
     let transactionsQuery = supabaseAdmin
       .from("transactions")
       .select("account_id, amount, mode");
@@ -31,7 +57,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: transactionsError.message }, { status: 500 });
     }
 
-    // Get expenses data (money spent) with date filtering
+    // Get CURRENT PERIOD expenses (money spent) with date filtering
     let expensesQuery = supabaseAdmin
       .from("expenses")
       .select("account_id, total_amount");
@@ -47,10 +73,21 @@ export async function GET(req: Request) {
 
     // Calculate balance for each bank account
     const accountBalances = bankAccounts.map(account => {
-      // Filter transactions for this account
+      // Calculate OPENING BALANCE (carried forward from previous months)
+      const openingReceived = openingTransactions
+        .filter(t => t.account_id === account.id)
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+      
+      const openingSpent = openingExpenses
+        .filter(e => e.account_id === account.id)
+        .reduce((sum, e) => sum + (e.total_amount || 0), 0);
+      
+      const openingBalance = openingReceived - openingSpent;
+
+      // Filter CURRENT PERIOD transactions for this account
       const accountTransactions = transactions.filter(t => t.account_id === account.id);
 
-      // Calculate collections by mode
+      // Calculate collections by mode for CURRENT PERIOD
       const rtgsReceived = accountTransactions
         .filter(t => t.mode === "RTGS")
         .reduce((sum, t) => sum + (t.amount || 0), 0);
@@ -61,21 +98,22 @@ export async function GET(req: Request) {
 
       const totalReceived = rtgsReceived + cashReceived;
 
-      // Calculate total expenses from this account
+      // Calculate total expenses for CURRENT PERIOD from this account
       const accountExpenses = expenses.filter(e => e.account_id === account.id);
       const totalExpenses = accountExpenses.reduce((sum, e) => sum + (e.total_amount || 0), 0);
 
-      // Calculate current balance (after expenses)
-      const currentBalance = totalReceived - totalExpenses;
+      // Calculate CLOSING BALANCE: Opening Balance + Received - Expenses
+      const currentBalance = openingBalance + totalReceived - totalExpenses;
 
       return {
         id: account.id,
         name: account.name,
-        totalReceived,      // Total money collected
-        rtgs: rtgsReceived, // RTGS collections
-        cash: cashReceived, // Cash collections
-        totalExpenses,      // Total money spent from this account
-        currentBalance      // Remaining balance (received - spent)
+        openingBalance,     // Balance carried forward from previous months
+        totalReceived,      // Total money collected in current period
+        rtgs: rtgsReceived, // RTGS collections in current period
+        cash: cashReceived, // Cash collections in current period
+        totalExpenses,      // Total money spent in current period
+        currentBalance      // Closing balance (opening + received - spent)
       };
     });
 
