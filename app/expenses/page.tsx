@@ -405,6 +405,37 @@ export default function ExpensesPage() {
       { wch: 15 }
     ];
 
+    // Apply styling to highlight important cells
+    // Yellow background fill
+    const yellowFill = {
+      fgColor: { rgb: "FFFF00" }
+    };
+
+    const highlightStyle = {
+      fill: yellowFill,
+      font: { bold: true }
+    };
+
+    // Helper function to set cell style
+    const setCellStyle = (cellRef: string, style: any) => {
+      if (!ws[cellRef]) return;
+      ws[cellRef].s = style;
+    };
+
+    // Highlight Account Name (B2)
+    setCellStyle('B2', highlightStyle);
+
+    // Highlight Total Expenses (B10)
+    setCellStyle('B10', highlightStyle);
+
+    // Highlight Current Balance (B11)
+    setCellStyle('B11', highlightStyle);
+
+    // Highlight Total in expense details (last row, column C)
+    const totalRowIndex = 13 + filteredExpenses.length + 1; // 13 headers + expenses + 1 for total row
+    const totalCellRef = `C${totalRowIndex}`;
+    setCellStyle(totalCellRef, highlightStyle);
+
     // Add worksheet to workbook
     XLSX.utils.book_append_sheet(wb, ws, 'Expense Report');
 
