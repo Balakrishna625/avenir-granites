@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/AppLayout";
 import { formatDisplayDate } from "@/lib/date-utils";
+import { useToast } from "@/components/ui/toast";
 import { 
   Plus, 
   Trash2,
@@ -40,12 +41,12 @@ const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR",
 const fmt = (n: number) => INR.format(n || 0);
 
 export default function ExpensesPage() {
+  const { showToast } = useToast();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [bankCollections, setBankCollections] = useState<BankCollection[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Form state
-  const [showAddForm, setShowAddForm] = useState(false);
   const [formDate, setFormDate] = useState(() => {
     // Initialize with current month and year
     const year = new Date().getFullYear();
@@ -87,7 +88,12 @@ export default function ExpensesPage() {
 
       console.log(`Loaded ${Array.isArray(expensesData) ? expensesData.length : 0} expenses:`, expensesData);
 
-      setExpenses(Array.isArray(expensesData) ? expensesData : []);
+      // Sort expenses by date (newest first, but when dates are same, maintain order)
+      const sortedExpenses = Array.isArray(expensesData) 
+        ? expensesData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        : [];
+
+      setExpenses(sortedExpenses);
       setBankCollections(Array.isArray(collectionsData) ? collectionsData : []);
     } catch (error) {
       console.error("Failed to load data:", error);
@@ -163,20 +169,20 @@ export default function ExpensesPage() {
         setFormAmount("");
         setFormAccount("");
         setFormNotes("");
-        setShowAddForm(false);
         
         // Reload data (this will show updated collections minus expenses)
         await loadData();
         
-        alert('Expense added successfully!');
+        // Show success toast
+        showToast('success', 'Expense added successfully!');
       } else {
         const error = await response.json();
         console.error('Failed to add expense:', error);
-        alert(`Failed to add expense: ${error.error || 'Unknown error'}`);
+        showToast('error', `Failed to add expense: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error("Error adding expense:", error);
-      alert("Failed to add expense");
+      showToast('error', 'Failed to add expense');
     }
   }
 
@@ -286,20 +292,11 @@ export default function ExpensesPage() {
         {/* Add Expense Section */}
         <Card>
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {showAddForm ? "Add New Expense" : "Expenses"}
-              </h2>
-              <Button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {showAddForm ? "Cancel" : <><Plus className="w-4 h-4 mr-2" /> Add Expense</>}
-              </Button>
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Add New Expense</h2>
             </div>
 
-            {showAddForm && (
-              <form onSubmit={handleAddExpense} className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6">
+            <form onSubmit={handleAddExpense} className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6">
                 <div className="flex flex-col md:flex-row gap-4 items-end">
                   <div className="flex-shrink-0 w-full md:w-40">
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
@@ -361,21 +358,13 @@ export default function ExpensesPage() {
                   </div>
 
                   <div className="flex gap-2 flex-shrink-0">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowAddForm(false)}
-                      className="px-4"
-                    >
-                      Cancel
-                    </Button>
                     <Button type="submit" className="bg-blue-600 hover:bg-blue-700 px-6">
+                      <Plus className="w-4 h-4 mr-2" />
                       Add Expense
                     </Button>
                   </div>
                 </div>
               </form>
-            )}
 
             {/* Expenses Summary */}
             <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
