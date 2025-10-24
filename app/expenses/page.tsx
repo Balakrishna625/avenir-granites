@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/AppLayout";
 import { formatDisplayDate } from "@/lib/date-utils";
 import { useToast } from "@/components/ui/toast";
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import { 
   Plus, 
   Trash2,
@@ -406,14 +406,13 @@ export default function ExpensesPage() {
     ];
 
     // Apply styling to highlight important cells
-    // Yellow background fill
-    const yellowFill = {
-      fgColor: { rgb: "FFFF00" }
-    };
-
     const highlightStyle = {
-      fill: yellowFill,
-      font: { bold: true }
+      fill: {
+        fgColor: { rgb: "FFFF00" }
+      },
+      font: {
+        bold: true
+      }
     };
 
     // Helper function to set cell style
@@ -442,7 +441,7 @@ export default function ExpensesPage() {
     // Generate filename
     const filename = `${selectedAccount.name}_Expenses_${monthNames[selectedMonth - 1]}_${selectedYear}.xlsx`;
 
-    // Save file
+    // Save file with styles
     XLSX.writeFile(wb, filename);
 
     showToast('success', 'Excel file exported successfully!');
