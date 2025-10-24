@@ -89,7 +89,7 @@ export async function GET(req: Request) {
     // Calculate balance for each bank account
     const accountBalances = bankAccounts.map(account => {
       // Get adjustment amount for this account (for pre-tracking settlements)
-      const adjustmentAmount = adjustmentMap.get(account.id) || 0;
+      const adjustmentAmount = Number(adjustmentMap.get(account.id) || 0);
 
       // Calculate OPENING BALANCE (carried forward from previous months)
       const openingReceived = openingTransactions
