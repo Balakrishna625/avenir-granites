@@ -21,7 +21,8 @@ import {
   Factory,
   Wrench,
   Zap,
-  TrendingUp
+  TrendingUp,
+  ShoppingBag
 } from 'lucide-react';
 
 interface MenuItem {
@@ -58,6 +59,11 @@ const menuItems: MenuItem[] = [
         icon: <Receipt className="w-4 h-4" />
       }
     ]
+  },
+  {
+    title: 'Sales Management',
+    icon: <ShoppingBag className="w-5 h-5" />,
+    href: '/sales'
   },
   {
     title: 'Consignment Management',
