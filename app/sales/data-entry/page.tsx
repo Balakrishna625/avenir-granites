@@ -308,14 +308,14 @@ export default function SalesDataEntryPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="mb-6">
+      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-4">
+        <div>
           <h1 className="text-2xl font-bold">Sales Data Entry</h1>
           <p className="text-gray-600 text-sm mt-1">Record new sales and automatically create consignments</p>
         </div>
 
         {/* Sales Entry Form */}
-        <Card className="p-6 mb-6">
+        <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Date and Customer Row */}
             <div className="grid grid-cols-2 gap-4">

@@ -118,8 +118,8 @@ export default function SalesAnalyticsPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Sales Analytics</h1>
           <p className="text-gray-600 text-sm mt-1">Analyze sales performance and trends</p>
