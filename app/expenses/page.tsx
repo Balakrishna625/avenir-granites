@@ -76,6 +76,30 @@ const parseIndianNumber = (value: string): string => {
   return value.replace(/,/g, '');
 };
 
+// Helper function to get subtle account-specific colors
+const getAccountColor = (accountName: string): string => {
+  const name = accountName?.toLowerCase() || '';
+  
+  // Very subtle, eye-friendly pastel colors for each account
+  if (name.includes('ramya')) {
+    return 'bg-blue-50/40 hover:bg-blue-50/70'; // Soft blue
+  } else if (name.includes('prudvi')) {
+    return 'bg-purple-50/40 hover:bg-purple-50/70'; // Soft purple
+  } else if (name.includes('avenir')) {
+    return 'bg-emerald-50/40 hover:bg-emerald-50/70'; // Soft emerald
+  } else if (name.includes('galaxy')) {
+    return 'bg-amber-50/40 hover:bg-amber-50/70'; // Soft amber
+  } else if (name.includes('counter')) {
+    return 'bg-rose-50/40 hover:bg-rose-50/70'; // Soft rose
+  } else if (name.includes('sri')) {
+    return 'bg-cyan-50/40 hover:bg-cyan-50/70'; // Soft cyan
+  } else if (name.includes('sreenivas')) {
+    return 'bg-indigo-50/40 hover:bg-indigo-50/70'; // Soft indigo
+  } else {
+    return 'bg-slate-50/40 hover:bg-slate-50/70'; // Soft slate (default)
+  }
+};
+
 export default function ExpensesPage() {
   const { showToast } = useToast();
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -714,11 +738,13 @@ export default function ExpensesPage() {
                     <tbody className="bg-white divide-y divide-gray-100">
                       {filteredExpenses.map((expense, index) => {
                         const isEditing = editingExpenseId === expense.id;
+                        const accountName = expense.bank_accounts?.name || '';
+                        const rowColorClass = getAccountColor(accountName);
                         
                         return (
                         <tr 
                           key={expense.id} 
-                          className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                          className={`transition-colors ${rowColorClass}`}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             {isEditing ? (
