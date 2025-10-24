@@ -80,23 +80,23 @@ const parseIndianNumber = (value: string): string => {
 const getAccountColor = (accountName: string): string => {
   const name = accountName?.toLowerCase() || '';
   
-  // Very subtle, eye-friendly pastel colors for each account
+  // Subtle, eye-friendly pastel colors for each account
   if (name.includes('ramya')) {
-    return 'bg-blue-50/40 hover:bg-blue-50/70'; // Soft blue
+    return 'bg-blue-50 hover:bg-blue-100'; // Soft blue
   } else if (name.includes('prudvi')) {
-    return 'bg-purple-50/40 hover:bg-purple-50/70'; // Soft purple
+    return 'bg-purple-50 hover:bg-purple-100'; // Soft purple
   } else if (name.includes('avenir')) {
-    return 'bg-emerald-50/40 hover:bg-emerald-50/70'; // Soft emerald
+    return 'bg-emerald-50 hover:bg-emerald-100'; // Soft emerald
   } else if (name.includes('galaxy')) {
-    return 'bg-amber-50/40 hover:bg-amber-50/70'; // Soft amber
+    return 'bg-amber-50 hover:bg-amber-100'; // Soft amber
   } else if (name.includes('counter')) {
-    return 'bg-rose-50/40 hover:bg-rose-50/70'; // Soft rose
+    return 'bg-rose-50 hover:bg-rose-100'; // Soft rose
   } else if (name.includes('sri')) {
-    return 'bg-cyan-50/40 hover:bg-cyan-50/70'; // Soft cyan
+    return 'bg-cyan-50 hover:bg-cyan-100'; // Soft cyan
   } else if (name.includes('sreenivas')) {
-    return 'bg-indigo-50/40 hover:bg-indigo-50/70'; // Soft indigo
+    return 'bg-indigo-50 hover:bg-indigo-100'; // Soft indigo
   } else {
-    return 'bg-slate-50/40 hover:bg-slate-50/70'; // Soft slate (default)
+    return 'bg-slate-50 hover:bg-slate-100'; // Soft slate (default)
   }
 };
 
