@@ -164,7 +164,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Consignment Management', 'Production Management', 'Electricity Info', 'Expense Management']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Sales Management', 'Consignment Management', 'Production Management', 'Electricity Info', 'Expense Management']);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems(prev => 
