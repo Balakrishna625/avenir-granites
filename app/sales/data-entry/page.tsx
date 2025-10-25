@@ -964,7 +964,7 @@ export default function SalesDataEntryPage() {
       {/* Sales Records Table */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Recent Sales</h2>
+          <h2 className="text-lg font-semibold">All Sales</h2>
           <div className="flex items-center gap-4">
             <Button
               onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
@@ -1017,7 +1017,7 @@ export default function SalesDataEntryPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedSales.slice(0, 10).map((sale) => {
+                {sortedSales.map((sale) => {
                   const officialBillItems = sale.official_bill_items || [];
                   const officialSqft = officialBillItems.reduce((sum: number, item: any) => sum + (Number(item.square_feet) || 0), 0);
                   
