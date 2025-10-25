@@ -729,9 +729,23 @@ export default function SalesDataEntryPage() {
                         </button>
                       </div>
                     </th>
-                    <th className="px-3 py-2 text-left font-medium">Slabs/Tons</th>
-                    <th className="px-3 py-2 text-left font-medium">Sq.Ft/Tons</th>
-                    <th className="px-3 py-2 text-left font-medium">Rate</th>
+                    <th className="px-3 py-2 text-left font-medium">Slabs</th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      {formData.itemRows.some(row => isTonnageMaterial(row.material_type_id)) && 
+                       !formData.itemRows.some(row => !isTonnageMaterial(row.material_type_id) && row.material_type_id)
+                        ? 'Tons' 
+                        : formData.itemRows.some(row => isTonnageMaterial(row.material_type_id))
+                        ? 'Sq.Ft / Tons'
+                        : 'Sq. Ft.'}
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      {formData.itemRows.some(row => isTonnageMaterial(row.material_type_id)) && 
+                       !formData.itemRows.some(row => !isTonnageMaterial(row.material_type_id) && row.material_type_id)
+                        ? 'Rate/Ton' 
+                        : formData.itemRows.some(row => isTonnageMaterial(row.material_type_id))
+                        ? 'Rate'
+                        : 'Rate/Sq.Ft'}
+                    </th>
                     <th className="px-3 py-2 text-right font-medium">Amount</th>
                     <th className="px-3 py-2"></th>
                   </tr>
