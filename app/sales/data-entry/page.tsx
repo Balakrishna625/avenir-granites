@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { AppLayout } from '@/components/AppLayout'
+import { useToast } from '@/components/ui/toast'
 
 interface Customer {
   id: string
@@ -95,6 +96,7 @@ function formatIndianNumber(num: number): string {
 }
 
 export default function SalesDataEntryPage() {
+  const { showToast } = useToast()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [materialTypes, setMaterialTypes] = useState<MaterialType[]>([])
   const [sales, setSales] = useState<Sale[]>([])
@@ -230,7 +232,7 @@ export default function SalesDataEntryPage() {
 
   const removeItemRow = (rowId: string) => {
     if (formData.itemRows.length <= 1) {
-      alert('At least one item is required')
+      showToast('error', 'At least one item is required')
       return
     }
     setFormData(prev => ({
@@ -279,7 +281,7 @@ export default function SalesDataEntryPage() {
 
   const removeOfficialBillItem = (rowId: string) => {
     if (formData.officialBillItems.length <= 1) {
-      alert('At least one official bill item is required')
+      showToast('error', 'At least one official bill item is required')
       return
     }
     setFormData(prev => ({
@@ -319,12 +321,12 @@ export default function SalesDataEntryPage() {
     e.preventDefault()
     
     if (!formData.customer_id) {
-      alert('Please select a customer')
+      showToast('error', 'Please select a customer')
       return
     }
 
     if (formData.itemRows.length === 0 || !formData.itemRows[0].material_name) {
-      alert('Please add at least one item')
+      showToast('error', 'Please add at least one item')
       return
     }
 
@@ -375,10 +377,10 @@ export default function SalesDataEntryPage() {
       
       if (isEditing && editingId) {
         setSales(sales.map(s => s.id === editingId ? savedSale : s))
-        alert('✅ Sale updated successfully!')
+        showToast('success', 'Sale updated successfully!')
       } else {
         setSales([savedSale, ...sales])
-        alert('✅ Sale created successfully! Consignment auto-added to customer account.')
+        showToast('success', 'Sale created successfully! Consignment auto-added to customer account.')
       }
 
       // Reset form
@@ -387,7 +389,7 @@ export default function SalesDataEntryPage() {
       setEditingId(null)
       await fetchSales()
     } catch (error: any) {
-      alert(`Error: ${error.message}`)
+      showToast('error', error.message)
     } finally {
       setLoading(false)
     }
@@ -448,7 +450,7 @@ export default function SalesDataEntryPage() {
       setIsEditing(true)
       setEditingId(sale.id)
     } catch (error: any) {
-      alert(`Error loading sale: ${error.message}`)
+      showToast('error', `Error loading sale: ${error.message}`)
     }
   }
 
@@ -476,9 +478,9 @@ export default function SalesDataEntryPage() {
       }
       
       setSales(sales.filter(s => s.id !== sale.id))
-      alert('✅ Sale deleted successfully!')
+      showToast('success', 'Sale deleted successfully!')
     } catch (error: any) {
-      alert(`Error: ${error.message}`)
+      showToast('error', error.message)
     }
   }
 
