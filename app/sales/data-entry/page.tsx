@@ -64,6 +64,9 @@ interface FormData {
   tax_amount: string
   mining_amount: string
   loading_amount: string
+  official_sqft: string
+  official_rate: string
+  official_tax: string
   rtgs_expected: string
   cash_expected: string
   remarks: string
@@ -100,6 +103,9 @@ export default function SalesDataEntryPage() {
     tax_amount: '',
     mining_amount: '',
     loading_amount: '',
+    official_sqft: '',
+    official_rate: '',
+    official_tax: '',
     rtgs_expected: '',
     cash_expected: '',
     remarks: ''
@@ -226,9 +232,21 @@ export default function SalesDataEntryPage() {
       (parseFloat(formData.tax_amount) || 0) + 
       (parseFloat(formData.mining_amount) || 0) + 
       (parseFloat(formData.loading_amount) || 0)
+    
+    // Official bill calculations
+    const officialSqft = parseFloat(formData.official_sqft) || 0
+    const officialRate = parseFloat(formData.official_rate) || 0
+    const officialSubtotal = officialSqft * officialRate
+    const officialTax = parseFloat(formData.official_tax) || 0
+    const officialTotal = officialSubtotal + officialTax
+    
+    // Auto-calculate payment split
+    const rtgs = officialTotal
+    const cash = grossTotal - officialTotal
+    
     const paymentTotal = (parseFloat(formData.rtgs_expected) || 0) + (parseFloat(formData.cash_expected) || 0)
     
-    return { totalSlabs, totalSqft, subtotal, grossTotal, paymentTotal }
+    return { totalSlabs, totalSqft, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash, paymentTotal }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -244,13 +262,7 @@ export default function SalesDataEntryPage() {
       return
     }
 
-    const { grossTotal, paymentTotal } = calculateTotals()
-    const paymentDifference = Math.abs(paymentTotal - grossTotal)
-    
-    if (paymentDifference > 0.01) {
-      alert(`Payment split (₹${formatIndianNumber(paymentTotal)}) must equal Gross Total (₹${formatIndianNumber(grossTotal)})`)
-      return
-    }
+    const { grossTotal, rtgs, cash } = calculateTotals()
 
     setLoading(true)
 
@@ -272,8 +284,8 @@ export default function SalesDataEntryPage() {
           tax_amount: parseFloat(formData.tax_amount) || 0,
           mining_amount: parseFloat(formData.mining_amount) || 0,
           loading_amount: parseFloat(formData.loading_amount) || 0,
-          rtgs_expected: parseFloat(formData.rtgs_expected) || 0,
-          cash_expected: parseFloat(formData.cash_expected) || 0,
+          rtgs_expected: rtgs,
+          cash_expected: cash,
           remarks: formData.remarks
         })
       })
@@ -303,8 +315,7 @@ export default function SalesDataEntryPage() {
     setEditingId(null)
   }
 
-  const { totalSlabs, totalSqft, subtotal, grossTotal, paymentTotal } = calculateTotals()
-  const paymentDifference = Math.abs(paymentTotal - grossTotal)
+  const { totalSlabs, totalSqft, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash } = calculateTotals()
 
   return (
     <AppLayout>
@@ -494,38 +505,84 @@ export default function SalesDataEntryPage() {
               </div>
             </div>
 
-            {/* Payment Split in one line */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Payment Split *</label>
-              <div className="grid grid-cols-2 gap-4">
+            {/* Official Bill Section */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <label className="block text-sm font-semibold mb-3 text-blue-900">Official Bill (On Paper)</label>
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs text-gray-600 block mb-1">RTGS Expected</label>
+                  <label className="text-xs text-gray-700 block mb-1">Square Feet</label>
                   <Input
                     type="number"
                     step="0.01"
-                    value={formData.rtgs_expected}
-                    onChange={(e) => handleInputChange('rtgs_expected', e.target.value)}
+                    value={formData.official_sqft}
+                    onChange={(e) => handleInputChange('official_sqft', e.target.value)}
                     placeholder="0.00"
-                    required
+                    className="bg-white"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-600 block mb-1">Cash Expected</label>
+                  <label className="text-xs text-gray-700 block mb-1">Rate/Sq.Ft</label>
                   <Input
                     type="number"
                     step="0.01"
-                    value={formData.cash_expected}
-                    onChange={(e) => handleInputChange('cash_expected', e.target.value)}
+                    value={formData.official_rate}
+                    onChange={(e) => handleInputChange('official_rate', e.target.value)}
                     placeholder="0.00"
-                    required
+                    className="bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-700 block mb-1">Tax</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.official_tax}
+                    onChange={(e) => handleInputChange('official_tax', e.target.value)}
+                    placeholder="0.00"
+                    className="bg-white"
                   />
                 </div>
               </div>
-              {paymentDifference > 0.01 && (
-                <p className="text-red-600 text-sm mt-2">
-                  ⚠️ Payment total (₹{formatIndianNumber(paymentTotal)}) must equal Gross Total - Difference: ₹{formatIndianNumber(paymentDifference)}
-                </p>
-              )}
+              <div className="mt-3 flex items-center justify-between bg-blue-100 p-2 rounded">
+                <span className="text-sm font-medium">Subtotal:</span>
+                <span className="font-semibold">₹{formatIndianNumber(officialSubtotal)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between bg-blue-600 text-white p-3 rounded">
+                <span className="font-semibold">Official Total:</span>
+                <span className="font-bold text-lg">₹{formatIndianNumber(officialTotal)}</span>
+              </div>
+            </div>
+
+            {/* Payment Split - Auto-filled */}
+            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+              <label className="block text-sm font-semibold mb-3 text-yellow-900">Payment Split (Auto-calculated)</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-700 block mb-1">RTGS Expected (Official)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={rtgs.toFixed(2)}
+                    readOnly
+                    className="bg-gray-100 font-semibold"
+                    title="Auto-filled from Official Total"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-700 block mb-1">Cash Expected (Difference)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={cash.toFixed(2)}
+                    readOnly
+                    className="bg-gray-100 font-semibold"
+                    title="Auto-calculated: Gross Total - Official Total"
+                  />
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-gray-600">
+                <p>💡 RTGS = Official Total | Cash = Gross Total - Official Total</p>
+              </div>
             </div>
           </div>
 
@@ -545,7 +602,7 @@ export default function SalesDataEntryPage() {
           <div className="flex gap-3">
             <Button
               type="submit"
-              disabled={loading || !formData.customer_id || paymentDifference > 0.01}
+              disabled={loading || !formData.customer_id}
               className="flex-1"
             >
               <Save className="w-4 h-4 mr-2" />
