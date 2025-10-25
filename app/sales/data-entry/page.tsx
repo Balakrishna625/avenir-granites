@@ -107,6 +107,9 @@ export default function SalesDataEntryPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'actual' | 'official'>('actual')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc') // asc = oldest first, desc = newest first
+  const [showMaterialModal, setShowMaterialModal] = useState(false)
+  const [newMaterialName, setNewMaterialName] = useState('')
+  const [addingMaterial, setAddingMaterial] = useState(false)
 
   const initialFormData: FormData = useMemo(() => ({
     date: new Date().toISOString().split('T')[0],
@@ -166,6 +169,37 @@ export default function SalesDataEntryPage() {
       }
     } catch (error) {
       console.error('Error fetching material types:', error)
+    }
+  }
+
+  const createMaterialType = async () => {
+    if (!newMaterialName.trim()) {
+      showToast('error', 'Please enter a material type name')
+      return
+    }
+
+    setAddingMaterial(true)
+    try {
+      const response = await fetch('/api/material-types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newMaterialName.trim() })
+      })
+
+      if (response.ok) {
+        const newMaterial = await response.json()
+        setMaterialTypes([...materialTypes, newMaterial])
+        setNewMaterialName('')
+        setShowMaterialModal(false)
+        showToast('success', 'Material type added successfully')
+      } else {
+        const error = await response.json()
+        showToast('error', error.error || 'Failed to add material type')
+      }
+    } catch (error: any) {
+      showToast('error', error.message)
+    } finally {
+      setAddingMaterial(false)
     }
   }
 
@@ -634,7 +668,19 @@ export default function SalesDataEntryPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">Material Type</th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      <div className="flex items-center justify-between">
+                        <span>Material Type</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowMaterialModal(true)}
+                          className="text-blue-600 hover:text-blue-700 text-xs font-normal ml-2"
+                          title="Add new material type"
+                        >
+                          + New
+                        </button>
+                      </div>
+                    </th>
                     <th className="px-3 py-2 text-left font-medium">Slabs</th>
                     <th className="px-3 py-2 text-left font-medium">Sq. Ft.</th>
                     <th className="px-3 py-2 text-left font-medium">Rate/Sq.Ft</th>
@@ -1083,6 +1129,53 @@ export default function SalesDataEntryPage() {
           </div>
         )}
       </Card>
+
+      {/* Add Material Type Modal */}
+      {showMaterialModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Add New Material Type</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Material Type Name *</label>
+                <Input
+                  type="text"
+                  value={newMaterialName}
+                  onChange={(e) => setNewMaterialName(e.target.value)}
+                  placeholder="e.g., S/G, D/G, etc."
+                  className="w-full"
+                  autoFocus
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !addingMaterial) {
+                      createMaterialType()
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowMaterialModal(false)
+                    setNewMaterialName('')
+                  }}
+                  disabled={addingMaterial}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={createMaterialType}
+                  disabled={addingMaterial || !newMaterialName.trim()}
+                >
+                  {addingMaterial ? 'Adding...' : 'Add Material Type'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </AppLayout>
   )
