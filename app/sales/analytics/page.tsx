@@ -19,6 +19,14 @@ interface Sale {
   gross_total: number
   rtgs_expected: number
   cash_expected: number
+  official_bill_items?: Array<{
+    material_name: string
+    square_feet: number
+    rate_per_sqft: number
+    total_amount: number
+  }>
+  official_tax?: number
+  official_total?: number
   customers?: { name: string }
   sale_items?: Array<{
     material_name: string
@@ -73,6 +81,18 @@ export default function SalesAnalyticsPage() {
   const totalRTGS = filteredSales.reduce((sum, sale) => sum + sale.rtgs_expected, 0)
   const totalCash = filteredSales.reduce((sum, sale) => sum + sale.cash_expected, 0)
 
+  // Calculate official bill metrics
+  const totalOfficialSqft = filteredSales.reduce((sum, sale) => {
+    const officialItems = sale.official_bill_items || []
+    return sum + officialItems.reduce((itemSum, item) => itemSum + (item.square_feet || 0), 0)
+  }, 0)
+  
+  const totalOfficialAmount = filteredSales.reduce((sum, sale) => sum + (sale.official_total || 0), 0)
+  
+  // Calculate difference metrics
+  const sqftDifference = totalSqft - totalOfficialSqft
+  const amountDifference = totalRevenue - totalOfficialAmount
+
   // Customer-wise analytics
   const customerStats = filteredSales.reduce((acc, sale) => {
     const customerName = sale.customers?.name || 'Unknown'
@@ -95,26 +115,39 @@ export default function SalesAnalyticsPage() {
     .sort((a, b) => b[1].revenue - a[1].revenue)
     .slice(0, 5)
 
-  // Material-wise analytics
+  // Material-wise analytics (actual sales)
   const materialStats = filteredSales.reduce((acc, sale) => {
     sale.sale_items?.forEach(item => {
       if (!acc[item.material_name]) {
         acc[item.material_name] = {
           slabs: 0,
           sqft: 0,
-          revenue: 0
+          revenue: 0,
+          count: 0 // for average calculation
         }
       }
       acc[item.material_name].slabs += item.slabs_count
       acc[item.material_name].sqft += item.square_feet
       acc[item.material_name].revenue += item.total_amount
+      acc[item.material_name].count += 1
     })
     return acc
-  }, {} as Record<string, { slabs: number; sqft: number; revenue: number }>)
+  }, {} as Record<string, { slabs: number; sqft: number; revenue: number; count: number }>)
 
-  const topMaterials = Object.entries(materialStats)
-    .sort((a, b) => b[1].revenue - a[1].revenue)
-    .slice(0, 5)
+  // Calculate average price per material
+  const materialsWithAvgPrice = Object.entries(materialStats).map(([material, stats]) => ({
+    material,
+    ...stats,
+    avgPrice: stats.sqft > 0 ? stats.revenue / stats.sqft : 0
+  }))
+
+  const topMaterialsBySqft = materialsWithAvgPrice
+    .sort((a, b) => b.sqft - a.sqft)
+    .slice(0, 10)
+
+  const materialsByAvgPrice = materialsWithAvgPrice
+    .sort((a, b) => b.avgPrice - a.avgPrice)
+    .slice(0, 10)
 
   return (
     <AppLayout>
@@ -219,60 +252,170 @@ export default function SalesAnalyticsPage() {
 
           {/* Top Customers & Materials */}
           <div className="grid grid-cols-2 gap-6 mb-6">
-            {/* Top Customers */}
+            {/* Top Materials by Sq.Ft Sold */}
             <Card className="p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold">Top 5 Customers</h2>
+                <Layers className="w-5 h-5 text-purple-600" />
+                <h2 className="text-lg font-semibold">Top Materials Sold (Sq.Ft)</h2>
               </div>
-              {topCustomers.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No customer data available</p>
+              {topMaterialsBySqft.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No material data available</p>
               ) : (
-                <div className="space-y-3">
-                  {topCustomers.map(([customer, stats], index) => (
-                    <div key={customer} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-blue-100 text-blue-700 font-bold w-8 h-8 rounded-full flex items-center justify-center text-sm">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium">{customer}</p>
-                          <p className="text-xs text-gray-600">{stats.sales} sales • {stats.slabs} slabs • {stats.sqft.toFixed(2)} sq.ft.</p>
-                        </div>
-                      </div>
-                      <p className="font-bold text-green-700">₹{formatIndianNumber(stats.revenue)}</p>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">#</th>
+                        <th className="px-3 py-2 text-left font-medium">Material</th>
+                        <th className="px-3 py-2 text-right font-medium">Sq.Ft</th>
+                        <th className="px-3 py-2 text-right font-medium">Slabs</th>
+                        <th className="px-3 py-2 text-right font-medium">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topMaterialsBySqft.map((item, index) => (
+                        <tr key={item.material} className="border-t hover:bg-gray-50">
+                          <td className="px-3 py-2">
+                            <div className="bg-purple-100 text-purple-700 font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                              {index + 1}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 font-medium">{item.material}</td>
+                          <td className="px-3 py-2 text-right font-semibold">{item.sqft.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{item.slabs}</td>
+                          <td className="px-3 py-2 text-right text-green-700">₹{formatIndianNumber(item.revenue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </Card>
 
-            {/* Top Materials */}
+            {/* Average Price per Material */}
             <Card className="p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Layers className="w-5 h-5 text-purple-600" />
-                <h2 className="text-lg font-semibold">Top 5 Materials</h2>
+                <DollarSign className="w-5 h-5 text-green-600" />
+                <h2 className="text-lg font-semibold">Avg Price per Sq.Ft by Material</h2>
               </div>
-              {topMaterials.length === 0 ? (
+              {materialsByAvgPrice.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">No material data available</p>
               ) : (
-                <div className="space-y-3">
-                  {topMaterials.map(([material, stats], index) => (
-                    <div key={material} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-purple-100 text-purple-700 font-bold w-8 h-8 rounded-full flex items-center justify-center text-sm">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium">{material}</p>
-                          <p className="text-xs text-gray-600">{stats.slabs} slabs • {stats.sqft.toFixed(2)} sq.ft.</p>
-                        </div>
-                      </div>
-                      <p className="font-bold text-green-700">₹{formatIndianNumber(stats.revenue)}</p>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">#</th>
+                        <th className="px-3 py-2 text-left font-medium">Material</th>
+                        <th className="px-3 py-2 text-right font-medium">Avg Price</th>
+                        <th className="px-3 py-2 text-right font-medium">Sq.Ft Sold</th>
+                        <th className="px-3 py-2 text-right font-medium">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {materialsByAvgPrice.map((item, index) => (
+                        <tr key={item.material} className="border-t hover:bg-gray-50">
+                          <td className="px-3 py-2">
+                            <div className="bg-green-100 text-green-700 font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                              {index + 1}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 font-medium">{item.material}</td>
+                          <td className="px-3 py-2 text-right font-bold text-green-700">₹{item.avgPrice.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{item.sqft.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">₹{formatIndianNumber(item.revenue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
+            </Card>
+          </div>
+
+          {/* Actual vs Official Material Metrics */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <Card className="p-4">
+              <div className="text-xs text-gray-600 mb-1">ACTUAL MATERIAL SOLD</div>
+              <div className="text-2xl font-bold text-blue-900">
+                {totalSqft.toFixed(2)} <span className="text-sm text-gray-500">sq.ft</span>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">{totalSlabs} slabs</div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="text-xs text-gray-600 mb-1">OFFICIAL MATERIAL SOLD</div>
+              <div className="text-2xl font-bold text-purple-900">
+                {totalOfficialSqft.toFixed(2)} <span className="text-sm text-gray-500">sq.ft</span>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">As per official bills</div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="text-xs text-gray-600 mb-1">MATERIAL DIFFERENCE</div>
+              <div className={`text-2xl font-bold ${sqftDifference >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                {sqftDifference >= 0 ? '+' : ''}{sqftDifference.toFixed(2)} <span className="text-sm text-gray-500">sq.ft</span>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {((sqftDifference / totalSqft) * 100).toFixed(1)}% {sqftDifference >= 0 ? 'more' : 'less'} than official
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="text-xs text-gray-600 mb-1">AMOUNT DIFFERENCE</div>
+              <div className={`text-2xl font-bold ${amountDifference >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                ₹{formatIndianNumber(Math.abs(amountDifference))}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {((amountDifference / totalRevenue) * 100).toFixed(1)}% {amountDifference >= 0 ? 'more' : 'less'} than official
+              </div>
+            </Card>
+          </div>
+
+          {/* Official Bill Summary */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <div className="text-sm font-medium text-blue-900 mb-2">ACTUAL SALE METRICS</div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-blue-700">Total Slabs:</span>
+                  <span className="font-bold text-blue-900">{totalSlabs}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-blue-700">Total Sq.Ft:</span>
+                  <span className="font-bold text-blue-900">{totalSqft.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-blue-700">Avg Rate/Sq.Ft:</span>
+                  <span className="font-bold text-blue-900">₹{totalSqft > 0 ? (totalRevenue / totalSqft).toFixed(2) : '0.00'}</span>
+                </div>
+                <div className="flex justify-between text-sm pt-2 border-t border-blue-300">
+                  <span className="text-blue-700">Total Amount:</span>
+                  <span className="font-bold text-blue-900 text-base">₹{formatIndianNumber(totalRevenue)}</span>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+              <div className="text-sm font-medium text-purple-900 mb-2">OFFICIAL BILL METRICS</div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-purple-700">Total Slabs:</span>
+                  <span className="font-bold text-purple-900">N/A</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-purple-700">Total Sq.Ft:</span>
+                  <span className="font-bold text-purple-900">{totalOfficialSqft.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-purple-700">Avg Rate/Sq.Ft:</span>
+                  <span className="font-bold text-purple-900">₹{totalOfficialSqft > 0 ? (totalOfficialAmount / totalOfficialSqft).toFixed(2) : '0.00'}</span>
+                </div>
+                <div className="flex justify-between text-sm pt-2 border-t border-purple-300">
+                  <span className="text-purple-700">Total Amount:</span>
+                  <span className="font-bold text-purple-900 text-base">₹{formatIndianNumber(totalOfficialAmount)}</span>
+                </div>
+              </div>
             </Card>
           </div>
 
