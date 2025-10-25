@@ -333,8 +333,11 @@ export default function SalesDataEntryPage() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/sales', {
-        method: 'POST',
+      const url = isEditing && editingId ? `/api/sales/${editingId}` : '/api/sales'
+      const method = isEditing && editingId ? 'PUT' : 'POST'
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_id: formData.customer_id,
@@ -365,15 +368,23 @@ export default function SalesDataEntryPage() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to create sale')
+        throw new Error(error.error || `Failed to ${isEditing ? 'update' : 'create'} sale`)
       }
 
-      const newSale = await response.json()
-      setSales([newSale, ...sales])
+      const savedSale = await response.json()
+      
+      if (isEditing && editingId) {
+        setSales(sales.map(s => s.id === editingId ? savedSale : s))
+        alert('✅ Sale updated successfully!')
+      } else {
+        setSales([savedSale, ...sales])
+        alert('✅ Sale created successfully! Consignment auto-added to customer account.')
+      }
 
       // Reset form
       setFormData(initialFormData)
-      alert('✅ Sale created successfully! Consignment auto-added to customer account.')
+      setIsEditing(false)
+      setEditingId(null)
       await fetchSales()
     } catch (error: any) {
       alert(`Error: ${error.message}`)
@@ -388,7 +399,109 @@ export default function SalesDataEntryPage() {
     setEditingId(null)
   }
 
+  const handleEdit = async (sale: Sale) => {
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    
+    // Fetch full sale details including items
+    try {
+      const response = await fetch(`/api/sales/${sale.id}`)
+      if (!response.ok) throw new Error('Failed to fetch sale details')
+      
+      const saleDetails = await response.json()
+      
+      // Populate form with sale data
+      setFormData({
+        date: saleDetails.sale_date.split('T')[0],
+        customer_id: saleDetails.customer_id,
+        itemRows: saleDetails.sale_items?.map((item: any) => ({
+          id: crypto.randomUUID(),
+          material_type_id: item.material_type_id || '',
+          material_name: item.material_name,
+          slabs_count: item.slabs_count.toString(),
+          square_feet: item.square_feet.toString(),
+          rate_per_sqft: item.rate_per_sqft.toString(),
+          total_amount: item.total_amount
+        })) || [],
+        tax_amount: saleDetails.tax_amount.toString(),
+        mining_amount: saleDetails.mining_amount.toString(),
+        loading_amount: saleDetails.loading_amount.toString(),
+        officialBillItems: saleDetails.official_bill_items?.map((item: any) => ({
+          id: crypto.randomUUID(),
+          material_name: item.material_name,
+          square_feet: item.square_feet.toString(),
+          rate_per_sqft: item.rate_per_sqft.toString(),
+          total_amount: item.total_amount
+        })) || [{
+          id: crypto.randomUUID(),
+          material_name: '',
+          square_feet: '',
+          rate_per_sqft: '',
+          total_amount: 0
+        }],
+        official_tax: saleDetails.official_tax?.toString() || '',
+        rtgs_expected: saleDetails.rtgs_expected.toString(),
+        cash_expected: saleDetails.cash_expected.toString(),
+        remarks: saleDetails.remarks || ''
+      })
+      
+      setIsEditing(true)
+      setEditingId(sale.id)
+    } catch (error: any) {
+      alert(`Error loading sale: ${error.message}`)
+    }
+  }
+
+  const handleDelete = async (sale: Sale) => {
+    const confirmed = confirm(
+      `⚠️ Are you sure you want to delete Sale #${sale.sale_number}?\n\n` +
+      `Customer: ${sale.customers?.name}\n` +
+      `Amount: ₹${formatIndianNumber(sale.gross_total)}\n\n` +
+      `This will also delete:\n` +
+      `- All sale items\n` +
+      `- Associated consignment entries\n\n` +
+      `This action cannot be undone!`
+    )
+    
+    if (!confirmed) return
+    
+    try {
+      const response = await fetch(`/api/sales/${sale.id}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete sale')
+      }
+      
+      setSales(sales.filter(s => s.id !== sale.id))
+      alert('✅ Sale deleted successfully!')
+    } catch (error: any) {
+      alert(`Error: ${error.message}`)
+    }
+  }
+
   const { totalSlabs, totalSqft, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash } = calculateTotals()
+
+  // Calculate aggregated statistics from all sales
+  const salesStats = useMemo(() => {
+    return sales.reduce((acc, sale) => ({
+      totalSlabs: acc.totalSlabs + sale.total_slabs,
+      totalSqft: acc.totalSqft + sale.total_sqft,
+      totalAmount: acc.totalAmount + sale.gross_total,
+      totalTax: acc.totalTax + sale.tax_amount,
+      totalMining: acc.totalMining + sale.mining_amount,
+      totalLoading: acc.totalLoading + sale.loading_amount
+    }), {
+      totalSlabs: 0,
+      totalSqft: 0,
+      totalAmount: 0,
+      totalTax: 0,
+      totalMining: 0,
+      totalLoading: 0
+    })
+  }, [sales])
 
   return (
     <AppLayout>
@@ -398,8 +511,59 @@ export default function SalesDataEntryPage() {
           <p className="text-gray-600 text-sm mt-1">Record new sales and automatically create consignments</p>
         </div>
 
+        {/* Summary Statistics Tiles */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <Card className="p-4">
+            <div className="text-xs text-gray-600 mb-1">TOTAL SLABS SOLD</div>
+            <div className="text-xl font-bold text-gray-900">
+              {salesStats.totalSlabs.toLocaleString('en-IN')}
+            </div>
+          </Card>
+          
+          <Card className="p-4">
+            <div className="text-xs text-gray-600 mb-1">TOTAL SQ.FT SOLD</div>
+            <div className="text-xl font-bold text-gray-900">
+              {salesStats.totalSqft.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </Card>
+          
+          <Card className="p-4">
+            <div className="text-xs text-gray-600 mb-1">TOTAL AMOUNT SOLD</div>
+            <div className="text-xl font-bold text-gray-900">
+              ₹{formatIndianNumber(salesStats.totalAmount)}
+            </div>
+          </Card>
+          
+          <Card className="p-4">
+            <div className="text-xs text-gray-600 mb-1">TOTAL TAX</div>
+            <div className="text-xl font-bold text-orange-600">
+              ₹{formatIndianNumber(salesStats.totalTax)}
+            </div>
+          </Card>
+          
+          <Card className="p-4">
+            <div className="text-xs text-gray-600 mb-1">TOTAL MINING</div>
+            <div className="text-xl font-bold text-purple-600">
+              ₹{formatIndianNumber(salesStats.totalMining)}
+            </div>
+          </Card>
+          
+          <Card className="p-4">
+            <div className="text-xs text-gray-600 mb-1">TOTAL LOADING</div>
+            <div className="text-xl font-bold text-blue-600">
+              ₹{formatIndianNumber(salesStats.totalLoading)}
+            </div>
+          </Card>
+        </div>
+
         {/* Sales Entry Form */}
         <Card className="p-6">
+          {isEditing && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+              <Edit3 className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-900">Editing Sale - Make changes and click Update to save</span>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Date and Customer Row */}
             <div className="grid grid-cols-2 gap-4">
@@ -644,7 +808,7 @@ export default function SalesDataEntryPage() {
                           type="button"
                           onClick={() => removeOfficialBillItem(item.id)}
                           size="sm"
-                          variant="ghost"
+                          variant="outline"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 mt-6"
                         >
                           <X className="w-4 h-4" />
@@ -732,7 +896,10 @@ export default function SalesDataEntryPage() {
               className="flex-1"
             >
               <Save className="w-4 h-4 mr-2" />
-              {loading ? 'Saving...' : 'Save Sale & Create Consignment'}
+              {loading 
+                ? (isEditing ? 'Updating...' : 'Saving...') 
+                : (isEditing ? 'Update Sale' : 'Save Sale & Create Consignment')
+              }
             </Button>
             <Button
               type="button"
@@ -789,6 +956,7 @@ export default function SalesDataEntryPage() {
                   )}
                   <th className="px-3 py-2 text-right font-medium">RTGS</th>
                   <th className="px-3 py-2 text-right font-medium">Cash</th>
+                  <th className="px-3 py-2 text-center font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -826,6 +994,30 @@ export default function SalesDataEntryPage() {
                       )}
                       <td className="px-3 py-2 text-right">₹{formatIndianNumber(sale.rtgs_expected)}</td>
                       <td className="px-3 py-2 text-right">₹{formatIndianNumber(sale.cash_expected)}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(sale)}
+                            className="p-1.5"
+                            title="Edit sale"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-blue-600" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDelete(sale)}
+                            className="p-1.5 hover:bg-red-50"
+                            title="Delete sale"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
