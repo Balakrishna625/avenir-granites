@@ -63,6 +63,8 @@ export async function POST(request: Request) {
       tax_amount = 0,
       mining_amount = 0,
       loading_amount = 0,
+      official_bill_items = [],
+      official_tax = 0,
       rtgs_expected = 0,
       cash_expected = 0,
       remarks = ''
@@ -88,6 +90,10 @@ export async function POST(request: Request) {
     });
 
     const gross_total = subtotal_amount + Number(tax_amount) + Number(mining_amount) + Number(loading_amount);
+
+    // Calculate official bill total
+    const official_subtotal = official_bill_items.reduce((sum: number, item: any) => sum + (Number(item.total_amount) || 0), 0);
+    const official_total = official_subtotal + Number(official_tax);
 
     // Validate payment split
     const payment_total = Number(rtgs_expected) + Number(cash_expected);
@@ -123,6 +129,9 @@ export async function POST(request: Request) {
         mining_amount: Number(mining_amount),
         loading_amount: Number(loading_amount),
         gross_total,
+        official_bill_items,
+        official_tax: Number(official_tax),
+        official_total,
         rtgs_expected: Number(rtgs_expected),
         cash_expected: Number(cash_expected),
         remarks
