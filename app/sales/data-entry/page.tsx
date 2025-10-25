@@ -86,6 +86,7 @@ interface FormData {
   rtgs_expected: string
   cash_expected: string
   remarks: string
+  createConsignment: boolean
 }
 
 function formatIndianNumber(num: number): string {
@@ -131,7 +132,8 @@ export default function SalesDataEntryPage() {
     official_tax: '',
     rtgs_expected: '',
     cash_expected: '',
-    remarks: ''
+    remarks: '',
+    createConsignment: true
   }), [])
 
   const [formData, setFormData] = useState<FormData>(initialFormData)
@@ -181,7 +183,7 @@ export default function SalesDataEntryPage() {
     }
   }
 
-  const handleInputChange = (field: keyof FormData, value: string) => {
+  const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -364,7 +366,8 @@ export default function SalesDataEntryPage() {
           official_tax: parseFloat(formData.official_tax) || 0,
           rtgs_expected: rtgs,
           cash_expected: cash,
-          remarks: formData.remarks
+          remarks: formData.remarks,
+          createConsignment: formData.createConsignment
         })
       })
 
@@ -380,7 +383,10 @@ export default function SalesDataEntryPage() {
         showToast('success', 'Sale updated successfully!')
       } else {
         setSales([savedSale, ...sales])
-        showToast('success', 'Sale created successfully! Consignment auto-added to customer account.')
+        const message = formData.createConsignment 
+          ? 'Sale created successfully! Consignment auto-added to customer account.'
+          : 'Sale recorded successfully!'
+        showToast('success', message)
       }
 
       // Reset form
@@ -444,7 +450,8 @@ export default function SalesDataEntryPage() {
         official_tax: saleDetails.official_tax?.toString() || '',
         rtgs_expected: saleDetails.rtgs_expected.toString(),
         cash_expected: saleDetails.cash_expected.toString(),
-        remarks: saleDetails.remarks || ''
+        remarks: saleDetails.remarks || '',
+        createConsignment: true // Default to true when editing
       })
       
       setIsEditing(true)
@@ -890,6 +897,24 @@ export default function SalesDataEntryPage() {
             />
           </div>
 
+          {/* Consignment Creation Option */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.createConsignment}
+                onChange={(e) => handleInputChange('createConsignment', e.target.checked)}
+                className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <div>
+                <div className="font-medium text-blue-900">Auto-create consignment for customer</div>
+                <div className="text-xs text-blue-700 mt-1">
+                  ⚠️ Uncheck this if you've already manually added this sale to customer's consignment to avoid duplicates
+                </div>
+              </div>
+            </label>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex gap-3">
             <Button
@@ -900,7 +925,11 @@ export default function SalesDataEntryPage() {
               <Save className="w-4 h-4 mr-2" />
               {loading 
                 ? (isEditing ? 'Updating...' : 'Saving...') 
-                : (isEditing ? 'Update Sale' : 'Save Sale & Create Consignment')
+                : (isEditing 
+                    ? 'Update Sale' 
+                    : (formData.createConsignment 
+                        ? 'Save Sale & Create Consignment' 
+                        : 'Save Sale Only'))
               }
             </Button>
             <Button

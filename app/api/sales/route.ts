@@ -50,7 +50,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - Create new sale with items and auto-create consignment
+// POST - Create new sale with items and optional consignment creation
 export async function POST(request: Request) {
   try {
     const supabase = supabaseAdmin;
@@ -67,7 +67,8 @@ export async function POST(request: Request) {
       official_tax = 0,
       rtgs_expected = 0,
       cash_expected = 0,
-      remarks = ''
+      remarks = '',
+      createConsignment = true // Default to true for backward compatibility
     } = body;
 
     // Validation
@@ -167,39 +168,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: itemsError.message }, { status: 500 });
     }
 
-    // Auto-create consignment
-    const consignmentRemarks = `Auto-created from ${sale_number}${remarks ? ' - ' + remarks : ''}`;
-    
-    const { data: consignmentData, error: consignmentError } = await supabase
-      .from('consignments')
-      .insert({
-        customer_id,
-        date: sale_date,
-        remarks: consignmentRemarks,
-        total: gross_total,
-        rtgs_expected: Number(rtgs_expected),
-        cash_expected: Number(cash_expected),
-        payment_received: 0,
-        balance: gross_total
-      })
-      .select()
-      .single();
+    // Conditionally create consignment based on createConsignment flag
+    if (createConsignment) {
+      const consignmentRemarks = `Auto-created from ${sale_number}${remarks ? ' - ' + remarks : ''}`;
+      
+      const { data: consignmentData, error: consignmentError } = await supabase
+        .from('consignments')
+        .insert({
+          customer_id,
+          date: sale_date,
+          remarks: consignmentRemarks,
+          total: gross_total,
+          rtgs_expected: Number(rtgs_expected),
+          cash_expected: Number(cash_expected),
+          payment_received: 0,
+          balance: gross_total
+        })
+        .select()
+        .single();
 
-    if (consignmentError) {
-      console.error('Error creating consignment:', consignmentError);
-      // Rollback sale and items
-      await supabase.from('sales').delete().eq('id', saleData.id);
-      return NextResponse.json({ error: 'Failed to create consignment' }, { status: 500 });
-    }
+      if (consignmentError) {
+        console.error('Error creating consignment:', consignmentError);
+        // Rollback sale and items
+        await supabase.from('sales').delete().eq('id', saleData.id);
+        return NextResponse.json({ error: 'Failed to create consignment' }, { status: 500 });
+      }
 
-    // Link consignment to sale
-    const { error: updateError } = await supabase
-      .from('sales')
-      .update({ consignment_id: consignmentData.id })
-      .eq('id', saleData.id);
+      // Link consignment to sale
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({ consignment_id: consignmentData.id })
+        .eq('id', saleData.id);
 
-    if (updateError) {
-      console.error('Error linking consignment to sale:', updateError);
+      if (updateError) {
+        console.error('Error linking consignment to sale:', updateError);
+      }
     }
 
     // Fetch complete sale with items
