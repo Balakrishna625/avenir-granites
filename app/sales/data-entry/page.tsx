@@ -106,6 +106,7 @@ export default function SalesDataEntryPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'actual' | 'official'>('actual')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc') // asc = oldest first, desc = newest first
 
   const initialFormData: FormData = useMemo(() => ({
     date: new Date().toISOString().split('T')[0],
@@ -124,7 +125,7 @@ export default function SalesDataEntryPage() {
     loading_amount: '',
     officialBillItems: [{
       id: crypto.randomUUID(),
-      material_name: '',
+      material_name: 'S/G',
       square_feet: '',
       rate_per_sqft: '',
       total_amount: 0
@@ -512,6 +513,15 @@ export default function SalesDataEntryPage() {
     })
   }, [sales])
 
+  // Sort sales by date
+  const sortedSales = useMemo(() => {
+    return [...sales].sort((a, b) => {
+      const dateA = new Date(a.sale_date).getTime()
+      const dateB = new Date(b.sale_date).getTime()
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+    })
+  }, [sales, sortOrder])
+
   return (
     <AppLayout>
       <div className="min-h-screen w-full bg-gray-50 p-6 space-y-4">
@@ -521,7 +531,14 @@ export default function SalesDataEntryPage() {
         </div>
 
         {/* Summary Statistics Tiles */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+          <Card className="p-4">
+            <div className="text-xs text-gray-600 mb-1">TOTAL SALES</div>
+            <div className="text-xl font-bold text-gray-900">
+              {sales.length}
+            </div>
+          </Card>
+
           <Card className="p-4">
             <div className="text-xs text-gray-600 mb-1">TOTAL SLABS SOLD</div>
             <div className="text-xl font-bold text-gray-900">
@@ -948,16 +965,25 @@ export default function SalesDataEntryPage() {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Recent Sales</h2>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600">View:</label>
-            <select
-              value={viewMode}
-              onChange={(e) => setViewMode(e.target.value as 'actual' | 'official')}
-              className="border rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              variant="outline"
+              className="text-sm"
             >
-              <option value="actual">Actual Sale</option>
-              <option value="official">Official Bill</option>
-            </select>
+              Sort: {sortOrder === 'asc' ? 'Oldest First ↑' : 'Newest First ↓'}
+            </Button>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">View:</label>
+              <select
+                value={viewMode}
+                onChange={(e) => setViewMode(e.target.value as 'actual' | 'official')}
+                className="border rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="actual">Actual Sale</option>
+                <option value="official">Official Bill</option>
+              </select>
+            </div>
           </div>
         </div>
         {salesLoading ? (
@@ -991,7 +1017,7 @@ export default function SalesDataEntryPage() {
                 </tr>
               </thead>
               <tbody>
-                {sales.slice(0, 10).map((sale) => {
+                {sortedSales.slice(0, 10).map((sale) => {
                   const officialBillItems = sale.official_bill_items || [];
                   const officialSqft = officialBillItems.reduce((sum: number, item: any) => sum + (Number(item.square_feet) || 0), 0);
                   
