@@ -25,6 +25,9 @@ interface SaleItem {
   slabs_count: number
   square_feet: number
   rate_per_sqft: number
+  tons: number
+  rate_per_ton: number
+  is_tonnage_material: boolean
   total_amount: number
   remarks: string
 }
@@ -36,6 +39,7 @@ interface Sale {
   sale_date: string
   total_slabs: number
   total_sqft: number
+  total_tons: number
   subtotal_amount: number
   tax_amount: number
   mining_amount: number
@@ -63,6 +67,9 @@ interface ItemRow {
   slabs_count: string
   square_feet: string
   rate_per_sqft: string
+  tons: string
+  rate_per_ton: string
+  is_tonnage_material: boolean
   total_amount: number
 }
 
@@ -121,6 +128,9 @@ export default function SalesDataEntryPage() {
       slabs_count: '',
       square_feet: '',
       rate_per_sqft: '',
+      tons: '',
+      rate_per_ton: '',
+      is_tonnage_material: false,
       total_amount: 0
     }],
     tax_amount: '',
@@ -218,6 +228,13 @@ export default function SalesDataEntryPage() {
     }
   }
 
+  // Helper function to check if a material type is tonnage-based
+  const isTonnageMaterial = (materialTypeId: string): boolean => {
+    if (!materialTypeId) return false
+    const material = materialTypes.find(m => m.id === materialTypeId)
+    return material?.name?.toLowerCase().includes('tonnage') || false
+  }
+
   const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
@@ -233,13 +250,31 @@ export default function SalesDataEntryPage() {
           if (field === 'material_type_id') {
             const material = materialTypes.find(m => m.id === value)
             updated.material_name = material?.name || ''
+            updated.is_tonnage_material = isTonnageMaterial(value)
+            // Reset fields when switching material type
+            if (updated.is_tonnage_material) {
+              updated.slabs_count = ''
+              updated.square_feet = ''
+              updated.rate_per_sqft = ''
+            } else {
+              updated.tons = ''
+              updated.rate_per_ton = ''
+            }
+            updated.total_amount = 0
           }
           
-          // Auto-calculate total when sqft or rate changes
+          // Auto-calculate total when sqft or rate changes (for regular materials)
           if (field === 'square_feet' || field === 'rate_per_sqft') {
             const sqft = parseFloat(field === 'square_feet' ? value : updated.square_feet) || 0
             const rate = parseFloat(field === 'rate_per_sqft' ? value : updated.rate_per_sqft) || 0
             updated.total_amount = sqft * rate
+          }
+          
+          // Auto-calculate total when tons or rate_per_ton changes (for tonnage materials)
+          if (field === 'tons' || field === 'rate_per_ton') {
+            const tons = parseFloat(field === 'tons' ? value : updated.tons) || 0
+            const rate = parseFloat(field === 'rate_per_ton' ? value : updated.rate_per_ton) || 0
+            updated.total_amount = tons * rate
           }
           
           return updated
@@ -261,6 +296,9 @@ export default function SalesDataEntryPage() {
           slabs_count: '',
           square_feet: '',
           rate_per_sqft: '',
+          tons: '',
+          rate_per_ton: '',
+          is_tonnage_material: false,
           total_amount: 0
         }
       ]
@@ -329,11 +367,15 @@ export default function SalesDataEntryPage() {
 
   const calculateTotals = () => {
     const totalSlabs = formData.itemRows.reduce(
-      (sum, row) => sum + (parseInt(row.slabs_count) || 0), 
+      (sum, row) => sum + (row.is_tonnage_material ? 0 : parseInt(row.slabs_count) || 0), 
       0
     )
     const totalSqft = formData.itemRows.reduce(
-      (sum, row) => sum + (parseFloat(row.square_feet) || 0), 
+      (sum, row) => sum + (row.is_tonnage_material ? 0 : parseFloat(row.square_feet) || 0), 
+      0
+    )
+    const totalTons = formData.itemRows.reduce(
+      (sum, row) => sum + (row.is_tonnage_material ? parseFloat(row.tons) || 0 : 0), 
       0
     )
     const subtotal = formData.itemRows.reduce((sum, row) => sum + row.total_amount, 0)
@@ -351,7 +393,7 @@ export default function SalesDataEntryPage() {
     const rtgs = officialTotal
     const cash = grossTotal - officialTotal
     
-    return { totalSlabs, totalSqft, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash }
+    return { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -387,6 +429,9 @@ export default function SalesDataEntryPage() {
             slabs_count: parseInt(item.slabs_count) || 0,
             square_feet: parseFloat(item.square_feet) || 0,
             rate_per_sqft: parseFloat(item.rate_per_sqft) || 0,
+            tons: parseFloat(item.tons) || 0,
+            rate_per_ton: parseFloat(item.rate_per_ton) || 0,
+            is_tonnage_material: item.is_tonnage_material,
             total_amount: item.total_amount
           })),
           tax_amount: parseFloat(formData.tax_amount) || 0,
@@ -464,6 +509,9 @@ export default function SalesDataEntryPage() {
           slabs_count: item.slabs_count.toString(),
           square_feet: item.square_feet.toString(),
           rate_per_sqft: item.rate_per_sqft.toString(),
+          tons: (item.tons || 0).toString(),
+          rate_per_ton: (item.rate_per_ton || 0).toString(),
+          is_tonnage_material: item.is_tonnage_material || false,
           total_amount: item.total_amount
         })) || [],
         tax_amount: saleDetails.tax_amount.toString(),
@@ -526,7 +574,7 @@ export default function SalesDataEntryPage() {
     }
   }
 
-  const { totalSlabs, totalSqft, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash } = calculateTotals()
+  const { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash } = calculateTotals()
 
   // Calculate aggregated statistics from all sales
   const salesStats = useMemo(() => {
@@ -681,15 +729,18 @@ export default function SalesDataEntryPage() {
                         </button>
                       </div>
                     </th>
-                    <th className="px-3 py-2 text-left font-medium">Slabs</th>
-                    <th className="px-3 py-2 text-left font-medium">Sq. Ft.</th>
-                    <th className="px-3 py-2 text-left font-medium">Rate/Sq.Ft</th>
+                    <th className="px-3 py-2 text-left font-medium">Slabs/Tons</th>
+                    <th className="px-3 py-2 text-left font-medium">Sq.Ft/Tons</th>
+                    <th className="px-3 py-2 text-left font-medium">Rate</th>
                     <th className="px-3 py-2 text-right font-medium">Amount</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {formData.itemRows.map((row, index) => (
+                  {formData.itemRows.map((row, index) => {
+                    const isTonnage = isTonnageMaterial(row.material_type_id)
+                    
+                    return (
                     <tr key={row.id} className={index > 0 ? 'border-t' : ''}>
                       <td className="px-3 py-2">
                         <select
@@ -706,23 +757,30 @@ export default function SalesDataEntryPage() {
                           ))}
                         </select>
                       </td>
-                      <td className="px-3 py-2">
-                        <Input
-                          type="number"
-                          value={row.slabs_count}
-                          onChange={(e) => handleItemRowChange(row.id, 'slabs_count', e.target.value)}
-                          className="w-20"
-                          placeholder="0"
-                        />
-                      </td>
+                      {!isTonnage && (
+                        <td className="px-3 py-2">
+                          <Input
+                            type="number"
+                            value={row.slabs_count}
+                            onChange={(e) => handleItemRowChange(row.id, 'slabs_count', e.target.value)}
+                            className="w-20"
+                            placeholder="Slabs"
+                          />
+                        </td>
+                      )}
+                      {isTonnage && (
+                        <td className="px-3 py-2 text-gray-400 text-center">
+                          —
+                        </td>
+                      )}
                       <td className="px-3 py-2">
                         <Input
                           type="number"
                           step="0.01"
-                          value={row.square_feet}
-                          onChange={(e) => handleItemRowChange(row.id, 'square_feet', e.target.value)}
+                          value={isTonnage ? row.tons : row.square_feet}
+                          onChange={(e) => handleItemRowChange(row.id, isTonnage ? 'tons' : 'square_feet', e.target.value)}
                           className="w-24"
-                          placeholder="0.00"
+                          placeholder={isTonnage ? "Tons" : "Sq.Ft"}
                           required
                         />
                       </td>
@@ -730,10 +788,10 @@ export default function SalesDataEntryPage() {
                         <Input
                           type="number"
                           step="0.01"
-                          value={row.rate_per_sqft}
-                          onChange={(e) => handleItemRowChange(row.id, 'rate_per_sqft', e.target.value)}
+                          value={isTonnage ? row.rate_per_ton : row.rate_per_sqft}
+                          onChange={(e) => handleItemRowChange(row.id, isTonnage ? 'rate_per_ton' : 'rate_per_sqft', e.target.value)}
                           className="w-24"
-                          placeholder="0.00"
+                          placeholder={isTonnage ? "Rate/Ton" : "Rate/Sq.Ft"}
                           required
                         />
                       </td>
@@ -752,12 +810,21 @@ export default function SalesDataEntryPage() {
                         )}
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                   {/* Summary Row */}
                   <tr className="bg-blue-50 font-medium border-t-2">
                     <td className="px-3 py-2">Total</td>
-                    <td className="px-3 py-2">{totalSlabs}</td>
-                    <td className="px-3 py-2">{totalSqft.toFixed(2)}</td>
+                    <td className="px-3 py-2">
+                      {totalSlabs > 0 && <span>{totalSlabs} slabs</span>}
+                      {totalSlabs > 0 && totalTons > 0 && <span> / </span>}
+                      {totalTons > 0 && <span>{totalTons.toFixed(2)} tons</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      {totalSqft > 0 && <span>{totalSqft.toFixed(2)} sqft</span>}
+                      {totalSqft > 0 && totalTons > 0 && <span> / </span>}
+                      {totalTons > 0 && <span>{totalTons.toFixed(2)} tons</span>}
+                    </td>
                     <td className="px-3 py-2"></td>
                     <td className="px-3 py-2 text-right">₹{formatIndianNumber(subtotal)}</td>
                     <td className="px-3 py-2"></td>
@@ -1074,7 +1141,10 @@ export default function SalesDataEntryPage() {
                       <td className="px-3 py-2">{sale.customers?.name}</td>
                       {viewMode === 'actual' ? (
                         <>
-                          <td className="px-3 py-2 text-right">{sale.total_slabs}</td>
+                          <td className="px-3 py-2 text-right">
+                            {sale.total_slabs > 0 && <div>{sale.total_slabs} slabs</div>}
+                            {sale.total_tons > 0 && <div className="text-orange-600">{sale.total_tons.toFixed(2)} tons</div>}
+                          </td>
                           <td className="px-3 py-2 text-right">{sale.total_sqft.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right font-medium">₹{formatIndianNumber(sale.gross_total)}</td>
                         </>

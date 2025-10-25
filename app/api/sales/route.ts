@@ -82,11 +82,16 @@ export async function POST(request: Request) {
     // Calculate totals from items
     let total_slabs = 0;
     let total_sqft = 0;
+    let total_tons = 0;
     let subtotal_amount = 0;
 
     items.forEach((item: any) => {
-      total_slabs += Number(item.slabs_count) || 0;
-      total_sqft += Number(item.square_feet) || 0;
+      if (item.is_tonnage_material) {
+        total_tons += Number(item.tons) || 0;
+      } else {
+        total_slabs += Number(item.slabs_count) || 0;
+        total_sqft += Number(item.square_feet) || 0;
+      }
       subtotal_amount += Number(item.total_amount) || 0;
     });
 
@@ -125,6 +130,7 @@ export async function POST(request: Request) {
         sale_date,
         total_slabs,
         total_sqft,
+        total_tons,
         subtotal_amount,
         tax_amount: Number(tax_amount),
         mining_amount: Number(mining_amount),
@@ -153,6 +159,9 @@ export async function POST(request: Request) {
       slabs_count: Number(item.slabs_count) || 0,
       square_feet: Number(item.square_feet) || 0,
       rate_per_sqft: Number(item.rate_per_sqft) || 0,
+      tons: Number(item.tons) || 0,
+      rate_per_ton: Number(item.rate_per_ton) || 0,
+      is_tonnage_material: Boolean(item.is_tonnage_material),
       total_amount: Number(item.total_amount) || 0,
       remarks: item.remarks || ''
     }));
