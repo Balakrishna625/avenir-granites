@@ -42,6 +42,7 @@ SELECT
     date,
     shift,
     activities,
+    pg_typeof(activities) as activities_type,
     jsonb_array_length(COALESCE(activities, '[]'::jsonb)) as activities_count
 FROM line_polish_reports
 ORDER BY date DESC
@@ -54,19 +55,21 @@ SELECT
 SELECT 
     date,
     shift,
-    activity->>'block_name' as block_name,
-    activity->>'activity' as activity_type,
-    activity->>'slabs' as slabs,
-    activity->>'sqft' as sqft
+    elem->>'block_name' as block_name,
+    elem->>'activity' as activity_type,
+    elem->>'slabs' as slabs,
+    elem->>'sqft' as sqft
 FROM 
-    line_polish_reports
-    CROSS JOIN LATERAL jsonb_array_elements(
-        CASE 
-            WHEN jsonb_typeof(activities) = 'array' 
-            THEN activities
-            ELSE '[]'::jsonb
-        END
-    ) AS activity
+    line_polish_reports,
+    LATERAL (
+        SELECT jsonb_array_elements(
+            CASE 
+                WHEN activities IS NOT NULL AND jsonb_typeof(activities) = 'array' 
+                THEN activities
+                ELSE '[]'::jsonb
+            END
+        ) as elem
+    ) elements
 WHERE date >= CURRENT_DATE - INTERVAL '30 days'
 LIMIT 10;
 
@@ -104,14 +107,16 @@ SELECT
     '=== EXISTING FIELDS IN LINE-POLISH ACTIVITIES ===' as info;
 
 SELECT DISTINCT
-    jsonb_object_keys(activity) as field_name
+    jsonb_object_keys(elem) as field_name
 FROM 
-    line_polish_reports
-    CROSS JOIN LATERAL jsonb_array_elements(
-        CASE 
-            WHEN jsonb_typeof(activities) = 'array' 
-            THEN activities
-            ELSE '[]'::jsonb
-        END
-    ) AS activity
+    line_polish_reports,
+    LATERAL (
+        SELECT jsonb_array_elements(
+            CASE 
+                WHEN activities IS NOT NULL AND jsonb_typeof(activities) = 'array' 
+                THEN activities
+                ELSE '[]'::jsonb
+            END
+        ) as elem
+    ) elements
 LIMIT 20;
