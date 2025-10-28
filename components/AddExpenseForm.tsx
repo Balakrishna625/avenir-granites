@@ -15,7 +15,6 @@ interface Category {
 interface Account {
   id: string;
   name: string;
-  account_type: string;
 }
 
 interface AddExpenseFormProps {
@@ -55,7 +54,7 @@ export function AddExpenseForm({ onClose, onSuccess }: AddExpenseFormProps) {
     try {
       const [categoriesRes, accountsRes] = await Promise.all([
         fetch("/api/expense-categories"),
-        fetch("/api/expense-accounts")
+        fetch("/api/bank-accounts")  // Changed from expense-accounts to bank-accounts
       ]);
 
       const [categoriesData, accountsData] = await Promise.all([
@@ -202,7 +201,7 @@ export function AddExpenseForm({ onClose, onSuccess }: AddExpenseFormProps) {
                 <option value="">Select Account</option>
                 {accounts.map(account => (
                   <option key={account.id} value={account.id}>
-                    {account.name} ({account.account_type})
+                    {account.name}
                   </option>
                 ))}
               </select>
