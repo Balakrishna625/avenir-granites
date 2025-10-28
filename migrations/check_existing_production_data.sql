@@ -54,10 +54,10 @@ SELECT
 SELECT 
     date,
     shift,
-    (activity::jsonb)->>'block_name' as block_name,
-    (activity::jsonb)->>'activity' as activity_type,
-    (activity::jsonb)->>'slabs' as slabs,
-    (activity::jsonb)->>'sqft' as sqft
+    activity->>'block_name' as block_name,
+    activity->>'activity' as activity_type,
+    activity->>'slabs' as slabs,
+    activity->>'sqft' as sqft
 FROM 
     line_polish_reports
     CROSS JOIN LATERAL jsonb_array_elements(
@@ -104,7 +104,7 @@ SELECT
     '=== EXISTING FIELDS IN LINE-POLISH ACTIVITIES ===' as info;
 
 SELECT DISTINCT
-    jsonb_object_keys(activity::jsonb) as field_name
+    jsonb_object_keys(activity) as field_name
 FROM 
     line_polish_reports
     CROSS JOIN LATERAL jsonb_array_elements(
