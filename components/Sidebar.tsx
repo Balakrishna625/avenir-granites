@@ -22,7 +22,8 @@ import {
   Wrench,
   Zap,
   TrendingUp,
-  ShoppingBag
+  ShoppingBag,
+  Plus
 } from 'lucide-react';
 
 interface MenuItem {
@@ -81,9 +82,9 @@ const menuItems: MenuItem[] = [
     icon: <Package className="w-5 h-5" />,
     children: [
       {
-        title: 'Consignment Calculator',
-        href: '/consignments/calculator',
-        icon: <Calculator className="w-4 h-4" />
+        title: 'Add Consignment',
+        href: '/consignments/add',
+        icon: <Plus className="w-4 h-4" />
       },
       {
         title: 'All Consignments',
@@ -91,19 +92,9 @@ const menuItems: MenuItem[] = [
         icon: <Truck className="w-4 h-4" />
       },
       {
-        title: 'Consignment Summaries',
-        href: '/consignments/summaries',
-        icon: <BarChart3 className="w-4 h-4" />
-      },
-      {
-        title: 'Consignment Grouping',
-        href: '/consignments/grouping',
-        icon: <Users className="w-4 h-4" />
-      },
-      {
-        title: 'Slab Processing',
-        href: '/consignments/slab-processing',
-        icon: <Scissors className="w-4 h-4" />
+        title: 'Consignment Calculator',
+        href: '/consignments/calculator',
+        icon: <Calculator className="w-4 h-4" />
       }
     ]
   },

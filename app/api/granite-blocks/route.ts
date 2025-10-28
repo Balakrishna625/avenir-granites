@@ -36,7 +36,37 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log('Block creation request:', body);
     
-    const { consignment_id, block_no, gross_measurement, net_measurement, elavance, grade, marker_measurement } = body;
+    // Check if this is a bulk insert request
+    if (body.blocks && Array.isArray(body.blocks)) {
+      // Bulk insert
+      const blocksToInsert = body.blocks.map((block: any) => ({
+        consignment_id: block.consignment_id,
+        block_no: block.block_no.toUpperCase(),
+        gross_measurement: parseFloat(block.gross_measurement) || 0,
+        net_measurement: parseFloat(block.net_measurement) || 0,
+        grade: block.grade || 'S/G',
+        status: block.status || 'AVAILABLE',
+        marker_measurement: block.marker_measurement ? parseFloat(block.marker_measurement) : undefined
+      }));
+
+      console.log('Bulk inserting blocks:', blocksToInsert);
+
+      const { data, error } = await supabaseAdmin
+        .from("granite_blocks")
+        .insert(blocksToInsert)
+        .select();
+
+      if (error) {
+        console.error('Database error creating blocks:', error);
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      console.log('Blocks created successfully:', data);
+      return NextResponse.json(data, { status: 201 });
+    }
+
+    // Single block insert
+    const { consignment_id, block_no, gross_measurement, net_measurement, elavance, grade, marker_measurement, status } = body;
 
     if (!consignment_id || !block_no || !gross_measurement || !net_measurement) {
       console.log('Missing required fields:', { consignment_id, block_no, gross_measurement, net_measurement });
@@ -51,7 +81,7 @@ export async function POST(req: Request) {
       net_measurement: parseFloat(net_measurement),
       // Don't include elavance - it's a computed column that calculates automatically
       grade,
-      status: 'RAW'  // Changed from 'AVAILABLE' to 'RAW' to match schema
+      status: status || 'AVAILABLE'
     };
 
     // Add marker_measurement if the field exists (for new schema)
