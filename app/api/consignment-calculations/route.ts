@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Validate required fields
-    const requiredFields = ['calculation_name', 'total_blocks', 'net_meters_per_block', 'gross_meters_per_block', 'cost_per_meter'];
+    const requiredFields = ['calculation_name', 'quarry', 'total_blocks', 'net_meters_per_block', 'gross_meters_per_block', 'cost_per_meter'];
     const missingFields = requiredFields.filter(field => body[field] === undefined || body[field] === null);
     
     if (missingFields.length > 0) {
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     // Validate numeric fields
     const numericFields = [
       'total_blocks', 'net_meters_per_block', 'gross_meters_per_block', 'cost_per_meter', 
-      'loading_charges', 'transport_charges', 'quarry_commission',
+      'loading_charges', 'transport_charges', 'quarry_commission', 'amr_charges',
       'polish_percentage', 'laputra_percentage', 'whiteline_percentage',
       'polish_sale_price', 'laputra_sale_price', 'whiteline_sale_price'
     ];
@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
       .insert([{
         calculation_name: body.calculation_name,
         description: body.description || null,
+        quarry: body.quarry,
         total_blocks: parseInt(body.total_blocks),
         net_meters_per_block: parseFloat(body.net_meters_per_block),
         gross_meters_per_block: parseFloat(body.gross_meters_per_block),
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
         loading_charges: parseFloat(body.loading_charges) || 0,
         transport_charges: parseFloat(body.transport_charges) || 0,
         quarry_commission: parseFloat(body.quarry_commission) || 0,
+        amr_charges: parseFloat(body.amr_charges) || 0,
         polish_percentage: parseFloat(body.polish_percentage) || 0,
         laputra_percentage: parseFloat(body.laputra_percentage) || 0,
         whiteline_percentage: parseFloat(body.whiteline_percentage) || 0,
@@ -145,7 +147,7 @@ export async function PUT(request: NextRequest) {
     // Validate numeric fields if they're being updated
     const numericFields = [
       'total_blocks', 'avg_meters_per_block', 'cost_per_meter', 
-      'loading_charges', 'transport_charges', 'quarry_commission',
+      'loading_charges', 'transport_charges', 'quarry_commission', 'amr_charges',
       'polish_percentage', 'laputra_percentage', 'whiteline_percentage',
       'polish_sale_price', 'laputra_sale_price', 'whiteline_sale_price'
     ];
@@ -168,7 +170,7 @@ export async function PUT(request: NextRequest) {
     
     const floatFields = [
       'net_meters_per_block', 'gross_meters_per_block', 'cost_per_meter', 'loading_charges', 
-      'transport_charges', 'quarry_commission', 'polish_percentage', 
+      'transport_charges', 'quarry_commission', 'amr_charges', 'polish_percentage', 
       'laputra_percentage', 'whiteline_percentage', 'polish_sale_price',
       'laputra_sale_price', 'whiteline_sale_price'
     ];

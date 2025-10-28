@@ -12,6 +12,7 @@ interface ConsignmentCalculation {
   id?: string;
   calculation_name: string;
   description?: string;
+  quarry: 'Sambrajyam' | 'Sai Lakshmi' | 'Gokana Konda'; // Quarry selection
   total_blocks: number;
   net_meters_per_block: number;  // Auto-calculated from total_net_measurement / total_blocks
   gross_meters_per_block: number; // Auto-calculated from total_gross_measurement / total_blocks
@@ -19,6 +20,7 @@ interface ConsignmentCalculation {
   loading_charges: number;
   transport_charges: number;
   quarry_commission: number;
+  amr_charges: number; // Only for Gokana Konda
   polish_percentage: number;
   laputra_percentage: number;
   whiteline_percentage: number;
@@ -60,6 +62,7 @@ export default function ConsignmentCalculatorPage() {
   const [currentCalculation, setCurrentCalculation] = useState<ConsignmentCalculation>({
     calculation_name: '',
     description: '',
+    quarry: 'Sambrajyam', // Default quarry
     total_blocks: 0,
     net_meters_per_block: 0, // Auto-calculated
     gross_meters_per_block: 0, // Auto-calculated
@@ -67,6 +70,7 @@ export default function ConsignmentCalculatorPage() {
     loading_charges: 0, // Can be auto-calculated or manually overridden
     transport_charges: 0, // Will be auto-calculated but kept for API compatibility
     quarry_commission: 0,
+    amr_charges: 0, // Only for Gokana Konda
     polish_percentage: 0,
     laputra_percentage: 0,
     whiteline_percentage: 0,
@@ -83,6 +87,9 @@ export default function ConsignmentCalculatorPage() {
   
   // State to track if loading charges are manually overridden
   const [isLoadingChargesManual, setIsLoadingChargesManual] = useState(false);
+  
+  // State to track if transport charges are manually overridden
+  const [isTransportChargesManual, setIsTransportChargesManual] = useState(false);
   
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -102,16 +109,37 @@ export default function ConsignmentCalculatorPage() {
     }
   }, [totalMeasurements.total_net_measurement, totalMeasurements.total_gross_measurement, currentCalculation.total_blocks]);
 
-  // Auto-calculate loading charges when total_blocks changes (only if not manually overridden)
+  // Auto-calculate loading charges when total_blocks or quarry changes (only if not manually overridden)
   useEffect(() => {
     if (!isLoadingChargesManual && currentCalculation.total_blocks > 0) {
-      const autoLoadingCharges = currentCalculation.total_blocks * 1500;
+      let autoLoadingCharges = 0;
+      if (currentCalculation.quarry === 'Gokana Konda') {
+        autoLoadingCharges = currentCalculation.total_blocks * 1000; // ₹1,000 per block
+      } else {
+        autoLoadingCharges = currentCalculation.total_blocks * 1500; // ₹1,500 per block
+      }
       setCurrentCalculation(prev => ({
         ...prev,
         loading_charges: autoLoadingCharges
       }));
     }
-  }, [currentCalculation.total_blocks, isLoadingChargesManual]);
+  }, [currentCalculation.total_blocks, currentCalculation.quarry, isLoadingChargesManual]);
+
+  // Auto-calculate transport charges when total_blocks or quarry changes (only if not manually overridden)
+  useEffect(() => {
+    if (!isTransportChargesManual && currentCalculation.total_blocks > 0) {
+      let autoTransportCharges = 0;
+      if (currentCalculation.quarry === 'Gokana Konda') {
+        autoTransportCharges = currentCalculation.total_blocks * 10000; // ₹10,000 per block
+      } else {
+        autoTransportCharges = currentCalculation.total_blocks * 4500; // ₹4,500 per block
+      }
+      setCurrentCalculation(prev => ({
+        ...prev,
+        transport_charges: autoTransportCharges
+      }));
+    }
+  }, [currentCalculation.total_blocks, currentCalculation.quarry, isTransportChargesManual]);
 
   // Fetch all calculations on component mount
   useEffect(() => {
@@ -141,15 +169,18 @@ export default function ConsignmentCalculatorPage() {
     const laputraSqft = totalSqft * (calc.laputra_percentage / 100);
     const whitelineSqft = totalSqft * (calc.whiteline_percentage / 100);
     
-    // Automatic calculation of transport charges (always auto-calculated)
-    const autoTransportCharges = calc.total_blocks * 4500; // ₹4500 per block
+    // Transport charges: use current value (either auto-calculated or manually set)
+    const transportCharges = calc.transport_charges || 0;
     
     // Loading charges: use current value (either auto-calculated or manually set)
     const loadingCharges = calc.loading_charges || 0;
     
+    // AMR charges (only for Gokana Konda)
+    const amrCharges = calc.quarry === 'Gokana Konda' ? (calc.amr_charges || 0) : 0;
+    
     // Raw material cost uses NET meters (what you pay for) + charges
     const rawMaterialCost = (calc.total_blocks * calc.net_meters_per_block * calc.cost_per_meter) + 
-                           loadingCharges + autoTransportCharges + calc.quarry_commission;
+                           loadingCharges + transportCharges + calc.quarry_commission + amrCharges;
     
     // Production costs use GROSS meters (processing actual material)
     const polishCost = polishSqft * 25;
@@ -185,7 +216,8 @@ export default function ConsignmentCalculatorPage() {
       totalCost,
       costPerSqft,
       loadingCharges, // Use actual loading charges (auto or manual)
-      autoTransportCharges,
+      transportCharges, // Use actual transport charges (auto or manual)
+      amrCharges, // AMR charges (only for Gokana Konda)
       polishSaleAmount,
       laputraSaleAmount,
       whitelineSaleAmount,
@@ -220,12 +252,31 @@ export default function ConsignmentCalculatorPage() {
   };
 
   const resetToAutoLoadingCharges = () => {
-    const autoLoadingCharges = currentCalculation.total_blocks * 1500;
+    const ratePerBlock = currentCalculation.quarry === 'Gokana Konda' ? 1000 : 1500;
+    const autoLoadingCharges = currentCalculation.total_blocks * ratePerBlock;
     setCurrentCalculation(prev => ({
       ...prev,
       loading_charges: autoLoadingCharges
     }));
     setIsLoadingChargesManual(false);
+  };
+
+  const handleTransportChargesChange = (value: number) => {
+    setCurrentCalculation(prev => ({
+      ...prev,
+      transport_charges: value
+    }));
+    setIsTransportChargesManual(true);
+  };
+
+  const resetToAutoTransportCharges = () => {
+    const ratePerBlock = currentCalculation.quarry === 'Gokana Konda' ? 10000 : 4500;
+    const autoTransportCharges = currentCalculation.total_blocks * ratePerBlock;
+    setCurrentCalculation(prev => ({
+      ...prev,
+      transport_charges: autoTransportCharges
+    }));
+    setIsTransportChargesManual(false);
   };
 
   const handleSave = async () => {
@@ -321,6 +372,7 @@ export default function ConsignmentCalculatorPage() {
     setCurrentCalculation({
       calculation_name: '',
       description: '',
+      quarry: 'Sambrajyam', // Default quarry
       total_blocks: 0,
       net_meters_per_block: 0, // Auto-calculated
       gross_meters_per_block: 0, // Auto-calculated
@@ -328,6 +380,7 @@ export default function ConsignmentCalculatorPage() {
       loading_charges: 0, // Auto-calculated
       transport_charges: 0, // Auto-calculated
       quarry_commission: 0,
+      amr_charges: 0, // Only for Gokana Konda
       polish_percentage: 0,
       laputra_percentage: 0,
       whiteline_percentage: 0,
@@ -340,6 +393,7 @@ export default function ConsignmentCalculatorPage() {
       total_gross_measurement: 0
     });
     setIsLoadingChargesManual(false); // Reset to auto-calculation
+    setIsTransportChargesManual(false); // Reset to auto-calculation
     setIsEditing(false);
     setError('');
   };
@@ -521,6 +575,27 @@ export default function ConsignmentCalculatorPage() {
                     className="w-full"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quarry *
+                  </label>
+                  <select
+                    value={currentCalculation.quarry}
+                    onChange={(e) => handleInputChange('quarry', e.target.value as 'Sambrajyam' | 'Sai Lakshmi' | 'Gokana Konda')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="Sambrajyam">Sambrajyam</option>
+                    <option value="Sai Lakshmi">Sai Lakshmi</option>
+                    <option value="Gokana Konda">Gokana Konda</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {currentCalculation.quarry === 'Gokana Konda' 
+                      ? '₹10,000/block transport + ₹1,000/block loading + AMR charges' 
+                      : '₹4,500/block transport + ₹1,500/block loading'}
+                  </p>
+                </div>
               </div>
 
               {/* Raw Material Inputs */}
@@ -646,10 +721,10 @@ export default function ConsignmentCalculatorPage() {
                               variant="outline"
                               className="text-xs"
                             >
-                              Reset to Auto (₹{(currentCalculation.total_blocks * 1500).toLocaleString()})
+                              Reset to Auto (₹{(currentCalculation.total_blocks * (currentCalculation.quarry === 'Gokana Konda' ? 1000 : 1500)).toLocaleString()})
                             </Button>
                             <span className="text-xs text-gray-500">
-                              Auto would be: ₹1,500 × {currentCalculation.total_blocks} blocks
+                              Auto would be: ₹{currentCalculation.quarry === 'Gokana Konda' ? '1,000' : '1,500'} × {currentCalculation.total_blocks} blocks
                             </span>
                           </div>
                         </div>
@@ -658,9 +733,9 @@ export default function ConsignmentCalculatorPage() {
                         <div className="relative p-4 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg shadow-sm">
                           <div className="flex items-center justify-between">
                             <div className="flex flex-col">
-                              <span className="text-xs text-blue-600 font-medium">₹1,500 per block</span>
+                              <span className="text-xs text-blue-600 font-medium">₹{currentCalculation.quarry === 'Gokana Konda' ? '1,000' : '1,500'} per block</span>
                               <span className="text-sm text-blue-700">
-                                ₹1,500 × {currentCalculation.total_blocks} blocks
+                                ₹{currentCalculation.quarry === 'Gokana Konda' ? '1,000' : '1,500'} × {currentCalculation.total_blocks} blocks
                               </span>
                             </div>
                             <div className="text-right">
@@ -685,21 +760,62 @@ export default function ConsignmentCalculatorPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <span className="mr-2">🚚</span>
-                      Transport Charges (₹) - Auto Calculated
+                      Transport Charges (₹) - {isTransportChargesManual ? 'Manual Override' : 'Auto Calculated'}
                     </label>
-                    <div className="relative p-4 bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <span className="text-xs text-green-600 font-medium">₹4,500 per block</span>
-                          <span className="text-sm text-green-700">
-                            ₹4,500 × {currentCalculation.total_blocks} blocks
-                          </span>
+                    <div className="space-y-2">
+                      {isTransportChargesManual ? (
+                        // Manual input mode
+                        <div className="space-y-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={currentCalculation.transport_charges || ''}
+                            onChange={(e) => handleTransportChargesChange(parseFloat(e.target.value) || 0)}
+                            min="0"
+                            placeholder="Enter custom transport charges"
+                            className="w-full"
+                          />
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              type="button"
+                              onClick={resetToAutoTransportCharges}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              Reset to Auto (₹{(currentCalculation.total_blocks * (currentCalculation.quarry === 'Gokana Konda' ? 10000 : 4500)).toLocaleString()})
+                            </Button>
+                            <span className="text-xs text-gray-500">
+                              Auto would be: ₹{currentCalculation.quarry === 'Gokana Konda' ? '10,000' : '4,500'} × {currentCalculation.total_blocks} blocks
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-green-900">{formatCurrency(derived.autoTransportCharges)}</div>
-                          <div className="text-xs text-green-600">Automatically calculated</div>
+                      ) : (
+                        // Auto-calculation display mode
+                        <div className="relative p-4 bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                              <span className="text-xs text-green-600 font-medium">₹{currentCalculation.quarry === 'Gokana Konda' ? '10,000' : '4,500'} per block</span>
+                              <span className="text-sm text-green-700">
+                                ₹{currentCalculation.quarry === 'Gokana Konda' ? '10,000' : '4,500'} × {currentCalculation.total_blocks} blocks
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-green-900">{formatCurrency(derived.transportCharges)}</div>
+                              <div className="text-xs text-green-600">Automatically calculated</div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => setIsTransportChargesManual(true)}
+                            size="sm"
+                            variant="outline"
+                            className="mt-2 text-xs"
+                          >
+                            Override with Custom Amount
+                          </Button>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
@@ -716,6 +832,28 @@ export default function ConsignmentCalculatorPage() {
                       placeholder="e.g., 15000"
                     />
                   </div>
+
+                  {/* AMR Charges - Only for Gokana Konda */}
+                  {currentCalculation.quarry === 'Gokana Konda' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                        <span className="mr-2">💰</span>
+                        AMR Charges (₹) - Required for Gokana Konda
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={currentCalculation.amr_charges || ''}
+                        onChange={(e) => handleInputChange('amr_charges', parseFloat(e.target.value) || 0)}
+                        min="0"
+                        placeholder="Enter AMR charges"
+                        className="w-full"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Additional charges specific to Gokana Konda quarry
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -903,20 +1041,26 @@ export default function ConsignmentCalculatorPage() {
                     <div className="ml-2">
                       {isLoadingChargesManual ? 
                         `Custom amount: ${formatCurrency(derived.loadingCharges)}` :
-                        `${currentCalculation.total_blocks} blocks × ₹1,500 = ${formatCurrency(derived.loadingCharges)}`
+                        `${currentCalculation.total_blocks} blocks × ₹${currentCalculation.quarry === 'Gokana Konda' ? '1,000' : '1,500'} = ${formatCurrency(derived.loadingCharges)}`
                       }
                     </div>
                   </div>
                   <div>
                     <div className="font-medium">Transport Charges:</div>
                     <div className="ml-2">
-                      {currentCalculation.total_blocks} blocks × ₹4,500 = {formatCurrency(derived.autoTransportCharges)}
+                      {currentCalculation.total_blocks} blocks × ₹{currentCalculation.quarry === 'Gokana Konda' ? '10,000' : '4,500'} = {formatCurrency(derived.transportCharges)}
                     </div>
                   </div>
                   <div>
                     <div className="font-medium">Quarry Commission:</div>
                     <div className="ml-2">₹{formatNumber(currentCalculation.quarry_commission)}</div>
                   </div>
+                  {currentCalculation.quarry === 'Gokana Konda' && currentCalculation.amr_charges > 0 && (
+                    <div>
+                      <div className="font-medium">AMR Charges (Gokana Konda):</div>
+                      <div className="ml-2">₹{formatNumber(currentCalculation.amr_charges)}</div>
+                    </div>
+                  )}
                 </div>
               </div>
 
