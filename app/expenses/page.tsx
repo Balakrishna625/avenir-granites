@@ -105,6 +105,7 @@ export default function ExpensesPage() {
   const { showToast } = useToast();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [bankCollections, setBankCollections] = useState<BankCollection[]>([]);
+  const [allBankAccounts, setAllBankAccounts] = useState<Array<{id: string; name: string}>>([]); // New: All bank accounts for form dropdown
   const [loading, setLoading] = useState(true);
   
   // Form state
@@ -147,9 +148,25 @@ export default function ExpensesPage() {
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
   const [adjustmentNotes, setAdjustmentNotes] = useState("");
 
+  // Load all bank accounts once on mount (for form dropdown)
+  useEffect(() => {
+    loadAllBankAccounts();
+  }, []);
+
   useEffect(() => {
     loadData();
   }, [selectedYear, selectedMonth]);
+
+  async function loadAllBankAccounts() {
+    try {
+      const response = await fetch('/api/bank-accounts');
+      const data = await response.json();
+      setAllBankAccounts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to load bank accounts:", error);
+      setAllBankAccounts([]);
+    }
+  }
 
   async function loadData() {
     try {
@@ -665,8 +682,8 @@ export default function ExpensesPage() {
                       required
                     >
                       <option value="">Select Account</option>
-                      {bankCollections.map(acc => (
-                        <option key={acc.id} value={acc.id}>{acc.name} - {fmt(acc.currentBalance)}</option>
+                      {allBankAccounts.map(acc => (
+                        <option key={acc.id} value={acc.id}>{acc.name}</option>
                       ))}
                     </select>
                   </div>
