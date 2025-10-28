@@ -51,7 +51,7 @@ multi_cutter_data AS (
     AND block->>'block_name' != ''
 ),
 
--- Extract line-polish production data
+-- Extract line-polish production data  
 line_polish_data AS (
   SELECT 
     activity->>'block_name' AS full_block_name,
@@ -64,7 +64,7 @@ line_polish_data AS (
     'line_polish' AS source
   FROM 
     line_polish_reports,
-    jsonb_array_elements(activities) AS activity
+    LATERAL jsonb_array_elements(COALESCE(activities::jsonb, '[]'::jsonb)) AS activity
   WHERE 
     activity->>'block_name' IS NOT NULL
     AND activity->>'block_name' != ''
