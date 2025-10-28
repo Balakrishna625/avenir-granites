@@ -96,9 +96,9 @@ const menuItems: MenuItem[] = [
         icon: <BarChart3 className="w-4 h-4" />
       },
       {
-        title: 'New Consignment',
-        href: '/consignments/new',
-        icon: <Building2 className="w-4 h-4" />
+        title: 'Consignment Grouping',
+        href: '/consignments/grouping',
+        icon: <Users className="w-4 h-4" />
       },
       {
         title: 'Slab Processing',
