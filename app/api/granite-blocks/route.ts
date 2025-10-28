@@ -39,15 +39,23 @@ export async function POST(req: Request) {
     // Check if this is a bulk insert request
     if (body.blocks && Array.isArray(body.blocks)) {
       // Bulk insert
-      const blocksToInsert = body.blocks.map((block: any) => ({
-        consignment_id: block.consignment_id,
-        block_no: block.block_no.toUpperCase(),
-        gross_measurement: parseFloat(block.gross_measurement) || 0,
-        net_measurement: parseFloat(block.net_measurement) || 0,
-        grade: block.grade || 'S/G',
-        status: block.status || 'AVAILABLE',
-        marker_measurement: block.marker_measurement ? parseFloat(block.marker_measurement) : undefined
-      }));
+      const blocksToInsert = body.blocks.map((block: any) => {
+        const insertData: any = {
+          consignment_id: block.consignment_id,
+          block_no: block.block_no.toUpperCase(),
+          gross_measurement: parseFloat(block.gross_measurement) || 0,
+          net_measurement: parseFloat(block.net_measurement) || 0,
+          grade: block.grade || 'S/G',
+          status: block.status || 'RAW' // Valid status: RAW, CUTTING, CUT, SOLD
+        };
+        
+        // Only add marker_measurement if it exists and has a value
+        if (block.marker_measurement !== undefined && block.marker_measurement !== null) {
+          insertData.marker_measurement = parseFloat(block.marker_measurement);
+        }
+        
+        return insertData;
+      });
 
       console.log('Bulk inserting blocks:', blocksToInsert);
 
@@ -68,24 +76,23 @@ export async function POST(req: Request) {
     // Single block insert
     const { consignment_id, block_no, gross_measurement, net_measurement, elavance, grade, marker_measurement, status } = body;
 
-    if (!consignment_id || !block_no || !gross_measurement || !net_measurement) {
+    if (!consignment_id || !block_no || gross_measurement === undefined || net_measurement === undefined) {
       console.log('Missing required fields:', { consignment_id, block_no, gross_measurement, net_measurement });
       return NextResponse.json({ error: "Required fields missing" }, { status: 400 });
     }
 
-    // Prepare insert data - include marker_measurement if provided, otherwise use net_measurement as default
+    // Prepare insert data
     const insertData: any = {
       consignment_id,
       block_no: block_no.toUpperCase(), // Always save block numbers in uppercase
       gross_measurement: parseFloat(gross_measurement),
       net_measurement: parseFloat(net_measurement),
-      // Don't include elavance - it's a computed column that calculates automatically
-      grade,
-      status: status || 'AVAILABLE'
+      grade: grade || 'S/G', // Default grade if not provided
+      status: status || 'RAW' // Valid status: RAW, CUTTING, CUT, SOLD
     };
 
-    // Add marker_measurement if the field exists (for new schema)
-    if (marker_measurement !== undefined) {
+    // Add marker_measurement only if it exists and has a value
+    if (marker_measurement !== undefined && marker_measurement !== null && marker_measurement !== '') {
       insertData.marker_measurement = parseFloat(marker_measurement);
     }
 

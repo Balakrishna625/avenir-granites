@@ -70,8 +70,8 @@ export default function AddConsignmentPage() {
   const generateConsignmentNumber = () => {
     const today = new Date()
     const dateStr = today.toISOString().slice(2, 10).replace(/-/g, '')
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-    setFormData(prev => ({ ...prev, consignment_number: `CON-${dateStr}-${random}` }))
+    const timestamp = Date.now().toString().slice(-4) // Last 4 digits of timestamp
+    setFormData(prev => ({ ...prev, consignment_number: `CON-${dateStr}-${timestamp}` }))
   }
 
   const addBlock = () => {
@@ -135,6 +135,11 @@ export default function AddConsignmentPage() {
 
       if (!consignmentResponse.ok) {
         const error = await consignmentResponse.json()
+        if (error.error?.includes('duplicate key') || error.error?.includes('already exists')) {
+          showToast('error', 'Consignment number already exists. Please use a different number.')
+        } else {
+          showToast('error', error.error || 'Failed to create consignment')
+        }
         throw new Error(error.error || 'Failed to create consignment')
       }
 
@@ -147,7 +152,7 @@ export default function AddConsignmentPage() {
         grade: block.grade,
         gross_measurement: parseFloat(block.gross_measurement.toString()) || 0,
         net_measurement: parseFloat(block.net_measurement.toString()) || 0,
-        status: 'AVAILABLE'
+        status: 'RAW' // Valid status: RAW, CUTTING, CUT, SOLD
       }))
 
       const blocksResponse = await fetch('/api/granite-blocks', {
@@ -201,11 +206,22 @@ export default function AddConsignmentPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Consignment Number *</label>
-                  <Input
-                    value={formData.consignment_number}
-                    onChange={(e) => setFormData({ ...formData, consignment_number: e.target.value })}
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={formData.consignment_number}
+                      onChange={(e) => setFormData({ ...formData, consignment_number: e.target.value })}
+                      required
+                      className="flex-1"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={generateConsignmentNumber}
+                      title="Generate new number"
+                    >
+                      🔄
+                    </Button>
+                  </div>
                 </div>
 
                 <div>
