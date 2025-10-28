@@ -99,13 +99,13 @@ export default function MultiCutterPage() {
   const initialFormState: FormData = useMemo(() => ({
     date: new Date().toISOString().split('T')[0],
     machine1: {
-      blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
+      blockRows: [{ id: crypto.randomUUID(), block_name: 'AVG-', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
     },
     machine2: {
-      blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
+      blockRows: [{ id: crypto.randomUUID(), block_name: 'AVG-', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
     },
     machine3: {
-      blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
+      blockRows: [{ id: crypto.randomUUID(), block_name: 'AVG-', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
     }
   }), []); // Empty dependency array - only create once
 
@@ -265,7 +265,7 @@ export default function MultiCutterPage() {
       [machine]: {
         blockRows: [...prev[machine].blockRows, { 
           id: crypto.randomUUID(), 
-          block_name: '', 
+          block_name: 'AVG-', 
           material_type: 'S/G', 
           slabs: '', 
           sqft: '',
@@ -371,13 +371,13 @@ export default function MultiCutterPage() {
     const freshFormData: FormData = {
       date: new Date().toISOString().split('T')[0],
       machine1: {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: 'AVG-', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       },
       machine2: {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: 'AVG-', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       },
       machine3: {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: 'AVG-', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       }
     };
     setFormData(freshFormData);
@@ -422,7 +422,7 @@ export default function MultiCutterPage() {
           notes: b.notes || ''
         }))
       } : {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: 'AVG-', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       },
       machine2: machineKey === 'machine2' ? {
         blockRows: report.blocks.map(b => ({
@@ -434,7 +434,7 @@ export default function MultiCutterPage() {
           notes: b.notes || ''
         }))
       } : {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: 'AVG-', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       },
       machine3: machineKey === 'machine3' ? {
         blockRows: report.blocks.map(b => ({
@@ -446,7 +446,7 @@ export default function MultiCutterPage() {
           notes: b.notes || ''
         }))
       } : {
-        blockRows: [{ id: crypto.randomUUID(), block_name: '', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
+        blockRows: [{ id: crypto.randomUUID(), block_name: 'AVG-', material_type: 'S/G', slabs: '', sqft: '', notes: '' }]
       }
     };
     

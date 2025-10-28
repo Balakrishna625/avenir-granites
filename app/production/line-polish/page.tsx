@@ -144,7 +144,7 @@ export default function LinePolishPage() {
     activityRows: [
       {
         id: crypto.randomUUID(),
-        block_name: '',
+        block_name: 'AVG-',
         activity: 'S/G Polishing',
         number_of_slabs: '',
         total_sqft: ''
@@ -299,7 +299,7 @@ export default function LinePolishPage() {
         ...prev.activityRows,
         {
           id: crypto.randomUUID(),
-          block_name: '',
+          block_name: 'AVG-',
           activity: 'S/G Polishing',
           number_of_slabs: '',
           total_sqft: ''
@@ -437,7 +437,7 @@ export default function LinePolishPage() {
       activityRows = [
         {
           id: crypto.randomUUID(),
-          block_name: '',
+          block_name: 'AVG-',
           activity: 'S/G Polishing' as ActivityType, // Default to a valid type
           number_of_slabs: (report.number_of_slabs || 0).toString(),
           total_sqft: (report.total_sqft || 0).toString()
