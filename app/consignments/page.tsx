@@ -6,10 +6,11 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { SortButton } from '@/components/ui/SortButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Package, TrendingUp, DollarSign, Truck } from 'lucide-react';
+import { Plus, Search, Package, TrendingUp, DollarSign, Truck, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/AppLayout';
 import { formatDisplayDate } from '@/lib/date-utils';
+import { BlockProductionSummary } from '@/components/BlockProductionSummary';
 
 interface Supplier {
   id: string;
@@ -41,6 +42,7 @@ export default function ConsignmentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [error, setError] = useState<string | null>(null);
+  const [expandedConsignments, setExpandedConsignments] = useState<Set<string>>(new Set());
 
   const totalConsignments = consignments.length;
   const totalBlocks = consignments.reduce((sum, c) => sum + (c.total_blocks || 0), 0);
@@ -136,6 +138,18 @@ export default function ConsignmentsPage() {
       console.error('Error deleting consignment:', error);
       alert('Failed to delete consignment. Please try again.');
     }
+  };
+
+  const toggleConsignment = (consignmentId: string) => {
+    setExpandedConsignments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(consignmentId)) {
+        newSet.delete(consignmentId);
+      } else {
+        newSet.add(consignmentId);
+      }
+      return newSet;
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -257,6 +271,9 @@ export default function ConsignmentsPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                  {/* Expand column */}
+                </th>
                 <th className="px-6 py-3 text-xs uppercase tracking-wider">
                   <SortButton column="consignment_number" sortConfig={consignmentsSortConfig} onSort={requestConsignmentsSort} label="Consignment" align="left" />
                 </th>
@@ -284,51 +301,76 @@ export default function ConsignmentsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sortedConsignments.map((consignment) => (
-                <tr key={consignment.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{consignment.consignment_number}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-gray-900">{consignment.supplier?.name}</div>
-                    <div className="text-sm text-gray-500">{consignment.supplier?.contact_person}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                    {formatDisplayDate(consignment.arrival_date)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                    {consignment.total_blocks || 0}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                    {(consignment.total_net_measurement || 0).toFixed(1)}m
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-900">
-                    ₹{(consignment.total_expenditure || 0).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(consignment.status)}`}>
-                      {consignment.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex gap-2">
-                      <Link href={`/consignments/${consignment.id}`}>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                      </Link>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleDeleteConsignment(consignment.id)}
-                        className="text-red-600 hover:text-red-800 border-red-200 hover:border-red-300"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {sortedConsignments.map((consignment) => {
+                const isExpanded = expandedConsignments.has(consignment.id);
+                return (
+                  <>
+                    <tr key={consignment.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => toggleConsignment(consignment.id)}
+                          className="p-1 hover:bg-gray-200 rounded transition-colors"
+                          title="View production details"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-5 w-5 text-gray-600" />
+                          ) : (
+                            <ChevronDown className="h-5 w-5 text-gray-600" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900">{consignment.consignment_number}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-gray-900">{consignment.supplier?.name}</div>
+                        <div className="text-sm text-gray-500">{consignment.supplier?.contact_person}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                        {formatDisplayDate(consignment.arrival_date)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                        {consignment.total_blocks || 0}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                        {(consignment.total_net_measurement || 0).toFixed(1)}m
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                        ₹{(consignment.total_expenditure || 0).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(consignment.status)}`}>
+                          {consignment.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex gap-2">
+                          <Link href={`/consignments/${consignment.id}`}>
+                            <Button variant="outline" size="sm">
+                              View Details
+                            </Button>
+                          </Link>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDeleteConsignment(consignment.id)}
+                            className="text-red-600 hover:text-red-800 border-red-200 hover:border-red-300"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={9} className="px-6 py-4 bg-gray-50">
+                          <BlockProductionSummary consignmentId={consignment.id} />
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
             </tbody>
           </table>
         </div>
