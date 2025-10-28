@@ -61,8 +61,10 @@ export async function GET(
         arrival_date: consignment.arrival_date,
         total_blocks: consignment.total_blocks,
         blocks_with_production: 0,
-        consignment_total_sqft: 0,
-        consignment_total_slabs: 0,
+        consignment_multi_cutter_sqft: 0,
+        consignment_multi_cutter_slabs: 0,
+        consignment_line_polish_sqft: 0,
+        consignment_line_polish_slabs: 0,
         consignment_expected_sqft: consignment.granite_blocks.reduce(
           (sum: number, block: any) => sum + (block.gross_measurement * 300),
           0
@@ -72,8 +74,10 @@ export async function GET(
         blocks_details: consignment.granite_blocks.map((block: any) => ({
           block_no: block.block_no,
           block_id: block.id,
-          total_sqft: 0,
-          total_slabs: 0,
+          multi_cutter_sqft: 0,
+          multi_cutter_slabs: 0,
+          line_polish_sqft: 0,
+          line_polish_slabs: 0,
           number_of_parts: 0,
           parts_list: [],
           parts_details: [],

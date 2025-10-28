@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 
 interface BlockPart {
   part: string;
-  sqft: number;
-  slabs: number;
+  multi_cutter_sqft: number;
+  multi_cutter_slabs: number;
+  line_polish_sqft: number;
+  line_polish_slabs: number;
   sources: string[];
   first_production_date: string;
   last_production_date: string;
@@ -18,8 +20,10 @@ interface BlockPart {
 interface BlockDetail {
   block_no: string;
   block_id: string;
-  total_sqft: number;
-  total_slabs: number;
+  multi_cutter_sqft: number;
+  multi_cutter_slabs: number;
+  line_polish_sqft: number;
+  line_polish_slabs: number;
   number_of_parts: number;
   parts_list: string[];
   parts_details: BlockPart[];
@@ -34,8 +38,10 @@ interface ProductionSummary {
   arrival_date: string;
   total_blocks: number;
   blocks_with_production: number;
-  consignment_total_sqft: number;
-  consignment_total_slabs: number;
+  consignment_multi_cutter_sqft: number;
+  consignment_multi_cutter_slabs: number;
+  consignment_line_polish_sqft: number;
+  consignment_line_polish_slabs: number;
   consignment_expected_sqft: number;
   consignment_sqft_variance: number;
   avg_production_efficiency: number;
@@ -131,7 +137,7 @@ export function BlockProductionSummary({ consignmentId }: BlockProductionSummary
     return null;
   }
 
-  const hasProduction = data.consignment_total_sqft > 0;
+  const hasProduction = data.consignment_multi_cutter_sqft > 0 || data.consignment_line_polish_sqft > 0;
 
   return (
     <div className="space-y-4">
@@ -142,7 +148,7 @@ export function BlockProductionSummary({ consignmentId }: BlockProductionSummary
           Production Summary
         </h3>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-gray-600">Total Blocks</p>
             <p className="text-2xl font-bold text-blue-700">{data.total_blocks}</p>
@@ -153,12 +159,19 @@ export function BlockProductionSummary({ consignmentId }: BlockProductionSummary
             <p className="text-2xl font-bold text-green-700">{data.blocks_with_production}</p>
           </div>
           
-          <div className="p-4 bg-purple-50 rounded-lg">
-            <p className="text-sm text-gray-600">Total SqFt Produced</p>
-            <p className="text-2xl font-bold text-purple-700">{formatNumber(data.consignment_total_sqft)}</p>
+          <div className="p-4 bg-orange-50 rounded-lg border-2 border-orange-200">
+            <p className="text-sm text-gray-600 font-medium">Multi-Cutter SqFt</p>
+            <p className="text-2xl font-bold text-orange-700">{formatNumber(data.consignment_multi_cutter_sqft)}</p>
+            <p className="text-xs text-gray-500 mt-1">Cut stage</p>
+          </div>
+
+          <div className="p-4 bg-purple-50 rounded-lg border-2 border-purple-200">
+            <p className="text-sm text-gray-600 font-medium">Line-Polish SqFt</p>
+            <p className="text-2xl font-bold text-purple-700">{formatNumber(data.consignment_line_polish_sqft)}</p>
+            <p className="text-xs text-gray-500 mt-1">Polish stage</p>
           </div>
           
-          <div className="p-4 bg-orange-50 rounded-lg">
+          <div className="p-4 bg-indigo-50 rounded-lg">
             <p className="text-sm text-gray-600">Avg Efficiency</p>
             <p className={`text-2xl font-bold ${getEfficiencyColor(data.avg_production_efficiency)}`}>
               {data.avg_production_efficiency.toFixed(1)}%
@@ -217,17 +230,19 @@ export function BlockProductionSummary({ consignmentId }: BlockProductionSummary
                           <p className="font-semibold">{block.number_of_parts}</p>
                         </div>
                         
-                        <div>
-                          <p className="text-sm text-gray-600">Total SqFt</p>
-                          <p className="font-semibold text-blue-700">{formatNumber(block.total_sqft)}</p>
+                        <div className="border-l-2 border-orange-200 pl-4">
+                          <p className="text-sm text-orange-600 font-medium">Multi-Cutter</p>
+                          <p className="font-semibold text-orange-700">{formatNumber(block.multi_cutter_sqft)} SqFt</p>
+                          <p className="text-xs text-gray-500">{block.multi_cutter_slabs} slabs</p>
+                        </div>
+
+                        <div className="border-l-2 border-purple-200 pl-4">
+                          <p className="text-sm text-purple-600 font-medium">Line-Polish</p>
+                          <p className="font-semibold text-purple-700">{formatNumber(block.line_polish_sqft)} SqFt</p>
+                          <p className="text-xs text-gray-500">{block.line_polish_slabs} slabs</p>
                         </div>
                         
-                        <div>
-                          <p className="text-sm text-gray-600">Total Slabs</p>
-                          <p className="font-semibold">{block.total_slabs}</p>
-                        </div>
-                        
-                        <div>
+                        <div className="border-l-2 border-gray-200 pl-4">
                           <p className="text-sm text-gray-600">Expected SqFt</p>
                           <p className="font-semibold text-gray-500">{formatNumber(block.expected_sqft)}</p>
                         </div>
@@ -244,15 +259,30 @@ export function BlockProductionSummary({ consignmentId }: BlockProductionSummary
                   {/* Parts Details (Expandable) */}
                   {isExpanded && hasParts && (
                     <div className="p-4 bg-gray-50 border-t">
+                      <div className="mb-3 flex items-center gap-2 text-sm text-gray-600">
+                        <span className="font-medium">Production Flow:</span>
+                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded">Multi-Cutter (Cut)</span>
+                        <span>→</span>
+                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">Line-Polish (Polish)</span>
+                      </div>
                       <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
                             <tr className="border-b">
                               <th className="text-left py-2 px-4 font-semibold text-sm text-gray-700">Part</th>
-                              <th className="text-right py-2 px-4 font-semibold text-sm text-gray-700">SqFt</th>
-                              <th className="text-right py-2 px-4 font-semibold text-sm text-gray-700">Slabs</th>
+                              <th colSpan={2} className="text-center py-2 px-4 font-semibold text-sm text-orange-700 bg-orange-50">Multi-Cutter</th>
+                              <th colSpan={2} className="text-center py-2 px-4 font-semibold text-sm text-purple-700 bg-purple-50">Line-Polish</th>
                               <th className="text-left py-2 px-4 font-semibold text-sm text-gray-700">Source</th>
                               <th className="text-left py-2 px-4 font-semibold text-sm text-gray-700">Production Dates</th>
+                            </tr>
+                            <tr className="border-b text-xs">
+                              <th className="py-2 px-4"></th>
+                              <th className="text-right py-2 px-2 text-gray-600 bg-orange-50">SqFt</th>
+                              <th className="text-right py-2 px-2 text-gray-600 bg-orange-50">Slabs</th>
+                              <th className="text-right py-2 px-2 text-gray-600 bg-purple-50">SqFt</th>
+                              <th className="text-right py-2 px-2 text-gray-600 bg-purple-50">Slabs</th>
+                              <th className="py-2 px-4"></th>
+                              <th className="py-2 px-4"></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -263,18 +293,30 @@ export function BlockProductionSummary({ consignmentId }: BlockProductionSummary
                                     {part.part}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-right font-semibold text-blue-700">
-                                  {formatNumber(part.sqft)}
+                                {/* Multi-Cutter Data */}
+                                <td className="py-3 px-2 text-right font-semibold text-orange-700 bg-orange-50">
+                                  {part.multi_cutter_sqft > 0 ? formatNumber(part.multi_cutter_sqft) : '-'}
                                 </td>
-                                <td className="py-3 px-4 text-right font-medium">
-                                  {part.slabs}
+                                <td className="py-3 px-2 text-right font-medium text-orange-600 bg-orange-50">
+                                  {part.multi_cutter_slabs > 0 ? part.multi_cutter_slabs : '-'}
+                                </td>
+                                {/* Line-Polish Data */}
+                                <td className="py-3 px-2 text-right font-semibold text-purple-700 bg-purple-50">
+                                  {part.line_polish_sqft > 0 ? formatNumber(part.line_polish_sqft) : '-'}
+                                </td>
+                                <td className="py-3 px-2 text-right font-medium text-purple-600 bg-purple-50">
+                                  {part.line_polish_slabs > 0 ? part.line_polish_slabs : '-'}
                                 </td>
                                 <td className="py-3 px-4">
                                   <div className="flex gap-1">
                                     {part.sources.map((source, idx) => (
                                       <span
                                         key={idx}
-                                        className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium"
+                                        className={`px-2 py-1 rounded text-xs font-medium ${
+                                          source === 'multi_cutter' 
+                                            ? 'bg-orange-100 text-orange-700' 
+                                            : 'bg-purple-100 text-purple-700'
+                                        }`}
                                       >
                                         {source.replace('_', '-')}
                                       </span>
@@ -291,10 +333,12 @@ export function BlockProductionSummary({ consignmentId }: BlockProductionSummary
                             ))}
                           </tbody>
                           <tfoot>
-                            <tr className="bg-blue-50 font-semibold">
+                            <tr className="bg-gray-100 font-semibold border-t-2">
                               <td className="py-3 px-4">Total</td>
-                              <td className="py-3 px-4 text-right text-blue-700">{formatNumber(block.total_sqft)}</td>
-                              <td className="py-3 px-4 text-right">{block.total_slabs}</td>
+                              <td className="py-3 px-2 text-right text-orange-700 bg-orange-100">{formatNumber(block.multi_cutter_sqft)}</td>
+                              <td className="py-3 px-2 text-right text-orange-600 bg-orange-100">{block.multi_cutter_slabs}</td>
+                              <td className="py-3 px-2 text-right text-purple-700 bg-purple-100">{formatNumber(block.line_polish_sqft)}</td>
+                              <td className="py-3 px-2 text-right text-purple-600 bg-purple-100">{block.line_polish_slabs}</td>
                               <td colSpan={2} className="py-3 px-4"></td>
                             </tr>
                           </tfoot>

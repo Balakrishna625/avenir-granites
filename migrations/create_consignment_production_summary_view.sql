@@ -81,35 +81,18 @@
         AND (activity::jsonb)->>'block_name' != ''
     ),
 
-    -- Combine both sources
-    all_production AS (
-    SELECT * FROM multi_cutter_data
-    UNION ALL
-    SELECT 
-        full_block_name,
-        base_block_name,
-        part_letter,
-        sqft,
-        slabs,
-        activity_type AS material_type,
-        production_date,
-        source
-    FROM line_polish_data
-    ),
-
-    -- Aggregate by block and part
-    block_part_aggregation AS (
+    -- Aggregate multi-cutter data by block and part
+    multi_cutter_aggregation AS (
     SELECT 
         base_block_name,
         part_letter,
-        SUM(sqft) AS total_sqft,
-        SUM(slabs) AS total_slabs,
-        array_agg(DISTINCT source) AS sources,
+        SUM(sqft) AS multi_cutter_sqft,
+        SUM(slabs) AS multi_cutter_slabs,
         MIN(production_date) AS first_production_date,
         MAX(production_date) AS last_production_date,
         COUNT(*) AS production_entries
     FROM 
-        all_production
+        multi_cutter_data
     WHERE
         base_block_name IS NOT NULL 
         AND base_block_name != ''
@@ -118,12 +101,58 @@
         part_letter
     ),
 
+    -- Aggregate line-polish data by block and part
+    line_polish_aggregation AS (
+    SELECT 
+        base_block_name,
+        part_letter,
+        SUM(sqft) AS line_polish_sqft,
+        SUM(slabs) AS line_polish_slabs,
+        MIN(production_date) AS first_production_date,
+        MAX(production_date) AS last_production_date,
+        COUNT(*) AS production_entries
+    FROM 
+        line_polish_data
+    WHERE
+        base_block_name IS NOT NULL 
+        AND base_block_name != ''
+    GROUP BY 
+        base_block_name, 
+        part_letter
+    ),
+
+    -- Combine multi-cutter and line-polish keeping them separate
+    block_part_aggregation AS (
+    SELECT 
+        COALESCE(mc.base_block_name, lp.base_block_name) AS base_block_name,
+        COALESCE(mc.part_letter, lp.part_letter) AS part_letter,
+        COALESCE(mc.multi_cutter_sqft, 0) AS multi_cutter_sqft,
+        COALESCE(mc.multi_cutter_slabs, 0) AS multi_cutter_slabs,
+        COALESCE(lp.line_polish_sqft, 0) AS line_polish_sqft,
+        COALESCE(lp.line_polish_slabs, 0) AS line_polish_slabs,
+        CASE 
+            WHEN mc.base_block_name IS NOT NULL AND lp.base_block_name IS NOT NULL THEN ARRAY['multi_cutter', 'line_polish']
+            WHEN mc.base_block_name IS NOT NULL THEN ARRAY['multi_cutter']
+            ELSE ARRAY['line_polish']
+        END AS sources,
+        LEAST(mc.first_production_date, lp.first_production_date) AS first_production_date,
+        GREATEST(mc.last_production_date, lp.last_production_date) AS last_production_date,
+        COALESCE(mc.production_entries, 0) + COALESCE(lp.production_entries, 0) AS production_entries
+    FROM 
+        multi_cutter_aggregation mc
+    FULL OUTER JOIN line_polish_aggregation lp 
+        ON mc.base_block_name = lp.base_block_name 
+        AND mc.part_letter = lp.part_letter
+    ),
+
     -- Get block-level totals
     block_totals AS (
     SELECT 
         base_block_name,
-        SUM(total_sqft) AS block_total_sqft,
-        SUM(total_slabs) AS block_total_slabs,
+        SUM(multi_cutter_sqft) AS block_multi_cutter_sqft,
+        SUM(multi_cutter_slabs) AS block_multi_cutter_slabs,
+        SUM(line_polish_sqft) AS block_line_polish_sqft,
+        SUM(line_polish_slabs) AS block_line_polish_slabs,
         COUNT(DISTINCT part_letter) AS number_of_parts,
         array_agg(DISTINCT part_letter ORDER BY part_letter) AS parts_list
     FROM 
@@ -144,9 +173,11 @@
     gb.gross_measurement,
     gb.net_measurement,
     gb.status AS block_status,
-    -- Production data
-    COALESCE(bt.block_total_sqft, 0) AS total_sqft_produced,
-    COALESCE(bt.block_total_slabs, 0) AS total_slabs_produced,
+    -- Production data - SEPARATED by source
+    COALESCE(bt.block_multi_cutter_sqft, 0) AS multi_cutter_sqft,
+    COALESCE(bt.block_multi_cutter_slabs, 0) AS multi_cutter_slabs,
+    COALESCE(bt.block_line_polish_sqft, 0) AS line_polish_sqft,
+    COALESCE(bt.block_line_polish_slabs, 0) AS line_polish_slabs,
     COALESCE(bt.number_of_parts, 0) AS number_of_parts,
     bt.parts_list,
     -- Part-level details as JSONB array
@@ -154,8 +185,10 @@
         (SELECT jsonb_agg(
         jsonb_build_object(
             'part', bpa.part_letter,
-            'sqft', bpa.total_sqft,
-            'slabs', bpa.total_slabs,
+            'multi_cutter_sqft', bpa.multi_cutter_sqft,
+            'multi_cutter_slabs', bpa.multi_cutter_slabs,
+            'line_polish_sqft', bpa.line_polish_sqft,
+            'line_polish_slabs', bpa.line_polish_slabs,
             'sources', bpa.sources,
             'first_production_date', bpa.first_production_date,
             'last_production_date', bpa.last_production_date,
@@ -166,15 +199,15 @@
         WHERE bpa.base_block_name = gb.block_no),
         '[]'::jsonb
     ) AS parts_details,
-    -- Calculate production efficiency
+    -- Calculate production efficiency based on line-polish (final stage)
     CASE 
         WHEN gb.gross_measurement > 0 THEN 
-        ROUND((COALESCE(bt.block_total_sqft, 0) / (gb.gross_measurement * 300)) * 100, 2)
+        ROUND((COALESCE(bt.block_line_polish_sqft, 0) / (gb.gross_measurement * 300)) * 100, 2)
         ELSE 0
     END AS production_efficiency_percentage,
-    -- Expected vs actual
+    -- Expected vs actual (comparing line-polish as final output)
     ROUND(gb.gross_measurement * 300, 2) AS expected_sqft,
-    ROUND(COALESCE(bt.block_total_sqft, 0) - (gb.gross_measurement * 300), 2) AS sqft_variance
+    ROUND(COALESCE(bt.block_line_polish_sqft, 0) - (gb.gross_measurement * 300), 2) AS sqft_variance
     FROM 
     granite_consignments gc
     INNER JOIN granite_blocks gb ON gc.id = gb.consignment_id
@@ -197,9 +230,11 @@
     supplier_id,
     arrival_date,
     COUNT(block_id) AS total_blocks,
-    COUNT(block_id) FILTER (WHERE total_sqft_produced > 0) AS blocks_with_production,
-    SUM(total_sqft_produced) AS consignment_total_sqft,
-    SUM(total_slabs_produced) AS consignment_total_slabs,
+    COUNT(block_id) FILTER (WHERE multi_cutter_sqft > 0 OR line_polish_sqft > 0) AS blocks_with_production,
+    SUM(multi_cutter_sqft) AS consignment_multi_cutter_sqft,
+    SUM(multi_cutter_slabs) AS consignment_multi_cutter_slabs,
+    SUM(line_polish_sqft) AS consignment_line_polish_sqft,
+    SUM(line_polish_slabs) AS consignment_line_polish_slabs,
     SUM(expected_sqft) AS consignment_expected_sqft,
     SUM(sqft_variance) AS consignment_sqft_variance,
     ROUND(AVG(production_efficiency_percentage), 2) AS avg_production_efficiency,
@@ -208,8 +243,10 @@
         jsonb_build_object(
         'block_no', block_no,
         'block_id', block_id,
-        'total_sqft', total_sqft_produced,
-        'total_slabs', total_slabs_produced,
+        'multi_cutter_sqft', multi_cutter_sqft,
+        'multi_cutter_slabs', multi_cutter_slabs,
+        'line_polish_sqft', line_polish_sqft,
+        'line_polish_slabs', line_polish_slabs,
         'number_of_parts', number_of_parts,
         'parts_list', parts_list,
         'parts_details', parts_details,
