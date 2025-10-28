@@ -79,25 +79,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // If settlement includes payment, create a transaction record
-    if (settlementAmount > 0 && settlementMode !== 'PARTIAL_WAIVER') {
-      // Get default bank account
-      const { data: accounts } = await supabaseAdmin
-        .from('bank_accounts')
-        .select('id')
-        .limit(1);
-
-      if (accounts && accounts.length > 0) {
-        await supabaseAdmin.from('transactions').insert({
-          customer_id: customerId,
-          date: new Date().toISOString().split('T')[0],
-          mode: settlementMode === 'CASH' ? 'CASH' : 'RTGS',
-          account_id: accounts[0].id,
-          amount: settlementAmount,
-          note: `Settlement payment - ${settlementNotes || 'Account settled'}`
-        });
-      }
-    }
+    // BUG FIX (2025-10-28): Removed duplicate transaction creation
+    // Problem: Creating a transaction here caused:
+    // 1. Double-counting in total_received (settlement amount added twice)
+    // 2. Duplicate RTGS transaction appearing on current page after settlement
+    // 3. Incorrect settlement history data
+    // 
+    // Solution: The database function settle_customer_account() already records
+    // the settlement_amount in the customer_account_periods table. We don't need
+    // to create a separate transaction record here.
+    //
+    // REMOVED CODE (Lines 82-100):
+    // if (settlementAmount > 0 && settlementMode !== 'PARTIAL_WAIVER') {
+    //   const { data: accounts } = await supabaseAdmin
+    //     .from('bank_accounts')
+    //     .select('id')
+    //     .limit(1);
+    //   if (accounts && accounts.length > 0) {
+    //     await supabaseAdmin.from('transactions').insert({
+    //       customer_id: customerId,
+    //       date: new Date().toISOString().split('T')[0],
+    //       mode: settlementMode === 'CASH' ? 'CASH' : 'RTGS',
+    //       account_id: accounts[0].id,
+    //       amount: settlementAmount,
+    //       note: `Settlement payment - ${settlementNotes || 'Account settled'}`
+    //     });
+    //   }
+    // }
 
     return NextResponse.json({
       success: true,
