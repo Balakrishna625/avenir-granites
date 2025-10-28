@@ -8,6 +8,26 @@
 --          including individual parts (A, B, C, etc.)
 -- ============================================================================
 
+-- PREREQUISITE: Ensure the activities column exists in line_polish_reports
+-- If it doesn't exist, add it now
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'line_polish_reports' 
+    AND column_name = 'activities'
+  ) THEN
+    ALTER TABLE line_polish_reports 
+      ADD COLUMN activities JSONB DEFAULT '[]'::jsonb;
+    
+    CREATE INDEX IF NOT EXISTS line_polish_reports_activities_idx 
+      ON line_polish_reports USING gin(activities);
+    
+    COMMENT ON COLUMN line_polish_reports.activities IS 
+      'JSONB array of activity objects with block_name, activity, slabs, and sqft';
+  END IF;
+END $$;
+
 -- First, create a helper function to extract the base block name
 -- Example: "AVG-1A" -> "AVG-1", "AVG-12B" -> "AVG-12"
 CREATE OR REPLACE FUNCTION extract_base_block_name(block_name TEXT)
@@ -51,12 +71,13 @@ multi_cutter_data AS (
     AND block->>'block_name' != ''
 ),
 
--- Extract line-polish production data  
+-- Extract line-polish production data
+-- Now that activities column is guaranteed to exist and be JSONB
 line_polish_data AS (
   SELECT 
     activity->>'block_name' AS full_block_name,
     extract_base_block_name(activity->>'block_name') AS base_block_name,
-    RIGHT(activity->>'block_name', 1) AS part_letter, -- Extract last character
+    RIGHT(activity->>'block_name', 1) AS part_letter,
     (activity->>'sqft')::numeric AS sqft,
     (activity->>'slabs')::integer AS slabs,
     activity->>'activity' AS activity_type,
@@ -64,7 +85,7 @@ line_polish_data AS (
     'line_polish' AS source
   FROM 
     line_polish_reports,
-    LATERAL jsonb_array_elements(COALESCE(activities::jsonb, '[]'::jsonb)) AS activity
+    LATERAL jsonb_array_elements(activities) AS activity
   WHERE 
     activity->>'block_name' IS NOT NULL
     AND activity->>'block_name' != ''
