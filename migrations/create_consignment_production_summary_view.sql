@@ -59,20 +59,26 @@
     -- Now that activities column is guaranteed to exist and be JSONB
     line_polish_data AS (
     SELECT 
-        activity->>'block_name' AS full_block_name,
-        extract_base_block_name(activity->>'block_name') AS base_block_name,
-        RIGHT(activity->>'block_name', 1) AS part_letter,
-        (activity->>'sqft')::numeric AS sqft,
-        (activity->>'slabs')::integer AS slabs,
-        activity->>'activity' AS activity_type,
+        (activity::jsonb)->>'block_name' AS full_block_name,
+        extract_base_block_name((activity::jsonb)->>'block_name') AS base_block_name,
+        RIGHT((activity::jsonb)->>'block_name', 1) AS part_letter,
+        ((activity::jsonb)->>'sqft')::numeric AS sqft,
+        ((activity::jsonb)->>'slabs')::integer AS slabs,
+        (activity::jsonb)->>'activity' AS activity_type,
         date AS production_date,
         'line_polish' AS source
     FROM 
-        line_polish_reports,
-        LATERAL jsonb_array_elements(activities) AS activity
+        line_polish_reports
+        CROSS JOIN LATERAL jsonb_array_elements(
+            CASE 
+                WHEN jsonb_typeof(line_polish_reports.activities) = 'array' 
+                THEN line_polish_reports.activities
+                ELSE '[]'::jsonb
+            END
+        ) AS activity
     WHERE 
-        activity->>'block_name' IS NOT NULL
-        AND activity->>'block_name' != ''
+        (activity::jsonb)->>'block_name' IS NOT NULL
+        AND (activity::jsonb)->>'block_name' != ''
     ),
 
     -- Combine both sources
