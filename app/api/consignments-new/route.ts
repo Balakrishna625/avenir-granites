@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 // GET - Fetch consignments with filters
 export async function GET(request: NextRequest) {
   try {
+    const supabase = supabaseAdmin;
     const searchParams = request.nextUrl.searchParams;
     const month = searchParams.get('month');
     const year = searchParams.get('year');
@@ -59,6 +55,7 @@ export async function GET(request: NextRequest) {
 // POST - Create new consignment
 export async function POST(request: NextRequest) {
   try {
+    const supabase = supabaseAdmin;
     const body = await request.json();
     const {
       purchase_date,
@@ -163,6 +160,7 @@ export async function POST(request: NextRequest) {
 // PUT - Update consignment
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = supabaseAdmin;
     const body = await request.json();
     const { id, ...updateData } = body;
 
@@ -207,6 +205,7 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete consignment
 export async function DELETE(request: NextRequest) {
   try {
+    const supabase = supabaseAdmin;
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
 
