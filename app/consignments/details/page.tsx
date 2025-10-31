@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { AppLayout } from '@/components/AppLayout'
+import { toast, Toaster } from 'sonner'
 
 interface BlockRow {
   id: string
@@ -169,7 +170,7 @@ export default function ConsignmentDetailsPage() {
   const handleSaveConsignment = async () => {
     // Validation
     if (!formData.quarry_name) {
-      alert('Please select a quarry')
+      toast.error('Please select a quarry')
       return
     }
 
@@ -181,7 +182,7 @@ export default function ConsignmentDetailsPage() {
     )
 
     if (validBlocks.length === 0) {
-      alert('Please add at least one block with measurements')
+      toast.error('Please add at least one block with measurements')
       return
     }
 
@@ -213,16 +214,18 @@ export default function ConsignmentDetailsPage() {
       const result = await response.json()
 
       if (response.ok) {
-        alert(`Consignment ${editingConsignment ? 'updated' : 'saved'} successfully!`)
+        toast.success(`Consignment ${editingConsignment ? 'updated' : 'saved'} successfully!`)
+        setShowAddForm(false)
+        setEditingConsignment(null)
         resetForm()
         fetchConsignments()
         fetchStats()
       } else {
-        alert(`Error: ${result.error}`)
+        toast.error(`Error: ${result.error}`)
       }
     } catch (error) {
       console.error('Error saving consignment:', error)
-      alert('Failed to save consignment')
+      toast.error('Failed to save consignment')
     } finally {
       setSaving(false)
     }
@@ -286,15 +289,16 @@ export default function ConsignmentDetailsPage() {
 
       if (!response.ok) {
         const error = await response.json()
+        toast.error(error.error || 'Failed to delete consignment')
         throw new Error(error.error || 'Failed to delete consignment')
       }
 
-      alert('Consignment deleted successfully')
+      toast.success('Consignment deleted successfully')
       fetchConsignments()
       fetchStats()
     } catch (error) {
       console.error('Error deleting consignment:', error)
-      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`)
+      toast.error(error instanceof Error ? error.message : 'Unknown error occurred')
     }
   }
 
@@ -302,20 +306,12 @@ export default function ConsignmentDetailsPage() {
 
   return (
     <AppLayout>
+      <Toaster richColors position="top-center" />
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Consignment Details</h1>
-            <p className="text-gray-600">Manage granite block consignments from quarries</p>
-          </div>
-          <Button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center gap-2"
-          >
-            {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {showAddForm ? 'Cancel' : 'Add Consignment'}
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Consignment Details</h1>
+          <p className="text-gray-600">Manage granite block consignments from quarries</p>
         </div>
 
         {/* Statistics Tiles */}
@@ -409,92 +405,18 @@ export default function ConsignmentDetailsPage() {
             </div>
           </div>
         </Card>
-
-        {/* Consignments List */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Consignments</h2>
-
-          {loading ? (
-            <div className="text-center py-8 text-gray-500">Loading...</div>
-          ) : consignments.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No consignments found for the selected period
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">CSG No.</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Quarry</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Blocks</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Net (m)</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Gross (m)</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total Cost</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {consignments.map((consignment) => (
-                    <tr key={consignment.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        {consignment.consignment_number}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {new Date(consignment.purchase_date).toLocaleDateString('en-GB')}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{consignment.quarry_name}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700">
-                        {consignment.total_blocks_count}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700">
-                        {formatIndianNumber(consignment.total_net_measurement)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700">
-                        {formatIndianNumber(consignment.total_gross_measurement)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold text-green-700">
-                        ₹{formatIndianNumber(consignment.total_expenditure)}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            onClick={() => router.push(`/consignments/analytics?id=${consignment.id}`)}
-                            variant="outline"
-                            size="sm"
-                            className="text-purple-600 hover:text-purple-800"
-                            title="View Analytics"
-                          >
-                            <BarChart3 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            onClick={() => handleEdit(consignment)}
-                            variant="outline"
-                            size="sm"
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            onClick={() => handleDelete(consignment.id)}
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+        {/* Add Consignment Button - Centered */}
+        {!showAddForm && (
+          <div className="flex justify-center">
+            <Button
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Consignment
+            </Button>
+          </div>
+        )}
 
         {/* Add/Edit Consignment Form */}
         {showAddForm && (
@@ -764,6 +686,92 @@ export default function ConsignmentDetailsPage() {
             </div>
           </Card>
         )}
+
+        {/* Consignments List */}
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Consignments</h2>
+
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Loading...</div>
+          ) : consignments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No consignments found for the selected period
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">CSG No.</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Quarry</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Blocks</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Net (m)</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Gross (m)</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total Cost</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {consignments.map((consignment) => (
+                    <tr key={consignment.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        {consignment.consignment_number}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {new Date(consignment.purchase_date).toLocaleDateString('en-GB')}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{consignment.quarry_name}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-700">
+                        {consignment.total_blocks_count}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-700">
+                        {formatIndianNumber(consignment.total_net_measurement)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-700">
+                        {formatIndianNumber(consignment.total_gross_measurement)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold text-green-700">
+                        ₹{formatIndianNumber(consignment.total_expenditure)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            onClick={() => router.push(`/consignments/analytics?id=${consignment.id}`)}
+                            variant="outline"
+                            size="sm"
+                            className="text-purple-600 hover:text-purple-800"
+                            title="View Analytics"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => handleEdit(consignment)}
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-600 hover:text-blue-800"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => handleDelete(consignment.id)}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-800"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </div>
     </AppLayout>
   )
