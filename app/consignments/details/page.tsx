@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { Plus, X, Save, Package, DollarSign, TrendingUp, Blocks } from 'lucide-react'
+import { Plus, X, Save, Package, DollarSign, TrendingUp, Blocks, Edit2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -61,6 +61,7 @@ function formatIndianNumber(num: number): string {
 
 export default function ConsignmentDetailsPage() {
   const [showAddForm, setShowAddForm] = useState(false)
+  const [editingConsignment, setEditingConsignment] = useState<Consignment | null>(null)
   const [consignments, setConsignments] = useState<Consignment[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(false)
@@ -74,6 +75,7 @@ export default function ConsignmentDetailsPage() {
 
   // Form data
   const [formData, setFormData] = useState({
+    id: '',
     purchase_date: new Date().toISOString().split('T')[0],
     quarry_name: '',
     total_net_measurement: '',
@@ -186,6 +188,7 @@ export default function ConsignmentDetailsPage() {
       const { totalBlocks, totalNet, totalGross } = calculateTotals()
 
       const payload = {
+        ...(editingConsignment && { id: formData.id }),
         purchase_date: formData.purchase_date,
         quarry_name: formData.quarry_name,
         total_blocks_count: totalBlocks,
@@ -200,7 +203,7 @@ export default function ConsignmentDetailsPage() {
       }
 
       const response = await fetch('/api/consignments-new', {
-        method: 'POST',
+        method: editingConsignment ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
@@ -208,8 +211,7 @@ export default function ConsignmentDetailsPage() {
       const result = await response.json()
 
       if (response.ok) {
-        alert('Consignment saved successfully!')
-        setShowAddForm(false)
+        alert(`Consignment ${editingConsignment ? 'updated' : 'saved'} successfully!`)
         resetForm()
         fetchConsignments()
         fetchStats()
@@ -226,6 +228,7 @@ export default function ConsignmentDetailsPage() {
 
   const resetForm = () => {
     setFormData({
+      id: '',
       purchase_date: new Date().toISOString().split('T')[0],
       quarry_name: '',
       total_net_measurement: '',
@@ -239,6 +242,58 @@ export default function ConsignmentDetailsPage() {
     setBlockRows([
       { id: '1', block_name: 'AVG-', net_measurement: '', gross_measurement: '' }
     ])
+    setShowAddForm(false)
+    setEditingConsignment(null)
+  }
+
+  const handleEdit = (consignment: Consignment) => {
+    setEditingConsignment(consignment)
+    setFormData({
+      id: consignment.id,
+      purchase_date: consignment.purchase_date || new Date().toISOString().split('T')[0],
+      quarry_name: consignment.quarry_name || '',
+      total_net_measurement: consignment.total_net_measurement?.toString() || '',
+      total_gross_measurement: consignment.total_gross_measurement?.toString() || '',
+      purchase_cost: consignment.purchase_cost?.toString() || '',
+      transport_cost: consignment.transport_cost?.toString() || '',
+      loading_cost: consignment.loading_cost?.toString() || '',
+      quarry_commission: consignment.quarry_commission?.toString() || '',
+      other_charges: consignment.other_charges?.toString() || ''
+    })
+    setBlockRows(
+      consignment.granite_blocks?.map((block, index) => ({
+        id: String(index + 1),
+        block_name: block.block_no,
+        net_measurement: block.net_measurement?.toString() || '',
+        gross_measurement: block.gross_measurement?.toString() || ''
+      })) || [{ id: '1', block_name: 'AVG-', net_measurement: '', gross_measurement: '' }]
+    )
+    setShowAddForm(true)
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+  }
+
+  const handleDelete = async (consignmentId: string) => {
+    if (!confirm('Are you sure you want to delete this consignment? This will also delete all associated blocks.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/consignments-new?id=${consignmentId}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete consignment')
+      }
+
+      alert('Consignment deleted successfully')
+      fetchConsignments()
+      fetchStats()
+    } catch (error) {
+      console.error('Error deleting consignment:', error)
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`)
+    }
   }
 
   const { totalBlocks, totalNet, totalGross } = calculateTotals()
@@ -353,244 +408,6 @@ export default function ConsignmentDetailsPage() {
           </div>
         </Card>
 
-        {/* Add Consignment Form */}
-        {showAddForm && (
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Add New Consignment</h2>
-
-            <div className="space-y-6">
-              {/* Basic Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Purchase Date <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    type="date"
-                    value={formData.purchase_date}
-                    onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quarry Name <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.quarry_name}
-                    onChange={(e) => setFormData({ ...formData, quarry_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="">Select Quarry</option>
-                    {QUARRIES.map(quarry => (
-                      <option key={quarry} value={quarry}>{quarry}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Measurements (Auto-calculated but can be overridden) */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Total Measurements (Auto-calculated)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Total Blocks</label>
-                    <Input
-                      type="number"
-                      value={totalBlocks}
-                      disabled
-                      className="bg-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Total Net Measurement (m)</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={totalNet.toFixed(2)}
-                      disabled
-                      className="bg-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Total Gross Measurement (m)</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={totalGross.toFixed(2)}
-                      disabled
-                      className="bg-gray-100"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Cost Details */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Cost Details (₹)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Purchase Cost</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.purchase_cost}
-                      onChange={(e) => setFormData({ ...formData, purchase_cost: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Transport Cost</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.transport_cost}
-                      onChange={(e) => setFormData({ ...formData, transport_cost: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Loading Cost</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.loading_cost}
-                      onChange={(e) => setFormData({ ...formData, loading_cost: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Quarry Commission</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.quarry_commission}
-                      onChange={(e) => setFormData({ ...formData, quarry_commission: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Other Charges</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.other_charges}
-                      onChange={(e) => setFormData({ ...formData, other_charges: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <div className="w-full">
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">Total Expenditure</label>
-                      <div className="px-3 py-2 bg-green-50 border border-green-300 rounded-md font-semibold text-green-700">
-                        ₹{formatIndianNumber(
-                          (parseFloat(formData.purchase_cost) || 0) +
-                          (parseFloat(formData.transport_cost) || 0) +
-                          (parseFloat(formData.loading_cost) || 0) +
-                          (parseFloat(formData.quarry_commission) || 0) +
-                          (parseFloat(formData.other_charges) || 0)
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Block Details */}
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-sm font-semibold text-gray-700">Block Details</h3>
-                  <Button
-                    onClick={handleAddBlockRow}
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Block
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  {blockRows.map((row, index) => (
-                    <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
-                      <div className="col-span-5">
-                        {index === 0 && (
-                          <label className="block text-xs text-gray-600 mb-1">Block Name</label>
-                        )}
-                        <Input
-                          type="text"
-                          value={row.block_name}
-                          onChange={(e) => handleBlockRowChange(row.id, 'block_name', e.target.value)}
-                          placeholder="AVG-1"
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        {index === 0 && (
-                          <label className="block text-xs text-gray-600 mb-1">Net Meas. (m)</label>
-                        )}
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={row.net_measurement}
-                          onChange={(e) => handleBlockRowChange(row.id, 'net_measurement', e.target.value)}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        {index === 0 && (
-                          <label className="block text-xs text-gray-600 mb-1">Gross Meas. (m)</label>
-                        )}
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={row.gross_measurement}
-                          onChange={(e) => handleBlockRowChange(row.id, 'gross_measurement', e.target.value)}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div className="col-span-1 flex justify-center">
-                        {index === 0 && <div className="h-6"></div>}
-                        {blockRows.length > 1 && (
-                          <Button
-                            onClick={() => handleRemoveBlockRow(row.id)}
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button
-                  onClick={() => {
-                    setShowAddForm(false)
-                    resetForm()
-                  }}
-                  variant="outline"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveConsignment}
-                  disabled={saving}
-                  className="flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save Consignment'}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
-
         {/* Consignments List */}
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Consignments</h2>
@@ -613,6 +430,7 @@ export default function ConsignmentDetailsPage() {
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Net (m)</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Gross (m)</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total Cost</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -637,6 +455,26 @@ export default function ConsignmentDetailsPage() {
                       <td className="px-4 py-3 text-sm text-right font-semibold text-green-700">
                         ₹{formatIndianNumber(consignment.total_expenditure)}
                       </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            onClick={() => handleEdit(consignment)}
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => handleDelete(consignment.id)}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -644,6 +482,275 @@ export default function ConsignmentDetailsPage() {
             </div>
           )}
         </Card>
+
+        {/* Add/Edit Consignment Form */}
+        {showAddForm && (
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-6">
+              {editingConsignment ? 'Edit Consignment' : 'Add New Consignment'}
+            </h2>
+
+            <div className="space-y-8">
+              {/* Section 1: Basic Information */}
+              <div className="border-b pb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-blue-600" />
+                  Basic Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Purchase Date <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="date"
+                      value={formData.purchase_date}
+                      onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
+                      className="text-base"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quarry Name <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.quarry_name}
+                      onChange={(e) => setFormData({ ...formData, quarry_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-base"
+                    >
+                      <option value="">Select Quarry</option>
+                      {QUARRIES.map(quarry => (
+                        <option key={quarry} value={quarry}>{quarry}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Block Details */}
+              <div className="border-b pb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                    <Blocks className="w-5 h-5 text-purple-600" />
+                    Block Details
+                  </h3>
+                  <Button
+                    onClick={handleAddBlockRow}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Block
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid grid-cols-12 gap-3 text-xs font-medium text-gray-600 px-2">
+                    <div className="col-span-5">Block Name</div>
+                    <div className="col-span-3 text-right">Net (m)</div>
+                    <div className="col-span-3 text-right">Gross (m)</div>
+                    <div className="col-span-1"></div>
+                  </div>
+
+                  {blockRows.map((row, index) => (
+                    <div key={row.id} className="grid grid-cols-12 gap-3 items-center bg-gray-50 p-3 rounded-lg">
+                      <div className="col-span-5">
+                        <Input
+                          value={row.block_name}
+                          onChange={(e) => handleBlockRowChange(row.id, 'block_name', e.target.value.toUpperCase())}
+                          placeholder="AVG-XXX"
+                          className="font-mono"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={row.net_measurement}
+                          onChange={(e) => handleBlockRowChange(row.id, 'net_measurement', e.target.value)}
+                          placeholder="0.00"
+                          className="text-right"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={row.gross_measurement}
+                          onChange={(e) => handleBlockRowChange(row.id, 'gross_measurement', e.target.value)}
+                          placeholder="0.00"
+                          className="text-right"
+                        />
+                      </div>
+                      <div className="col-span-1 flex justify-center">
+                        {blockRows.length > 1 && (
+                          <Button
+                            onClick={() => handleRemoveBlockRow(row.id)}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-800 p-1"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Auto-calculated Totals */}
+                <div className="mt-4 bg-blue-50 p-4 rounded-lg">
+                  <p className="text-xs font-medium text-gray-600 mb-3">Summary (Auto-calculated)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Total Blocks</label>
+                      <Input
+                        type="number"
+                        value={totalBlocks}
+                        disabled
+                        className="bg-white font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Total Net (m)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={totalNet.toFixed(2)}
+                        disabled
+                        className="bg-white font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Total Gross (m)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={totalGross.toFixed(2)}
+                        disabled
+                        className="bg-white font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Cost Details */}
+              <div className="border-b pb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-green-600" />
+                  Cost Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Purchase Cost</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-gray-500">₹</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.purchase_cost}
+                        onChange={(e) => setFormData({ ...formData, purchase_cost: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-7"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Transport Cost</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-gray-500">₹</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.transport_cost}
+                        onChange={(e) => setFormData({ ...formData, transport_cost: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-7"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Loading Cost</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-gray-500">₹</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.loading_cost}
+                        onChange={(e) => setFormData({ ...formData, loading_cost: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-7"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Quarry Commission</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-gray-500">₹</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.quarry_commission}
+                        onChange={(e) => setFormData({ ...formData, quarry_commission: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-7"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Other Charges</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-gray-500">₹</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.other_charges}
+                        onChange={(e) => setFormData({ ...formData, other_charges: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-7"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">Total Expenditure</label>
+                    <div className="px-4 py-2.5 bg-green-50 border-2 border-green-300 rounded-md font-bold text-green-700 text-lg">
+                      ₹{formatIndianNumber(
+                        (parseFloat(formData.purchase_cost) || 0) +
+                        (parseFloat(formData.transport_cost) || 0) +
+                        (parseFloat(formData.loading_cost) || 0) +
+                        (parseFloat(formData.quarry_commission) || 0) +
+                        (parseFloat(formData.other_charges) || 0)
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button
+                  onClick={() => {
+                    resetForm()
+                  }}
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveConsignment}
+                  disabled={saving}
+                  className="flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? (editingConsignment ? 'Updating...' : 'Saving...') : (editingConsignment ? 'Update Consignment' : 'Save Consignment')}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
     </AppLayout>
   )
