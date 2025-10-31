@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       const { data, error } = await supabaseAdmin
         .from("granite_blocks")
         .insert(blocksToInsert)
-        .select();
+        .select('id, consignment_id, block_no, grade, gross_measurement, net_measurement, status, created_at');
 
       if (error) {
         console.error('Database error creating blocks:', error);
@@ -81,27 +81,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Required fields missing" }, { status: 400 });
     }
 
-    // Prepare insert data
-    const insertData: any = {
-      consignment_id,
-      block_no: block_no.toUpperCase(), // Always save block numbers in uppercase
-      gross_measurement: parseFloat(gross_measurement),
-      net_measurement: parseFloat(net_measurement),
-      grade: grade || 'S/G', // Default grade if not provided
-      status: status || 'RAW' // Valid status: RAW, CUTTING, CUT, SOLD
-    };
+    console.log('Preparing to insert block:', { consignment_id, block_no, gross_measurement, net_measurement, grade, status });
 
-    // Add marker_measurement only if it exists and has a value
-    if (marker_measurement !== undefined && marker_measurement !== null && marker_measurement !== '') {
-      insertData.marker_measurement = parseFloat(marker_measurement);
-    }
-
-    console.log('Inserting block data:', insertData);
-
+    // Use only the exact columns that can be inserted (not generated)
     const { data, error } = await supabaseAdmin
       .from("granite_blocks")
-      .insert(insertData)
-      .select()
+      .insert([{
+        consignment_id: consignment_id,
+        block_no: block_no.toUpperCase(),
+        grade: grade || 'S/G',
+        gross_measurement: parseFloat(gross_measurement),
+        net_measurement: parseFloat(net_measurement),
+        status: status || 'RAW',
+        total_sqft: 0,
+        total_slabs: 0,
+        raw_material_rate_per_sqft: 0,
+        production_cost_per_sqft: 40,
+        total_cost_per_sqft: 0,
+        total_sqft_produced: 0
+      }])
+      .select('id, consignment_id, block_no, grade, gross_measurement, net_measurement, status, created_at')
       .single();
 
     if (error) {

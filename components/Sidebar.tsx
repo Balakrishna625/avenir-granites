@@ -15,15 +15,13 @@ import {
   BarChart3,
   UserCog,
   Package,
-  Truck,
   Scissors,
   Calculator,
   Factory,
   Wrench,
   Zap,
   TrendingUp,
-  ShoppingBag,
-  Plus
+  ShoppingBag
 } from 'lucide-react';
 
 interface MenuItem {
@@ -82,14 +80,9 @@ const menuItems: MenuItem[] = [
     icon: <Package className="w-5 h-5" />,
     children: [
       {
-        title: 'Add Consignment',
-        href: '/consignments/add',
-        icon: <Plus className="w-4 h-4" />
-      },
-      {
-        title: 'All Consignments',
-        href: '/consignments',
-        icon: <Truck className="w-4 h-4" />
+        title: 'Consignment Details',
+        href: '/consignments/details',
+        icon: <Package className="w-4 h-4" />
       },
       {
         title: 'Consignment Calculator',
