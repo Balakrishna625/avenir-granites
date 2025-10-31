@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { Plus, X, Save, Package, DollarSign, TrendingUp, Blocks, Edit2, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Plus, X, Save, Package, DollarSign, TrendingUp, Blocks, Edit2, Trash2, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -60,6 +61,7 @@ function formatIndianNumber(num: number): string {
 }
 
 export default function ConsignmentDetailsPage() {
+  const router = useRouter()
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingConsignment, setEditingConsignment] = useState<Consignment | null>(null)
   const [consignments, setConsignments] = useState<Consignment[]>([])
@@ -458,10 +460,20 @@ export default function ConsignmentDetailsPage() {
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center justify-center gap-2">
                           <Button
+                            onClick={() => router.push(`/consignments/analytics?id=${consignment.id}`)}
+                            variant="outline"
+                            size="sm"
+                            className="text-purple-600 hover:text-purple-800"
+                            title="View Analytics"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </Button>
+                          <Button
                             onClick={() => handleEdit(consignment)}
                             variant="outline"
                             size="sm"
                             className="text-blue-600 hover:text-blue-800"
+                            title="Edit"
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -470,6 +482,7 @@ export default function ConsignmentDetailsPage() {
                             variant="outline"
                             size="sm"
                             className="text-red-600 hover:text-red-800"
+                            title="Delete"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
