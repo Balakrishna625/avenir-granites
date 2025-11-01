@@ -7,6 +7,8 @@ export async function GET(request: Request) {
     const supabase = supabaseAdmin;
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
+    const month = searchParams.get('month');
+    const year = searchParams.get('year');
 
     let query = supabase
       .from('sales')
@@ -23,6 +25,9 @@ export async function GET(request: Request) {
           slabs_count,
           square_feet,
           rate_per_sqft,
+          tons,
+          rate_per_ton,
+          is_tonnage_material,
           total_amount,
           remarks
         )
@@ -31,6 +36,19 @@ export async function GET(request: Request) {
 
     if (customerId) {
       query = query.eq('customer_id', customerId);
+    }
+
+    // Filter by month and year if provided
+    if (month && year) {
+      const monthNum = parseInt(month);
+      const yearNum = parseInt(year);
+      const startDate = `${yearNum}-${monthNum.toString().padStart(2, '0')}-01`;
+      
+      // Calculate last day of month
+      const lastDay = new Date(yearNum, monthNum, 0).getDate();
+      const endDate = `${yearNum}-${monthNum.toString().padStart(2, '0')}-${lastDay}`;
+      
+      query = query.gte('sale_date', startDate).lte('sale_date', endDate);
     }
 
     const { data, error } = await query;
@@ -88,6 +106,8 @@ export async function POST(request: Request) {
     items.forEach((item: any) => {
       if (item.is_tonnage_material) {
         total_tons += Number(item.tons) || 0;
+        // Tonnage materials can also have square feet now
+        total_sqft += Number(item.square_feet) || 0;
       } else {
         total_slabs += Number(item.slabs_count) || 0;
         total_sqft += Number(item.square_feet) || 0;

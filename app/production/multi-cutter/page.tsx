@@ -87,6 +87,11 @@ export default function MultiCutterPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedMachineTab, setSelectedMachineTab] = useState<'Machine-1' | 'Machine-2' | 'Machine-3' | 'All'>('Machine-1');
   
+  // Month selector state - default to current month
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  
   // Summary stats
   const [totalSlabs, setTotalSlabs] = useState(0);
   const [totalSqft, setTotalSqft] = useState(0);
@@ -119,22 +124,39 @@ export default function MultiCutterPage() {
   // Warn before navigating away with unsaved changes
   const { allowNavigation } = useUnsavedChangesWarning(hasUnsavedChanges);
 
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // Removed old date filter states - using month selector instead
+  
+  // Month navigation functions
+  const goToPreviousMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedMonth(12);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedMonth(1);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
+  const getMonthName = (month: number) => {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    return monthNames[month - 1];
+  };
 
   // Flatten data for sorting (Single Machine View)
   const flattenedReports = useMemo<FlattenedReport[]>(() => {
     if (selectedMachineTab === 'All') return [];
     
-    // Apply date filters
-    let filteredReports = reports.filter(report => report.machine === selectedMachineTab);
-    
-    if (dateFrom) {
-      filteredReports = filteredReports.filter(r => r.date >= dateFrom);
-    }
-    if (dateTo) {
-      filteredReports = filteredReports.filter(r => r.date <= dateTo);
-    }
+    // Filter by selected machine (month filtering happens in API)
+    const filteredReports = reports.filter(report => report.machine === selectedMachineTab);
     
     return filteredReports.flatMap(report => 
       report.blocks.map<FlattenedReport>(block => ({
@@ -150,23 +172,23 @@ export default function MultiCutterPage() {
         fullReport: report // Keep reference for edit/delete
       }))
     );
-  }, [selectedMachineTab, reports, dateFrom, dateTo]);
+  }, [selectedMachineTab, reports]);
 
   const { sortedData: sortedReports, sortConfig, requestSort } = useTableSort<FlattenedReport>(flattenedReports);
 
   useEffect(() => {
     console.log('useEffect triggered - loading reports');
     loadReports();
-  }, [dateFrom, dateTo]);
+  }, [selectedMonth, selectedYear]);
 
   async function loadReports() {
-    console.log('loadReports() called with filters:', { dateFrom, dateTo });
+    console.log('loadReports() called with month/year:', { selectedMonth, selectedYear });
     setLoading(true);
     
     try {
       const params = new URLSearchParams();
-      if (dateFrom) params.set('from', dateFrom);
-      if (dateTo) params.set('to', dateTo);
+      params.set('month', selectedMonth.toString());
+      params.set('year', selectedYear.toString());
       
       const url = `/api/multi-cutter-reports?${params.toString()}`;
       console.log('Fetching from URL:', url);
@@ -489,53 +511,45 @@ export default function MultiCutterPage() {
           <p className="text-gray-600 mt-1">Track daily granite block cutting from 3 machines</p>
         </div>
 
-        {/* Filters Section */}
+        {/* Month Selector Section */}
         <Card className="p-4 bg-white border-gray-200">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-500" />
-                <label className="text-sm font-medium text-gray-700">From</label>
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">To</label>
-                <Input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="w-40"
-                />
-              </div>
-              {(dateFrom || dateTo) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setDateFrom("");
-                    setDateTo("");
-                  }}
-                  className="text-gray-600 hover:text-gray-900"
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Month</label>
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Viewing Month:</span>
+            </div>
+            
+            {/* Month Navigation */}
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
+              <Button 
+                onClick={goToPreviousMonth}
+                variant="outline"
+                size="sm"
+                className="h-8"
+              >
+                ←
+              </Button>
+              <div className="text-center min-w-[140px]">
+                <div className="font-semibold text-gray-900">{getMonthName(selectedMonth)}</div>
+                <div className="text-xs text-gray-500">{selectedYear}</div>
+              </div>
+              <Button 
+                onClick={goToNextMonth}
+                variant="outline"
+                size="sm"
+                className="h-8"
+              >
+                →
+              </Button>
+            </div>
+            
+            <div className="hidden md:block">
               <select
-                value={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+                value={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}`}
                 onChange={(e) => {
                   const [year, month] = e.target.value.split('-');
-                  const firstDay = `${year}-${month}-01`;
-                  const lastDay = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
-                  setDateFrom(firstDay);
-                  setDateTo(lastDay);
+                  setSelectedYear(parseInt(year));
+                  setSelectedMonth(parseInt(month));
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               >

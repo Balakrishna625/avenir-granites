@@ -4,11 +4,11 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 // GET - List all multi-cutter reports with optional date filtering
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const from = url.searchParams.get("from");
-  const to = url.searchParams.get("to");
+  const month = url.searchParams.get("month");
+  const year = url.searchParams.get("year");
   const machine = url.searchParams.get("machine");
 
-  console.log('🔍 GET /api/multi-cutter-reports called with params:', { from, to, machine });
+  console.log('🔍 GET /api/multi-cutter-reports called with params:', { month, year, machine });
 
   try {
     let query = supabaseAdmin
@@ -17,14 +17,20 @@ export async function GET(req: Request) {
       .order("date", { ascending: false })
       .order("machine", { ascending: true });
 
-    if (from) {
-      console.log('  Adding from filter:', from);
-      query = query.gte("date", from);
+    // Filter by month and year if provided
+    if (month && year) {
+      const monthNum = parseInt(month);
+      const yearNum = parseInt(year);
+      const startDate = `${yearNum}-${monthNum.toString().padStart(2, '0')}-01`;
+      
+      // Calculate last day of month
+      const lastDay = new Date(yearNum, monthNum, 0).getDate();
+      const endDate = `${yearNum}-${monthNum.toString().padStart(2, '0')}-${lastDay}`;
+      
+      console.log('  Adding month filter:', { startDate, endDate });
+      query = query.gte("date", startDate).lte("date", endDate);
     }
-    if (to) {
-      console.log('  Adding to filter:', to);
-      query = query.lte("date", to);
-    }
+    
     if (machine) {
       console.log('  Adding machine filter:', machine);
       query = query.eq("machine", machine);

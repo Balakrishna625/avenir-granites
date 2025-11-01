@@ -114,9 +114,15 @@ export default function SalesDataEntryPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'actual' | 'official'>('actual')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc') // asc = oldest first, desc = newest first
+  const [filterCustomerId, setFilterCustomerId] = useState<string>('all') // Filter by customer
   const [showMaterialModal, setShowMaterialModal] = useState(false)
   const [newMaterialName, setNewMaterialName] = useState('')
   const [addingMaterial, setAddingMaterial] = useState(false)
+
+  // Month selector state - default to current month
+  const currentDate = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1) // 1-12
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear())
 
   const initialFormData: FormData = useMemo(() => ({
     date: new Date().toISOString().split('T')[0],
@@ -156,7 +162,7 @@ export default function SalesDataEntryPage() {
     fetchCustomers()
     fetchMaterialTypes()
     fetchSales()
-  }, [])
+  }, [selectedMonth, selectedYear])
 
   const fetchCustomers = async () => {
     try {
@@ -216,7 +222,8 @@ export default function SalesDataEntryPage() {
   const fetchSales = async () => {
     try {
       setSalesLoading(true)
-      const response = await fetch('/api/sales')
+      // Filter by selected month and year
+      const response = await fetch(`/api/sales?month=${selectedMonth}&year=${selectedYear}`)
       if (response.ok) {
         const data = await response.json()
         setSales(data)
@@ -253,10 +260,12 @@ export default function SalesDataEntryPage() {
             updated.is_tonnage_material = isTonnageMaterial(value)
             // Reset fields when switching material type
             if (updated.is_tonnage_material) {
+              // Switching to tonnage: clear slabs and rates, keep square_feet for optional entry
               updated.slabs_count = ''
-              updated.square_feet = ''
               updated.rate_per_sqft = ''
+              // Don't clear square_feet - allow it to be optionally filled
             } else {
+              // Switching to regular: clear tons and ton-rate
               updated.tons = ''
               updated.rate_per_ton = ''
             }
@@ -275,7 +284,16 @@ export default function SalesDataEntryPage() {
             const tons = parseFloat(field === 'tons' ? value : updated.tons) || 0
             const rate = parseFloat(field === 'rate_per_ton' ? value : updated.rate_per_ton) || 0
             updated.total_amount = tons * rate
+            
+            // Auto-calculate square feet if not manually entered (155 sqft per ton)
+            // Only auto-fill if square_feet is empty or zero
+            if (field === 'tons' && (!updated.square_feet || parseFloat(updated.square_feet) === 0)) {
+              updated.square_feet = (tons * 155).toFixed(2)
+            }
           }
+          
+          // For tonnage materials: if square_feet is manually entered, don't auto-calculate
+          // This allows user to override the 155 sqft/ton default
           
           return updated
         }
@@ -370,8 +388,9 @@ export default function SalesDataEntryPage() {
       (sum, row) => sum + (row.is_tonnage_material ? 0 : parseInt(row.slabs_count) || 0), 
       0
     )
+    // Include square feet from both regular and tonnage materials
     const totalSqft = formData.itemRows.reduce(
-      (sum, row) => sum + (row.is_tonnage_material ? 0 : parseFloat(row.square_feet) || 0), 
+      (sum, row) => sum + (parseFloat(row.square_feet) || 0), 
       0
     )
     const totalTons = formData.itemRows.reduce(
@@ -502,18 +521,21 @@ export default function SalesDataEntryPage() {
       setFormData({
         date: saleDetails.sale_date.split('T')[0],
         customer_id: saleDetails.customer_id,
-        itemRows: saleDetails.sale_items?.map((item: any) => ({
-          id: crypto.randomUUID(),
-          material_type_id: item.material_type_id || '',
-          material_name: item.material_name,
-          slabs_count: item.slabs_count.toString(),
-          square_feet: item.square_feet.toString(),
-          rate_per_sqft: item.rate_per_sqft.toString(),
-          tons: (item.tons || 0).toString(),
-          rate_per_ton: (item.rate_per_ton || 0).toString(),
-          is_tonnage_material: item.is_tonnage_material || false,
-          total_amount: item.total_amount
-        })) || [],
+        itemRows: saleDetails.sale_items?.map((item: any) => {
+          const isTonnage = item.is_tonnage_material || false
+          return {
+            id: crypto.randomUUID(),
+            material_type_id: item.material_type_id || '',
+            material_name: item.material_name,
+            slabs_count: isTonnage ? '' : (item.slabs_count?.toString() || ''),
+            square_feet: (item.square_feet?.toString() || ''),
+            rate_per_sqft: isTonnage ? '' : (item.rate_per_sqft?.toString() || ''),
+            tons: isTonnage ? (item.tons?.toString() || '') : '',
+            rate_per_ton: isTonnage ? (item.rate_per_ton?.toString() || '') : '',
+            is_tonnage_material: isTonnage,
+            total_amount: item.total_amount
+          }
+        }) || [],
         tax_amount: saleDetails.tax_amount.toString(),
         mining_amount: saleDetails.mining_amount.toString(),
         loading_amount: saleDetails.loading_amount.toString(),
@@ -576,9 +598,10 @@ export default function SalesDataEntryPage() {
 
   const { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash } = calculateTotals()
 
-  // Calculate aggregated statistics from all sales
+  // Calculate aggregated statistics from filtered sales
   const salesStats = useMemo(() => {
-    return sales.reduce((acc, sale) => ({
+    const salesToCalculate = filterCustomerId === 'all' ? sales : sales.filter(s => s.customer_id === filterCustomerId)
+    return salesToCalculate.reduce((acc, sale) => ({
       totalSlabs: acc.totalSlabs + sale.total_slabs,
       totalSqft: acc.totalSqft + sale.total_sqft,
       totalAmount: acc.totalAmount + sale.gross_total,
@@ -593,23 +616,81 @@ export default function SalesDataEntryPage() {
       totalMining: 0,
       totalLoading: 0
     })
-  }, [sales])
+  }, [sales, filterCustomerId])
 
-  // Sort sales by date
+  // Month navigation functions
+  const goToPreviousMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedMonth(12)
+      setSelectedYear(selectedYear - 1)
+    } else {
+      setSelectedMonth(selectedMonth - 1)
+    }
+  }
+
+  const goToNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedMonth(1)
+      setSelectedYear(selectedYear + 1)
+    } else {
+      setSelectedMonth(selectedMonth + 1)
+    }
+  }
+
+  const getMonthName = (month: number) => {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December']
+    return monthNames[month - 1]
+  }
+
+  // Filter and sort sales
   const sortedSales = useMemo(() => {
-    return [...sales].sort((a, b) => {
+    // First filter by customer if selected
+    let filtered = sales
+    if (filterCustomerId !== 'all') {
+      filtered = sales.filter(sale => sale.customer_id === filterCustomerId)
+    }
+    
+    // Then sort by date
+    return [...filtered].sort((a, b) => {
       const dateA = new Date(a.sale_date).getTime()
       const dateB = new Date(b.sale_date).getTime()
       return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
     })
-  }, [sales, sortOrder])
+  }, [sales, sortOrder, filterCustomerId])
 
   return (
     <AppLayout>
       <div className="min-h-screen w-full bg-gray-50 p-6 space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold">Sales Data Entry</h1>
-          <p className="text-gray-600 text-sm mt-1">Record new sales and automatically create consignments</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Sales Data Entry</h1>
+            <p className="text-gray-600 text-sm mt-1">Record new sales and automatically create consignments</p>
+          </div>
+          
+          {/* Month Selector */}
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
+            <Button 
+              onClick={goToPreviousMonth}
+              variant="outline"
+              size="sm"
+              className="h-8"
+            >
+              ←
+            </Button>
+            <div className="text-center min-w-[140px]">
+              <div className="font-semibold text-gray-900">{getMonthName(selectedMonth)}</div>
+              <div className="text-xs text-gray-500">{selectedYear}</div>
+            </div>
+            <Button 
+              onClick={goToNextMonth}
+              variant="outline"
+              size="sm"
+              className="h-8"
+            >
+              →
+            </Button>
+          </div>
         </div>
 
         {/* Summary Statistics Tiles */}
@@ -731,12 +812,7 @@ export default function SalesDataEntryPage() {
                     </th>
                     <th className="px-3 py-2 text-left font-medium">Slabs</th>
                     <th className="px-3 py-2 text-left font-medium">
-                      {formData.itemRows.some(row => isTonnageMaterial(row.material_type_id)) && 
-                       !formData.itemRows.some(row => !isTonnageMaterial(row.material_type_id) && row.material_type_id)
-                        ? 'Tons' 
-                        : formData.itemRows.some(row => isTonnageMaterial(row.material_type_id))
-                        ? 'Sq.Ft / Tons'
-                        : 'Sq. Ft.'}
+                      Qty (Tons/Sq.Ft)
                     </th>
                     <th className="px-3 py-2 text-left font-medium">
                       {formData.itemRows.some(row => isTonnageMaterial(row.material_type_id)) && 
@@ -788,15 +864,38 @@ export default function SalesDataEntryPage() {
                         </td>
                       )}
                       <td className="px-3 py-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={isTonnage ? row.tons : row.square_feet}
-                          onChange={(e) => handleItemRowChange(row.id, isTonnage ? 'tons' : 'square_feet', e.target.value)}
-                          className="w-24"
-                          placeholder={isTonnage ? "Tons" : "Sq.Ft"}
-                          required
-                        />
+                        {isTonnage ? (
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={row.tons}
+                              onChange={(e) => handleItemRowChange(row.id, 'tons', e.target.value)}
+                              className="w-24"
+                              placeholder="Tons"
+                              required
+                            />
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={row.square_feet}
+                              onChange={(e) => handleItemRowChange(row.id, 'square_feet', e.target.value)}
+                              className="w-24 text-xs"
+                              placeholder="Sq.Ft (opt)"
+                              title="Optional: Square feet. If empty, calculated as Tons × 155"
+                            />
+                          </div>
+                        ) : (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={row.square_feet}
+                            onChange={(e) => handleItemRowChange(row.id, 'square_feet', e.target.value)}
+                            className="w-24"
+                            placeholder="Sq.Ft"
+                            required
+                          />
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <Input
@@ -1091,8 +1190,30 @@ export default function SalesDataEntryPage() {
       {/* Sales Records Table */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">All Sales</h2>
+          <h2 className="text-lg font-semibold">
+            All Sales
+            {filterCustomerId !== 'all' && (
+              <span className="ml-2 text-sm font-normal text-blue-600">
+                ({sortedSales.length} filtered)
+              </span>
+            )}
+          </h2>
           <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">Customer:</label>
+              <select
+                value={filterCustomerId}
+                onChange={(e) => setFilterCustomerId(e.target.value)}
+                className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Customers</option>
+                {customers.map(customer => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <Button
               onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
               variant="outline"
@@ -1148,6 +1269,12 @@ export default function SalesDataEntryPage() {
                   const officialBillItems = sale.official_bill_items || [];
                   const officialSqft = officialBillItems.reduce((sum: number, item: any) => sum + (Number(item.square_feet) || 0), 0);
                   
+                  // Calculate tons from sale_items if total_tons is not set (for old data)
+                  const calculatedTons = sale.sale_items?.reduce((sum: number, item: any) => {
+                    return sum + (item.is_tonnage_material ? (Number(item.tons) || 0) : 0);
+                  }, 0) || 0;
+                  const displayTons = sale.total_tons || calculatedTons;
+                  
                   return (
                     <tr key={sale.id} className="border-t hover:bg-gray-50">
                       <td className="px-3 py-2 font-medium">{sale.sale_number}</td>
@@ -1156,10 +1283,10 @@ export default function SalesDataEntryPage() {
                       {viewMode === 'actual' ? (
                         <>
                           <td className="px-3 py-2 text-right">
-                            {sale.total_slabs > 0 && <div>{sale.total_slabs} slabs</div>}
-                            {sale.total_tons > 0 && <div className="text-orange-600">{sale.total_tons.toFixed(2)} tons</div>}
+                            {(sale.total_slabs > 0 || displayTons === 0) && <div>{sale.total_slabs} slabs</div>}
+                            {displayTons > 0 && <div className="text-orange-600 font-medium">{displayTons.toFixed(2)} tons</div>}
                           </td>
-                          <td className="px-3 py-2 text-right">{sale.total_sqft.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">{(sale.total_sqft || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-right font-medium">₹{formatIndianNumber(sale.gross_total)}</td>
                         </>
                       ) : (

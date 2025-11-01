@@ -25,6 +25,9 @@ export async function GET(
           slabs_count,
           square_feet,
           rate_per_sqft,
+          tons,
+          rate_per_ton,
+          is_tonnage_material,
           total_amount,
           remarks
         )
@@ -92,6 +95,8 @@ export async function PUT(
     items.forEach((item: any) => {
       if (item.is_tonnage_material) {
         total_tons += Number(item.tons) || 0;
+        // Tonnage materials can also have square feet now
+        total_sqft += Number(item.square_feet) || 0;
       } else {
         total_slabs += Number(item.slabs_count) || 0;
         total_sqft += Number(item.square_feet) || 0;
