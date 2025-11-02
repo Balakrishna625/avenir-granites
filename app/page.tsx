@@ -85,8 +85,9 @@ export default function Page() {
 
   useEffect(() => {
     async function boot() {
+      // Load customers for payments dropdown - regular always, one-time only if outstanding > ₹1
       const [cust, accts] = await Promise.all([
-        fetch("/api/customers").then((r) => r.json()),
+        fetch(`/api/customers?type=for-payments`).then((r) => r.json()),
         fetch("/api/bank-accounts").then((r) => r.json()),
       ]);
       setCustomers(cust);
@@ -708,10 +709,12 @@ export default function Page() {
 
         <div className="w-full space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <select className="border rounded-xl px-3 py-2 md:col-span-3" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-              <option value="all">All customers</option>
-              {customers.map((c) => <option key={c.id} value={c.id}>{maskName(c.name)}</option>)}
-            </select>
+            <div className="md:col-span-3 flex items-center gap-2">
+              <select className="border rounded-xl px-3 py-2 flex-1" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                <option value="all">All customers</option>
+                {customers.map((c) => <option key={c.id} value={c.id}>{maskName(c.name)}</option>)}
+              </select>
+            </div>
 
             <div className="flex items-center gap-2 md:col-span-3">
               <Calendar className="w-4 h-4 text-gray-500" />

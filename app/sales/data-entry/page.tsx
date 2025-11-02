@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { AppLayout } from '@/components/AppLayout'
 import { useToast } from '@/components/ui/toast'
+import { useSessionMonthYear } from '@/hooks/useSessionMonth'
 
 interface Customer {
   id: string
@@ -55,6 +56,7 @@ interface Sale {
     total_amount: number
   }>
   official_tax?: number
+  end_customer_name?: string
   official_total?: number
   customers?: { name: string }
   sale_items?: SaleItem[]
@@ -90,6 +92,7 @@ interface FormData {
   loading_amount: string
   officialBillItems: OfficialBillItem[]
   official_tax: string
+  end_customer_name: string
   rtgs_expected: string
   cash_expected: string
   remarks: string
@@ -119,10 +122,8 @@ export default function SalesDataEntryPage() {
   const [newMaterialName, setNewMaterialName] = useState('')
   const [addingMaterial, setAddingMaterial] = useState(false)
 
-  // Month selector state - default to current month
-  const currentDate = new Date()
-  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1) // 1-12
-  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear())
+  // Month selector state - persists in session, resets to current month on new session
+  const { selectedMonth, selectedYear, setSelectedMonth, setSelectedYear } = useSessionMonthYear('sales-data-entry')
 
   const initialFormData: FormData = useMemo(() => ({
     date: new Date().toISOString().split('T')[0],
@@ -150,6 +151,7 @@ export default function SalesDataEntryPage() {
       total_amount: 0
     }],
     official_tax: '',
+    end_customer_name: '',
     rtgs_expected: '',
     cash_expected: '',
     remarks: '',
@@ -463,6 +465,7 @@ export default function SalesDataEntryPage() {
             total_amount: item.total_amount
           })),
           official_tax: parseFloat(formData.official_tax) || 0,
+          end_customer_name: formData.end_customer_name || null,
           rtgs_expected: rtgs,
           cash_expected: cash,
           remarks: formData.remarks,
@@ -553,6 +556,7 @@ export default function SalesDataEntryPage() {
           total_amount: 0
         }],
         official_tax: saleDetails.official_tax?.toString() || '',
+        end_customer_name: saleDetails.end_customer_name || '',
         rtgs_expected: saleDetails.rtgs_expected.toString(),
         cash_expected: saleDetails.cash_expected.toString(),
         remarks: saleDetails.remarks || '',
@@ -651,13 +655,22 @@ export default function SalesDataEntryPage() {
       filtered = sales.filter(sale => sale.customer_id === filterCustomerId)
     }
     
+    // Filter by official bill view - only show sales with non-zero official bill sq.ft
+    if (viewMode === 'official') {
+      filtered = filtered.filter(sale => {
+        const officialBillItems = sale.official_bill_items || []
+        const officialSqft = officialBillItems.reduce((sum: number, item: any) => sum + (Number(item.square_feet) || 0), 0)
+        return officialSqft > 0
+      })
+    }
+    
     // Then sort by date
     return [...filtered].sort((a, b) => {
       const dateA = new Date(a.sale_date).getTime()
       const dateB = new Date(b.sale_date).getTime()
       return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
     })
-  }, [sales, sortOrder, filterCustomerId])
+  }, [sales, sortOrder, filterCustomerId, viewMode])
 
   return (
     <AppLayout>
@@ -797,6 +810,7 @@ export default function SalesDataEntryPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th className="px-3 py-2 text-left font-medium w-12">S.No</th>
                     <th className="px-3 py-2 text-left font-medium">
                       <div className="flex items-center justify-between">
                         <span>Material Type</span>
@@ -832,6 +846,9 @@ export default function SalesDataEntryPage() {
                     
                     return (
                     <tr key={row.id} className={index > 0 ? 'border-t' : ''}>
+                      <td className="px-3 py-2 text-center text-gray-600 font-medium">
+                        {index + 1}
+                      </td>
                       <td className="px-3 py-2">
                         <select
                           value={row.material_type_id}
@@ -1084,6 +1101,18 @@ export default function SalesDataEntryPage() {
                 />
               </div>
 
+              {/* End Customer Name */}
+              <div className="mt-3">
+                <label className="text-xs text-gray-700 block mb-1">End Customer Name (Bill Written For)</label>
+                <Input
+                  type="text"
+                  value={formData.end_customer_name}
+                  onChange={(e) => handleInputChange('end_customer_name', e.target.value)}
+                  placeholder="Enter end customer name"
+                  className="bg-white max-w-md"
+                />
+              </div>
+
               {/* Totals */}
               <div className="mt-3 flex items-center justify-between bg-blue-100 p-2 rounded">
                 <span className="text-sm font-medium">Subtotal:</span>
@@ -1243,6 +1272,7 @@ export default function SalesDataEntryPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-3 py-2 text-left font-medium w-12">S.No</th>
                   <th className="px-3 py-2 text-left font-medium">Sale #</th>
                   <th className="px-3 py-2 text-left font-medium">Date</th>
                   <th className="px-3 py-2 text-left font-medium">Customer</th>
@@ -1265,7 +1295,7 @@ export default function SalesDataEntryPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedSales.map((sale) => {
+                {sortedSales.map((sale, index) => {
                   const officialBillItems = sale.official_bill_items || [];
                   const officialSqft = officialBillItems.reduce((sum: number, item: any) => sum + (Number(item.square_feet) || 0), 0);
                   
@@ -1277,6 +1307,7 @@ export default function SalesDataEntryPage() {
                   
                   return (
                     <tr key={sale.id} className="border-t hover:bg-gray-50">
+                      <td className="px-3 py-2 text-center text-gray-600 font-medium">{index + 1}</td>
                       <td className="px-3 py-2 font-medium">{sale.sale_number}</td>
                       <td className="px-3 py-2">{new Date(sale.sale_date).toLocaleDateString('en-IN')}</td>
                       <td className="px-3 py-2">{sale.customers?.name}</td>

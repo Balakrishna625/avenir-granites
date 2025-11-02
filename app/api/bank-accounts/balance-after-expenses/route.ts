@@ -137,8 +137,9 @@ export async function GET(req: Request) {
     });
 
     // Filter out accounts with zero activity and sort by balance (descending)
+    // Show accounts that have either current period activity OR opening balance from previous months
     const filteredBalances = accountBalances
-      .filter(account => account.totalReceived > 0)
+      .filter(account => account.totalReceived > 0 || account.openingBalance !== 0)
       .sort((a, b) => b.currentBalance - a.currentBalance);
 
     return NextResponse.json(filteredBalances);

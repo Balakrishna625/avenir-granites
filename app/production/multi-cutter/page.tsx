@@ -11,6 +11,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { SortButton } from '@/components/ui/SortButton';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { UnsavedChangesIndicator } from '@/components/ui/UnsavedChangesIndicator';
+import { useSessionMonthYear } from '@/hooks/useSessionMonth';
 
 type MaterialType = 
   | 'S/G'
@@ -87,10 +88,8 @@ export default function MultiCutterPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedMachineTab, setSelectedMachineTab] = useState<'Machine-1' | 'Machine-2' | 'Machine-3' | 'All'>('Machine-1');
   
-  // Month selector state - default to current month
-  const currentDate = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1); // 1-12
-  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  // Month selector state - persists in session, resets to current month on new session
+  const { selectedMonth, selectedYear, setSelectedMonth, setSelectedYear } = useSessionMonthYear('multi-cutter')
   
   // Summary stats
   const [totalSlabs, setTotalSlabs] = useState(0);

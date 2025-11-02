@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
-import { BarChart3, TrendingUp, Package, DollarSign, Users, Layers } from 'lucide-react'
+import { BarChart3, TrendingUp, Package, DollarSign, Users, Layers, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { AppLayout } from '@/components/AppLayout'
+import { useSessionMonthString } from '@/hooks/useSessionMonth'
 
 interface Sale {
   id: string
@@ -32,6 +33,8 @@ interface Sale {
     material_name: string
     slabs_count: number
     square_feet: number
+    tons?: number
+    is_tonnage_material?: boolean
     total_amount: number
   }>
 }
@@ -45,11 +48,16 @@ function formatIndianNumber(num: number): string {
 
 export default function SalesAnalyticsPage() {
   const [sales, setSales] = useState<Sale[]>([])
+  const [customers, setCustomers] = useState<Array<{ id: string; name: string }>>([])
   const [loading, setLoading] = useState(true)
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7))
+  const { selectedMonth, setSelectedMonth } = useSessionMonthString('sales-analytics')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc') // desc = newest first (default)
+  const [filterCustomerId, setFilterCustomerId] = useState<string>('all')
+  const [viewMode, setViewMode] = useState<'actual' | 'official'>('actual')
 
   useEffect(() => {
     fetchSales()
+    fetchCustomers()
   }, [])
 
   const fetchSales = async () => {
@@ -67,11 +75,47 @@ export default function SalesAnalyticsPage() {
     }
   }
 
-  // Filter sales by selected month
-  const filteredSales = sales.filter(sale => {
-    const saleMonth = sale.sale_date.substring(0, 7)
-    return saleMonth === selectedMonth
-  })
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch('/api/customers')
+      if (response.ok) {
+        const data = await response.json()
+        setCustomers(data)
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error)
+    }
+  }
+
+  // Filter and sort sales by selected month, customer, and view mode
+  const filteredSales = sales
+    .filter(sale => {
+      const saleMonth = sale.sale_date.substring(0, 7)
+      const matchesMonth = saleMonth === selectedMonth
+      
+      // Filter by customer if not 'all'
+      const matchesCustomer = filterCustomerId === 'all' || sale.customer_id === filterCustomerId
+      
+      // Filter by official bill view - only show sales with non-zero official bill sq.ft
+      let matchesViewMode = true
+      if (viewMode === 'official') {
+        const officialBillItems = sale.official_bill_items || []
+        const officialSqft = officialBillItems.reduce((sum: number, item: any) => sum + (Number(item.square_feet) || 0), 0)
+        matchesViewMode = officialSqft > 0
+      }
+      
+      return matchesMonth && matchesCustomer && matchesViewMode
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.sale_date).getTime()
+      const dateB = new Date(b.sale_date).getTime()
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+    })
+
+  // Toggle sort order function
+  const toggleSortOrder = () => {
+    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+  }
 
   // Calculate analytics
   const totalSales = filteredSales.length
@@ -80,6 +124,21 @@ export default function SalesAnalyticsPage() {
   const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.gross_total, 0)
   const totalRTGS = filteredSales.reduce((sum, sale) => sum + sale.rtgs_expected, 0)
   const totalCash = filteredSales.reduce((sum, sale) => sum + sale.cash_expected, 0)
+
+  // Calculate tonnage metrics
+  const totalTons = filteredSales.reduce((sum, sale) => {
+    const tonsSold = sale.sale_items?.reduce((itemSum, item) => {
+      return itemSum + (item.is_tonnage_material ? (item.tons || 0) : 0)
+    }, 0) || 0
+    return sum + tonsSold
+  }, 0)
+
+  const totalSqftFromTons = filteredSales.reduce((sum, sale) => {
+    const sqftFromTons = sale.sale_items?.reduce((itemSum, item) => {
+      return itemSum + (item.is_tonnage_material ? (item.square_feet || 0) : 0)
+    }, 0) || 0
+    return sum + sqftFromTons
+  }, 0)
 
   // Calculate official bill metrics
   const totalOfficialSqft = filteredSales.reduce((sum, sale) => {
@@ -122,17 +181,19 @@ export default function SalesAnalyticsPage() {
         acc[item.material_name] = {
           slabs: 0,
           sqft: 0,
+          tons: 0,
           revenue: 0,
           count: 0 // for average calculation
         }
       }
       acc[item.material_name].slabs += item.slabs_count
       acc[item.material_name].sqft += item.square_feet
+      acc[item.material_name].tons += item.is_tonnage_material ? (item.tons || 0) : 0
       acc[item.material_name].revenue += item.total_amount
       acc[item.material_name].count += 1
     })
     return acc
-  }, {} as Record<string, { slabs: number; sqft: number; revenue: number; count: number }>)
+  }, {} as Record<string, { slabs: number; sqft: number; tons: number; revenue: number; count: number }>)
 
   // Calculate average price per material
   const materialsWithAvgPrice = Object.entries(materialStats).map(([material, stats]) => ({
@@ -210,6 +271,52 @@ export default function SalesAnalyticsPage() {
               </div>
             </Card>
           </div>
+
+          {/* Tonnage Metrics */}
+          {totalTons > 0 && (
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Tons Sold</p>
+                    <p className="text-2xl font-bold mt-1 text-orange-700">{totalTons.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500 mt-1">Tonnage materials only</p>
+                  </div>
+                  <div className="bg-orange-100 p-3 rounded-lg">
+                    <Package className="w-6 h-6 text-orange-600" />
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Sq.Ft from Tons</p>
+                    <p className="text-2xl font-bold mt-1 text-teal-700">{totalSqftFromTons.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500 mt-1">Square feet portion</p>
+                  </div>
+                  <div className="bg-teal-100 p-3 rounded-lg">
+                    <BarChart3 className="w-6 h-6 text-teal-600" />
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Avg Sq.Ft per Ton</p>
+                    <p className="text-2xl font-bold mt-1 text-indigo-700">
+                      {totalTons > 0 ? (totalSqftFromTons / totalTons).toFixed(2) : '0.00'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Conversion ratio</p>
+                  </div>
+                  <div className="bg-indigo-100 p-3 rounded-lg">
+                    <TrendingUp className="w-6 h-6 text-indigo-600" />
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
 
           {/* Revenue Cards */}
           <div className="grid grid-cols-3 gap-4 mb-6">
@@ -421,7 +528,61 @@ export default function SalesAnalyticsPage() {
 
           {/* Detailed Sales Table */}
           <Card className="p-6">
-            <h2 className="text-lg font-semibold mb-4">Sales Details</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">
+                Sales Details
+                {filterCustomerId !== 'all' && (
+                  <span className="ml-2 text-sm font-normal text-blue-600">
+                    ({filteredSales.length} filtered)
+                  </span>
+                )}
+              </h2>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600">Customer:</label>
+                  <select
+                    value={filterCustomerId}
+                    onChange={(e) => setFilterCustomerId(e.target.value)}
+                    className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Customers</option>
+                    {customers.map(customer => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={toggleSortOrder}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  title={sortOrder === 'asc' ? 'Oldest first (click for newest)' : 'Newest first (click for oldest)'}
+                >
+                  {sortOrder === 'asc' ? (
+                    <>
+                      <ArrowUp className="w-4 h-4" />
+                      <span>Oldest First</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDown className="w-4 h-4" />
+                      <span>Newest First</span>
+                    </>
+                  )}
+                </button>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600">View:</label>
+                  <select
+                    value={viewMode}
+                    onChange={(e) => setViewMode(e.target.value as 'actual' | 'official')}
+                    className="border rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="actual">Actual Sale</option>
+                    <option value="official">Official Bill</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             {filteredSales.length === 0 ? (
               <p className="text-gray-500 text-center py-8">No sales for selected month</p>
             ) : (
@@ -429,48 +590,110 @@ export default function SalesAnalyticsPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-3 py-2 text-left font-medium w-12">S.No</th>
                       <th className="px-3 py-2 text-left font-medium">Date</th>
                       <th className="px-3 py-2 text-left font-medium">Sale #</th>
                       <th className="px-3 py-2 text-left font-medium">Customer</th>
-                      <th className="px-3 py-2 text-right font-medium">Slabs</th>
-                      <th className="px-3 py-2 text-right font-medium">Sq. Ft.</th>
-                      <th className="px-3 py-2 text-right font-medium">Subtotal</th>
-                      <th className="px-3 py-2 text-right font-medium">Charges</th>
-                      <th className="px-3 py-2 text-right font-medium">Gross Total</th>
+                      {viewMode === 'actual' ? (
+                        <>
+                          <th className="px-3 py-2 text-right font-medium">Slabs</th>
+                          <th className="px-3 py-2 text-right font-medium">Sq. Ft.</th>
+                          <th className="px-3 py-2 text-right font-medium">Tons</th>
+                          <th className="px-3 py-2 text-right font-medium">Subtotal</th>
+                          <th className="px-3 py-2 text-right font-medium">Charges</th>
+                          <th className="px-3 py-2 text-right font-medium">Gross Total</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-3 py-2 text-left font-medium">Items</th>
+                          <th className="px-3 py-2 text-right font-medium">Sq. Ft.</th>
+                          <th className="px-3 py-2 text-right font-medium">Official Total</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSales.map((sale) => (
+                    {filteredSales.map((sale, index) => {
+                      const saleTons = sale.sale_items?.reduce((sum, item) => 
+                        sum + (item.is_tonnage_material ? (item.tons || 0) : 0), 0) || 0
+                      
+                      const officialBillItems = sale.official_bill_items || []
+                      const officialSqft = officialBillItems.reduce((sum: number, item: any) => sum + (Number(item.square_feet) || 0), 0)
+                      
+                      return (
                       <tr key={sale.id} className="border-t hover:bg-gray-50">
+                        <td className="px-3 py-2 text-center text-gray-600 font-medium">{index + 1}</td>
                         <td className="px-3 py-2">{new Date(sale.sale_date).toLocaleDateString('en-IN')}</td>
                         <td className="px-3 py-2 font-medium">{sale.sale_number}</td>
                         <td className="px-3 py-2">{sale.customers?.name}</td>
-                        <td className="px-3 py-2 text-right">{sale.total_slabs}</td>
-                        <td className="px-3 py-2 text-right">{sale.total_sqft.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right">₹{formatIndianNumber(sale.subtotal_amount)}</td>
-                        <td className="px-3 py-2 text-right">
-                          ₹{formatIndianNumber(sale.tax_amount + sale.mining_amount + sale.loading_amount)}
-                        </td>
-                        <td className="px-3 py-2 text-right font-bold text-green-700">
-                          ₹{formatIndianNumber(sale.gross_total)}
-                        </td>
+                        {viewMode === 'actual' ? (
+                          <>
+                            <td className="px-3 py-2 text-right">{sale.total_slabs}</td>
+                            <td className="px-3 py-2 text-right">{sale.total_sqft.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right">
+                              {saleTons > 0 ? (
+                                <span className="text-orange-600 font-medium">{saleTons.toFixed(2)}</span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">₹{formatIndianNumber(sale.subtotal_amount)}</td>
+                            <td className="px-3 py-2 text-right">
+                              ₹{formatIndianNumber(sale.tax_amount + sale.mining_amount + sale.loading_amount)}
+                            </td>
+                            <td className="px-3 py-2 text-right font-bold text-green-700">
+                              ₹{formatIndianNumber(sale.gross_total)}
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-3 py-2 text-xs">
+                              {officialBillItems.length > 0 ? (
+                                <div className="space-y-0.5">
+                                  {officialBillItems.map((item: any, idx: number) => (
+                                    <div key={idx}>{item.material_name || 'N/A'}</div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">No items</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">{officialSqft.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right font-bold text-purple-700">
+                              ₹{formatIndianNumber(sale.official_total || 0)}
+                            </td>
+                          </>
+                        )}
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                   <tfoot className="bg-gray-100 border-t-2 font-bold">
                     <tr>
-                      <td className="px-3 py-2" colSpan={3}>Total</td>
-                      <td className="px-3 py-2 text-right">{totalSlabs}</td>
-                      <td className="px-3 py-2 text-right">{totalSqft.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-right">
-                        ₹{formatIndianNumber(filteredSales.reduce((sum, s) => sum + s.subtotal_amount, 0))}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        ₹{formatIndianNumber(filteredSales.reduce((sum, s) => sum + s.tax_amount + s.mining_amount + s.loading_amount, 0))}
-                      </td>
-                      <td className="px-3 py-2 text-right text-green-700">
-                        ₹{formatIndianNumber(totalRevenue)}
-                      </td>
+                      <td className="px-3 py-2" colSpan={4}>Total</td>
+                      {viewMode === 'actual' ? (
+                        <>
+                          <td className="px-3 py-2 text-right">{totalSlabs}</td>
+                          <td className="px-3 py-2 text-right">{totalSqft.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-orange-600">{totalTons.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">
+                            ₹{formatIndianNumber(filteredSales.reduce((sum, s) => sum + s.subtotal_amount, 0))}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            ₹{formatIndianNumber(filteredSales.reduce((sum, s) => sum + s.tax_amount + s.mining_amount + s.loading_amount, 0))}
+                          </td>
+                          <td className="px-3 py-2 text-right text-green-700">
+                            ₹{formatIndianNumber(totalRevenue)}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-3 py-2 text-right">—</td>
+                          <td className="px-3 py-2 text-right">{totalOfficialSqft.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right text-purple-700">
+                            ₹{formatIndianNumber(totalOfficialAmount)}
+                          </td>
+                        </>
+                      )}
                     </tr>
                   </tfoot>
                 </table>

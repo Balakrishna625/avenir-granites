@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/AppLayout";
 import { formatDisplayDate } from "@/lib/date-utils";
 import { useToast } from "@/components/ui/toast";
+import { useSessionMonthYear } from "@/hooks/useSessionMonth";
 import * as XLSX from 'xlsx-js-style';
 import { 
   Plus, 
@@ -21,7 +22,9 @@ import {
   X,
   Filter,
   Download,
-  Settings
+  Settings,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 interface BankCollection {
@@ -51,11 +54,15 @@ const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR",
 const fmt = (n: number) => INR.format(n || 0);
 
 // Helper function to format number with Indian comma style (1,00,000)
+// Supports negative numbers (e.g., -1,00,000)
 const formatIndianNumber = (value: string): string => {
   if (!value) return '';
   
-  // Remove existing commas and non-numeric characters except decimal point
-  const numStr = value.replace(/[^\d.]/g, '');
+  // Check if negative
+  const isNegative = value.toString().startsWith('-');
+  
+  // Remove existing commas and non-numeric characters except decimal point and minus sign
+  const numStr = value.replace(/[^\d.-]/g, '').replace(/-/g, '');
   
   // Split into integer and decimal parts
   const parts = numStr.split('.');
@@ -69,10 +76,11 @@ const formatIndianNumber = (value: string): string => {
     intPart = remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree;
   }
   
-  return intPart + decPart;
+  return (isNegative ? '-' : '') + intPart + decPart;
 };
 
 // Helper function to remove commas for saving to database
+// Preserves negative sign
 const parseIndianNumber = (value: string): string => {
   return value.replace(/,/g, '');
 };
@@ -106,6 +114,7 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [bankCollections, setBankCollections] = useState<BankCollection[]>([]);
   const [allBankAccounts, setAllBankAccounts] = useState<Array<{id: string; name: string}>>([]); // New: All bank accounts for form dropdown
+  const [expenseCategories, setExpenseCategories] = useState<Array<{id: string; name: string; color?: string}>>([]); // Expense categories
   const [loading, setLoading] = useState(true);
   
   // Form state
@@ -118,11 +127,11 @@ export default function ExpensesPage() {
   });
   const [formAmount, setFormAmount] = useState("");
   const [formAccount, setFormAccount] = useState("");
+  const [formCategory, setFormCategory] = useState("");
   const [formNotes, setFormNotes] = useState("");
   
-  // Month selector
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  // Month selector - persists in session, resets to current month on new session
+  const { selectedMonth, selectedYear, setSelectedMonth, setSelectedYear } = useSessionMonthYear('expenses')
 
   // Sort and filter state
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc'); // asc = oldest first (default)
@@ -148,9 +157,25 @@ export default function ExpensesPage() {
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
   const [adjustmentNotes, setAdjustmentNotes] = useState("");
 
-  // Load all bank accounts once on mount (for form dropdown)
+  // Category modal state
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+
+  // UI-only: Hidden accounts state (stored in localStorage)
+  const [hiddenAccountIds, setHiddenAccountIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('hiddenBankAccounts');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    }
+    return new Set();
+  });
+
+  // Load all bank accounts and categories once on mount
   useEffect(() => {
     loadAllBankAccounts();
+    loadExpenseCategories();
   }, []);
 
   useEffect(() => {
@@ -167,6 +192,69 @@ export default function ExpensesPage() {
       setAllBankAccounts([]);
     }
   }
+
+  async function loadExpenseCategories() {
+    try {
+      const response = await fetch('/api/expense-categories');
+      const data = await response.json();
+      setExpenseCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to load expense categories:", error);
+      setExpenseCategories([]);
+    }
+  }
+
+  const createExpenseCategory = async () => {
+    if (!newCategoryName.trim()) {
+      showToast('error', 'Please enter a category name');
+      return;
+    }
+
+    setAddingCategory(true);
+    try {
+      const response = await fetch('/api/expense-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: newCategoryName.trim(),
+          description: newCategoryDescription.trim() || undefined
+        })
+      });
+
+      if (response.ok) {
+        const newCategory = await response.json();
+        setExpenseCategories([...expenseCategories, newCategory]);
+        setFormCategory(newCategory.id); // Auto-select the newly created category
+        setNewCategoryName('');
+        setNewCategoryDescription('');
+        setShowCategoryModal(false);
+        showToast('success', 'Expense category added successfully');
+      } else {
+        const error = await response.json();
+        showToast('error', error.error || 'Failed to add category');
+      }
+    } catch (error: any) {
+      showToast('error', error.message);
+    } finally {
+      setAddingCategory(false);
+    }
+  };
+
+  // Toggle account visibility in top section (UI-only, no data changes)
+  const toggleAccountVisibility = (accountId: string) => {
+    const newHiddenIds = new Set(hiddenAccountIds);
+    if (newHiddenIds.has(accountId)) {
+      newHiddenIds.delete(accountId);
+    } else {
+      newHiddenIds.add(accountId);
+    }
+    setHiddenAccountIds(newHiddenIds);
+    
+    // Persist to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hiddenBankAccounts', JSON.stringify(Array.from(newHiddenIds)));
+    }
+  };
 
   async function loadData() {
     try {
@@ -213,33 +301,14 @@ export default function ExpensesPage() {
   async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault();
     
-    if (!formDate || !formAmount || !formAccount) {
+    if (!formDate || !formAmount || !formAccount || !formCategory) {
       alert("Please fill all required fields");
       return;
     }
 
     try {
-      // Get a default category (we'll use the first one or create a generic one)
-      const categoriesRes = await fetch("/api/expense-categories");
-      const categories = await categoriesRes.json();
-      
-      let categoryId;
-      if (categories && categories.length > 0) {
-        categoryId = categories[0].id;
-      } else {
-        // Create a default "General" category
-        const newCategoryRes = await fetch("/api/expense-categories", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: "General",
-            description: "General expenses",
-            color: "#6B7280"
-          })
-        });
-        const newCategory = await newCategoryRes.json();
-        categoryId = newCategory.id;
-      }
+      // Use the selected category from the form
+      const categoryId = formCategory;
 
       // Create expense (debited from bank_accounts, not expense_accounts)
       const expense = {
@@ -274,6 +343,7 @@ export default function ExpensesPage() {
         setFormDate(`${year}-${month}-${day}`);
         setFormAmount("");
         setFormAccount("");
+        setFormCategory("");
         setFormNotes("");
         
         // Reload data (this will show updated collections minus expenses)
@@ -586,22 +656,40 @@ export default function ExpensesPage() {
 
         {/* Bank Collections Tiles */}
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <DollarSign className="w-5 h-5 text-green-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Bank Collections - Current Balance</h2>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Bank Collections - Current Balance</h2>
+            </div>
+            {hiddenAccountIds.size > 0 && (
+              <p className="text-xs text-gray-500">
+                {hiddenAccountIds.size} account{hiddenAccountIds.size > 1 ? 's' : ''} hidden
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {bankCollections.map((collection) => (
+            {bankCollections
+              .filter(collection => !hiddenAccountIds.has(collection.id))
+              .map((collection) => (
               <Card key={collection.id} className="border border-gray-200 hover:shadow-md transition-shadow">
                 <CardContent className="p-3 relative">
-                  {/* Settings button for adjustment */}
-                  <button
-                    onClick={() => openAdjustmentModal(collection)}
-                    className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 transition-colors"
-                    title="Adjust opening balance"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-gray-500" />
-                  </button>
+                  {/* Action buttons */}
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <button
+                      onClick={() => toggleAccountVisibility(collection.id)}
+                      className="p-1 rounded hover:bg-gray-100 transition-colors"
+                      title="Hide this account from top section"
+                    >
+                      <EyeOff className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" />
+                    </button>
+                    <button
+                      onClick={() => openAdjustmentModal(collection)}
+                      className="p-1 rounded hover:bg-gray-100 transition-colors"
+                      title="Adjust opening balance"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-gray-500" />
+                    </button>
+                  </div>
 
                   <h3 className="text-xs font-semibold text-gray-700 mb-1.5 truncate pr-6" title={collection.name}>
                     {collection.name}
@@ -633,6 +721,31 @@ export default function ExpensesPage() {
               </Card>
             ))}
           </div>
+
+          {/* Show Hidden Accounts Section */}
+          {hiddenAccountIds.size > 0 && (
+            <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <EyeOff className="w-4 h-4 text-gray-500" />
+                <h3 className="text-sm font-semibold text-gray-700">Hidden Accounts</h3>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {bankCollections
+                  .filter(collection => hiddenAccountIds.has(collection.id))
+                  .map((collection) => (
+                    <button
+                      key={collection.id}
+                      onClick={() => toggleAccountVisibility(collection.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-sm"
+                      title="Click to show this account"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-gray-500" />
+                      <span className="text-gray-700">{collection.name}</span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Add Expense Section */}
@@ -643,8 +756,8 @@ export default function ExpensesPage() {
             </div>
 
             <form onSubmit={handleAddExpense} className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6">
-                <div className="flex flex-col md:flex-row gap-4 items-end">
-                  <div className="flex-shrink-0 w-full md:w-40">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
+                  <div className="lg:col-span-1">
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Date <span className="text-red-500">*</span>
                     </label>
@@ -657,7 +770,7 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  <div className="flex-shrink-0 w-full md:w-36">
+                  <div className="lg:col-span-1">
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Amount <span className="text-red-500">*</span>
                     </label>
@@ -671,7 +784,7 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  <div className="flex-shrink-0 w-full md:w-56">
+                  <div className="lg:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Debited From <span className="text-red-500">*</span>
                     </label>
@@ -688,7 +801,36 @@ export default function ExpensesPage() {
                     </select>
                   </div>
 
-                  <div className="flex-1 w-full">
+                  <div className="lg:col-span-2">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      Category <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-1">
+                      <select
+                        value={formCategory}
+                        onChange={(e) => setFormCategory(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      >
+                        <option value="">Select Category</option>
+                        {expenseCategories.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setShowCategoryModal(true)}
+                        className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
+                        title="Add new category"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                  <div className="md:col-span-3">
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Notes
                     </label>
@@ -701,8 +843,8 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  <div className="flex gap-2 flex-shrink-0">
-                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700 px-6">
+                  <div className="md:col-span-1">
+                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700 w-full">
                       <Plus className="w-4 h-4 mr-2" />
                       Add Expense
                     </Button>
@@ -1012,6 +1154,69 @@ export default function ExpensesPage() {
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     Save Adjustment
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Category Modal */}
+        {showCategoryModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Add New Expense Category</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Category Name <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="e.g., Repair Expenses, Segment Purchase"
+                    className="w-full"
+                    autoFocus
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !addingCategory) {
+                        createExpenseCategory();
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Description (Optional)
+                  </label>
+                  <Input
+                    type="text"
+                    value={newCategoryDescription}
+                    onChange={(e) => setNewCategoryDescription(e.target.value)}
+                    placeholder="Brief description of this category"
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowCategoryModal(false);
+                      setNewCategoryName('');
+                      setNewCategoryDescription('');
+                    }}
+                    disabled={addingCategory}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={createExpenseCategory}
+                    disabled={addingCategory || !newCategoryName.trim()}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {addingCategory ? 'Adding...' : 'Add Category'}
                   </Button>
                 </div>
               </div>

@@ -14,6 +14,7 @@ interface Customer {
   id: string;
   name: string;
   created_at: string;
+  customer_type?: string;
 }
 
 interface BankAccount {
@@ -56,6 +57,7 @@ export default function AdminPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const name = String(formData.get("customerName") || "").trim();
+    const customer_type = String(formData.get("customerType") || "regular");
     
     if (!name) {
       showToast("error", "Customer name is required");
@@ -66,7 +68,7 @@ export default function AdminPage() {
       const res = await fetch("/api/customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, customer_type })
       });
       
       const data = await res.json();
@@ -82,6 +84,31 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Failed to add customer:", error);
       showToast("error", "Failed to add customer. Please try again.");
+    }
+  }
+
+  async function updateCustomerType(customerId: string, newType: string) {
+    try {
+      const res = await fetch("/api/customers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: customerId, customer_type: newType })
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        showToast("error", data.error || "Failed to update customer type");
+        return;
+      }
+      
+      setCustomers(prev => 
+        prev.map(c => c.id === customerId ? { ...c, customer_type: newType } : c)
+      );
+      showToast("success", `Customer type updated to ${newType}`);
+    } catch (error) {
+      console.error("Failed to update customer type:", error);
+      showToast("error", "Failed to update customer type. Please try again.");
     }
   }
 
@@ -268,6 +295,20 @@ export default function AdminPage() {
                   className="w-full"
                 />
               </div>
+              <div className="w-48">
+                <label htmlFor="customerType" className="block text-sm font-medium text-gray-700 mb-2">
+                  Customer Type
+                </label>
+                <select
+                  id="customerType"
+                  name="customerType"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  defaultValue="regular"
+                >
+                  <option value="regular">Regular</option>
+                  <option value="one-time">One-Time</option>
+                </select>
+              </div>
               <Button type="submit" className="flex items-center space-x-2">
                 <PlusCircle className="w-4 h-4" />
                 <span>Add Customer</span>
@@ -287,20 +328,30 @@ export default function AdminPage() {
                     key={customer.id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <div>
+                    <div className="flex-1">
                       <div className="font-medium text-gray-900">{customer.name}</div>
                       <div className="text-sm text-gray-500">
                         Created: {formatDisplayDate(customer.created_at)}
                       </div>
                     </div>
-                    <Button
-                      onClick={() => deleteCustomer(customer.id, customer.name)}
-                      size="sm"
-                      variant="outline"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={customer.customer_type || 'regular'}
+                        onChange={(e) => updateCustomerType(customer.id, e.target.value)}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="regular">Regular</option>
+                        <option value="one-time">One-Time</option>
+                      </select>
+                      <Button
+                        onClick={() => deleteCustomer(customer.id, customer.name)}
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -73,6 +73,7 @@ export async function PUT(
       loading_amount = 0,
       official_bill_items = [],
       official_tax = 0,
+      end_customer_name = null,
       rtgs_expected = 0,
       cash_expected = 0,
       remarks = ''
@@ -135,6 +136,7 @@ export async function PUT(
         gross_total,
         official_bill_items,
         official_tax: Number(official_tax),
+        end_customer_name,
         official_total,
         rtgs_expected: Number(rtgs_expected),
         cash_expected: Number(cash_expected),

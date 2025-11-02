@@ -1,8 +1,77 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function GET() {
-  const { data, error } = await supabaseAdmin.from("customers").select("*").order("created_at", { ascending: false });
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const filterType = url.searchParams.get("type"); // 'regular' | 'one-time' | 'all' | 'for-payments'
+  
+  // Special filter for Customer Payments dropdown
+  // Shows: Regular customers (always) + One-time customers (only if outstanding amount > 0)
+  if (filterType === "for-payments") {
+    // Get all customers with their transactions, consignments, and waived transactions
+    const { data: customers, error } = await supabaseAdmin
+      .from("customers")
+      .select(`
+        *,
+        transactions(amount),
+        consignments(total),
+        waived_transactions(amount)
+      `)
+      .order("created_at", { ascending: false });
+    
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Calculate total receivables for each customer and filter
+    const filteredCustomers = customers?.filter((customer: any) => {
+      // ALWAYS show regular customers (regardless of balance)
+      if (customer.customer_type === 'regular' || !customer.customer_type) {
+        return true;
+      }
+      
+      // For one-time customers: only show if they have outstanding amount
+      if (customer.customer_type === 'one-time') {
+        // Calculate consignments total (sales/invoices)
+        const consignmentsTotal = customer.consignments?.reduce(
+          (sum: number, c: any) => sum + (Number(c.total) || 0),
+          0
+        ) || 0;
+        
+        // Calculate total transactions (payments received)
+        const totalTransactions = customer.transactions?.reduce(
+          (sum: number, t: any) => sum + (Number(t.amount) || 0),
+          0
+        ) || 0;
+        
+        // Calculate waived amount
+        const waivedAmount = customer.waived_transactions?.reduce(
+          (sum: number, wt: any) => sum + (Number(wt.amount) || 0),
+          0
+        ) || 0;
+        
+        // Total Receivables = Consignments + Old Due - Payments - Waived
+        const totalReceivables = consignmentsTotal + (Number(customer.old_due_amount) || 0) - totalTransactions - waivedAmount;
+        
+        // Only show one-time customer if outstanding amount > ₹1
+        return totalReceivables > 1;
+      }
+      
+      return false;
+    }) || [];
+    
+    return NextResponse.json(filteredCustomers);
+  }
+  
+  // Standard filtering (for admin pages)
+  let query = supabaseAdmin.from("customers").select("*").order("created_at", { ascending: false });
+  
+  if (filterType === "regular") {
+    query = query.eq("customer_type", "regular");
+  } else if (filterType === "one-time") {
+    query = query.eq("customer_type", "one-time");
+  }
+  // filterType === 'all' or null = no filter
+  
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
@@ -10,12 +79,19 @@ export async function GET() {
 export async function POST(req: Request) {
   const body = await req.json();
   const name = String(body?.name || "").trim();
+  const customerType = body?.customer_type || "regular"; // Default to regular
+  
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
+  
+  // Validate customer_type
+  if (!["regular", "one-time"].includes(customerType)) {
+    return NextResponse.json({ error: "customer_type must be 'regular' or 'one-time'" }, { status: 400 });
+  }
   
   // Initialize old_due_amount to 0 for new customers
   const { data, error } = await supabaseAdmin
     .from("customers")
-    .insert({ name, old_due_amount: 0 })
+    .insert({ name, old_due_amount: 0, customer_type: customerType })
     .select()
     .single();
     
@@ -25,7 +101,7 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   const body = await req.json();
-  const { id, old_due_amount, waived_amount } = body;
+  const { id, old_due_amount, waived_amount, customer_type } = body;
   
   if (!id) {
     return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
@@ -46,6 +122,13 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Waived amount must be 0 or greater" }, { status: 400 });
     }
     updateData.waived_amount = waived_amount;
+  }
+  
+  if (customer_type !== undefined) {
+    if (!["regular", "one-time"].includes(customer_type)) {
+      return NextResponse.json({ error: "customer_type must be 'regular' or 'one-time'" }, { status: 400 });
+    }
+    updateData.customer_type = customer_type;
   }
   
   if (Object.keys(updateData).length === 0) {

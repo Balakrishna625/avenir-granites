@@ -11,6 +11,7 @@ import { Plus, Edit3, Trash2, Users, BarChart3, Layers, TrendingUp, DollarSign, 
 import { formatDisplayDate } from '@/lib/date-utils';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { UnsavedChangesIndicator } from '@/components/ui/UnsavedChangesIndicator';
+import { useSessionMonthString } from '@/hooks/useSessionMonth';
 
 type ActivityType = 
   | 'S/G Polishing'
@@ -119,8 +120,8 @@ export default function LinePolishPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  // Month/Year filter states
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // Format: YYYY-MM
+  // Month/Year filter states - persists in session, resets to current month on new session
+  const { selectedMonth, setSelectedMonth } = useSessionMonthString('line-polish')
   const [showAllRecords, setShowAllRecords] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<ActivityType | 'ALL'>('ALL');
   
