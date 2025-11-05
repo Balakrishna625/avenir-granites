@@ -114,6 +114,11 @@ const menuItems: MenuItem[] = [
         title: 'Multi Cutter Data',
         href: '/production/multi-cutter',
         icon: <Scissors className="w-4 h-4" />
+      },
+      {
+        title: 'Multi Cutter vs Line Polish',
+        href: '/production/comparison',
+        icon: <BarChart3 className="w-4 h-4" />
       }
     ]
   },

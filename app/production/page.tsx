@@ -76,8 +76,32 @@ interface ProductionAnalytics {
   daily_trends: DailyTrend[];
 }
 
+interface LinePolishReport {
+  id: string;
+  date: string;
+  shift: 'MORNING' | 'NIGHT';
+  activity: string;
+  activities?: Array<{
+    block_name?: string;
+    activity: string;
+    slabs: number;
+    sqft: number;
+  }>;
+  no_of_workers: number;
+  number_of_slabs: number;
+  total_slabs?: number;
+  total_sqft: number;
+  no_of_hours: number;
+  rate_per_hour: number;
+  debit_amount: number;
+  remarks?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function ProductionPage() {
   const [analytics, setAnalytics] = useState<ProductionAnalytics | null>(null);
+  const [linePolishReports, setLinePolishReports] = useState<LinePolishReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -86,6 +110,7 @@ export default function ProductionPage() {
 
   useEffect(() => {
     loadAnalytics();
+    loadLinePolishReports();
   }, [dateFrom, dateTo, selectedMonth, selectedYear]);
 
   async function loadAnalytics() {
@@ -107,6 +132,27 @@ export default function ProductionPage() {
       console.error('Failed to load production analytics:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadLinePolishReports() {
+    try {
+      const params = new URLSearchParams();
+      
+      if (selectedMonth && selectedYear) {
+        params.set('month', selectedMonth);
+        params.set('year', selectedYear);
+      } else {
+        if (dateFrom) params.set('from', dateFrom);
+        if (dateTo) params.set('to', dateTo);
+      }
+      
+      const response = await fetch(`/api/line-polish-reports?${params.toString()}`);
+      const data = await response.json();
+      setLinePolishReports(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load line polish reports:', error);
+      setLinePolishReports([]);
     }
   }
 
@@ -567,55 +613,6 @@ export default function ProductionPage() {
           </div>
         </Card>
 
-        {/* ========== SHIFT & ACTIVITY BREAKDOWN ========== */}
-        <Card className="p-6">
-          <div className="flex items-center mb-4">
-            <Wrench className="w-5 h-5 text-blue-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Activity Breakdown Analysis</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {shiftBreakdown.map((item, index) => (
-              <div key={index} className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-gray-900">
-                    {item.shift === 'MORNING' ? '🌅 Morning' : '🌙 Night'} - {item.activity}
-                  </h4>
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
-                    {item.entries} entries
-                  </span>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                    <span className="text-gray-600">Production:</span>
-                    <span className="font-bold text-gray-900">{item.slabs} slabs / {item.sqft.toLocaleString()} sqft</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                    <span className="text-gray-600">Hours Worked:</span>
-                    <span className="font-bold text-blue-600">{item.hours.toFixed(1)} hrs</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                    <span className="text-gray-600">Productivity:</span>
-                    <span className="font-bold text-green-600">{item.hours > 0 ? (item.sqft / item.hours).toFixed(0) : 0} sqft/hr</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-gray-200">
-                    <span className="text-gray-600">Labor Cost:</span>
-                    <span className="font-bold text-red-600">{fmt(item.debit)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1">
-                    <span className="text-gray-600">Avg Rate:</span>
-                    <span className="font-bold text-indigo-600">{fmt(item.avg_rate)}/hr</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {shiftBreakdown.length === 0 && (
-              <div className="col-span-full text-center py-8 text-gray-500">
-                No activity breakdown available
-              </div>
-            )}
-          </div>
-        </Card>
-
         {/* ========== DETAILED DAILY TABLE ========== */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
@@ -676,6 +673,514 @@ export default function ProductionPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </Card>
+
+        {/* ========== SLAB PROCESSING FLOW ANALYSIS ========== */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center">
+                <BarChart3 className="w-5 h-5 text-purple-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900">Slab Processing Flow Analysis</h3>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">Track how slabs move through grinding and polishing stages</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {(() => {
+              // Helper function to normalize block names with chronological sorting
+              const normalizeBlockName = (blockName: string): { normalized: string; blockGroup: string; sortKey: string } => {
+                if (!blockName) return { normalized: '', blockGroup: '', sortKey: '' };
+                
+                // Remove spaces and standardize separators
+                let normalized = blockName.toUpperCase().trim();
+                normalized = normalized.replace(/\s+/g, ''); // Remove all spaces
+                normalized = normalized.replace(/--+/g, '-'); // Replace multiple dashes with single dash
+                
+                // Extract block group and remove leading zeros from numbers
+                // e.g., AVG-01A → AVG-1A, AVG-001B → AVG-1B (so AVG-01A and AVG-1A are treated as same)
+                const match = normalized.match(/^([A-Z]+)-?(\d+)([A-Z]*)$/);
+                if (match) {
+                  const prefix = match[1];
+                  const numberWithoutLeadingZeros = parseInt(match[2], 10).toString(); // Remove leading zeros
+                  const suffix = match[3];
+                  normalized = `${prefix}-${numberWithoutLeadingZeros}${suffix}`;
+                  
+                  // Block group also needs normalized number (AVG-06 and AVG-6 should both become AVG-6)
+                  const blockGroup = `${prefix}-${numberWithoutLeadingZeros}`;
+                  
+                  // Create sort key: prefix + numeric part for proper chronological ordering
+                  // AVG-1, AVG-2, AVG-10 will sort as 1, 2, 10 (not 1, 10, 2)
+                  const sortKey = `${prefix}-${numberWithoutLeadingZeros.padStart(5, '0')}`;
+                  
+                  return { normalized, blockGroup, sortKey };
+                }
+                
+                // Fallback for non-matching patterns
+                return { normalized, blockGroup: normalized, sortKey: normalized };
+              };
+
+              // Process all line polish activities and group by normalized block name
+              interface BlockProcessing {
+                blockName: string;
+                blockGroup: string;
+                sortKey: string;
+                directPolish: number;
+                directPolishSqft: number;
+                grindThenPolish: number;
+                grindThenPolishSqft: number;
+                directLaputra: number;
+                directLaputraSqft: number;
+                laputraGrindThenLaputra: number;
+                laputraGrindThenLaputraSqft: number;
+                grindingOnly: number;
+                grindingOnlySqft: number;
+                laputraGrindingOnly: number;
+                laputraGrindingOnlySqft: number;
+                totalProcessed: number;
+                totalProcessedSqft: number;
+              }
+
+              const blockProcessing: Record<string, BlockProcessing> = {};
+
+              linePolishReports.forEach(report => {
+                if (report.activities && Array.isArray(report.activities)) {
+                  report.activities.forEach((act: any) => {
+                    const blockNameRaw = act.block_name || '';
+                    const { normalized, blockGroup, sortKey } = normalizeBlockName(blockNameRaw);
+                    
+                    if (!normalized) return;
+
+                    if (!blockProcessing[normalized]) {
+                      blockProcessing[normalized] = {
+                        blockName: normalized,
+                        blockGroup: blockGroup,
+                        sortKey: sortKey,
+                        directPolish: 0,
+                        directPolishSqft: 0,
+                        grindThenPolish: 0,
+                        grindThenPolishSqft: 0,
+                        directLaputra: 0,
+                        directLaputraSqft: 0,
+                        laputraGrindThenLaputra: 0,
+                        laputraGrindThenLaputraSqft: 0,
+                        grindingOnly: 0,
+                        grindingOnlySqft: 0,
+                        laputraGrindingOnly: 0,
+                        laputraGrindingOnlySqft: 0,
+                        totalProcessed: 0,
+                        totalProcessedSqft: 0
+                      };
+                    }
+
+                    const activity = act.activity;
+                    const slabs = act.slabs || 0;
+                    const sqft = act.sqft || 0;
+
+                    // Categorize activities
+                    if (activity.includes('Polishing') && !activity.includes('Polish Grinding')) {
+                      const hasGrindingActivity = report.activities!.some((a: any) => 
+                        normalizeBlockName(a.block_name || '').normalized === normalized && 
+                        (a.activity.includes('Grinding') || a.activity.includes('Polish Grinding'))
+                      );
+                      
+                      if (hasGrindingActivity) {
+                        blockProcessing[normalized].grindThenPolish += slabs;
+                        blockProcessing[normalized].grindThenPolishSqft += sqft;
+                      } else {
+                        blockProcessing[normalized].directPolish += slabs;
+                        blockProcessing[normalized].directPolishSqft += sqft;
+                      }
+                    } else if (activity.includes('Laputra') && !activity.includes('Laputra Grinding')) {
+                      const hasLaputraGrinding = report.activities!.some((a: any) => 
+                        normalizeBlockName(a.block_name || '').normalized === normalized && 
+                        a.activity.includes('Laputra Grinding')
+                      );
+                      
+                      if (hasLaputraGrinding) {
+                        blockProcessing[normalized].laputraGrindThenLaputra += slabs;
+                        blockProcessing[normalized].laputraGrindThenLaputraSqft += sqft;
+                      } else {
+                        blockProcessing[normalized].directLaputra += slabs;
+                        blockProcessing[normalized].directLaputraSqft += sqft;
+                      }
+                    } else if (activity.includes('Laputra Grinding')) {
+                      const hasLaputraActivity = report.activities!.some((a: any) => 
+                        normalizeBlockName(a.block_name || '').normalized === normalized && 
+                        a.activity.includes('Laputra') && !a.activity.includes('Laputra Grinding')
+                      );
+                      
+                      if (!hasLaputraActivity) {
+                        blockProcessing[normalized].laputraGrindingOnly += slabs;
+                        blockProcessing[normalized].laputraGrindingOnlySqft += sqft;
+                      }
+                    } else if (activity.includes('Grinding') || activity.includes('Polish Grinding')) {
+                      const hasPolishActivity = report.activities!.some((a: any) => 
+                        normalizeBlockName(a.block_name || '').normalized === normalized && 
+                        a.activity.includes('Polishing') && !a.activity.includes('Polish Grinding')
+                      );
+                      
+                      if (!hasPolishActivity) {
+                        blockProcessing[normalized].grindingOnly += slabs;
+                        blockProcessing[normalized].grindingOnlySqft += sqft;
+                      }
+                    }
+
+                    blockProcessing[normalized].totalProcessed += slabs;
+                    blockProcessing[normalized].totalProcessedSqft += sqft;
+                  });
+                }
+              });
+
+              // Group by block group
+              const blockGroupSummary: Record<string, {
+                blockNames: string[];
+                sortKey: string;
+                directPolish: number;
+                directPolishSqft: number;
+                grindThenPolish: number;
+                grindThenPolishSqft: number;
+                directLaputra: number;
+                directLaputraSqft: number;
+                laputraGrindThenLaputra: number;
+                laputraGrindThenLaputraSqft: number;
+                grindingOnly: number;
+                grindingOnlySqft: number;
+                laputraGrindingOnly: number;
+                laputraGrindingOnlySqft: number;
+                totalProcessed: number;
+                totalProcessedSqft: number;
+              }> = {};
+
+              Object.values(blockProcessing).forEach(block => {
+                if (!blockGroupSummary[block.blockGroup]) {
+                  blockGroupSummary[block.blockGroup] = {
+                    blockNames: [],
+                    sortKey: block.sortKey,
+                    directPolish: 0,
+                    directPolishSqft: 0,
+                    grindThenPolish: 0,
+                    grindThenPolishSqft: 0,
+                    directLaputra: 0,
+                    directLaputraSqft: 0,
+                    laputraGrindThenLaputra: 0,
+                    laputraGrindThenLaputraSqft: 0,
+                    grindingOnly: 0,
+                    grindingOnlySqft: 0,
+                    laputraGrindingOnly: 0,
+                    laputraGrindingOnlySqft: 0,
+                    totalProcessed: 0,
+                    totalProcessedSqft: 0
+                  };
+                }
+
+                blockGroupSummary[block.blockGroup].blockNames.push(block.blockName);
+                blockGroupSummary[block.blockGroup].directPolish += block.directPolish;
+                blockGroupSummary[block.blockGroup].directPolishSqft += block.directPolishSqft;
+                blockGroupSummary[block.blockGroup].grindThenPolish += block.grindThenPolish;
+                blockGroupSummary[block.blockGroup].grindThenPolishSqft += block.grindThenPolishSqft;
+                blockGroupSummary[block.blockGroup].directLaputra += block.directLaputra;
+                blockGroupSummary[block.blockGroup].directLaputraSqft += block.directLaputraSqft;
+                blockGroupSummary[block.blockGroup].laputraGrindThenLaputra += block.laputraGrindThenLaputra;
+                blockGroupSummary[block.blockGroup].laputraGrindThenLaputraSqft += block.laputraGrindThenLaputraSqft;
+                blockGroupSummary[block.blockGroup].grindingOnly += block.grindingOnly;
+                blockGroupSummary[block.blockGroup].grindingOnlySqft += block.grindingOnlySqft;
+                blockGroupSummary[block.blockGroup].laputraGrindingOnly += block.laputraGrindingOnly;
+                blockGroupSummary[block.blockGroup].laputraGrindingOnlySqft += block.laputraGrindingOnlySqft;
+                blockGroupSummary[block.blockGroup].totalProcessed += block.totalProcessed;
+                blockGroupSummary[block.blockGroup].totalProcessedSqft += block.totalProcessedSqft;
+              });
+
+              // Sort chronologically by sortKey (AVG-1, AVG-2, AVG-10)
+              const sortedBlocks = Object.entries(blockGroupSummary)
+                .sort(([, a], [, b]) => a.sortKey.localeCompare(b.sortKey));
+
+              if (sortedBlocks.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600">No processing flow data available for this period.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <h4 className="text-sm font-semibold text-blue-900">Direct Polish</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {sortedBlocks.reduce((sum, [, data]) => sum + data.directPolish, 0).toLocaleString('en-IN')} slabs
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        {sortedBlocks.reduce((sum, [, data]) => sum + data.directPolishSqft, 0).toLocaleString('en-IN')} sqft
+                      </p>
+                    </div>
+
+                    <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <h4 className="text-sm font-semibold text-green-900">Grind → Polish</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-green-700">
+                        {sortedBlocks.reduce((sum, [, data]) => sum + data.grindThenPolish, 0).toLocaleString('en-IN')} slabs
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        {sortedBlocks.reduce((sum, [, data]) => sum + data.grindThenPolishSqft, 0).toLocaleString('en-IN')} sqft
+                      </p>
+                    </div>
+
+                    <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                        <h4 className="text-sm font-semibold text-purple-900">Direct Laputra</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-purple-700">
+                        {sortedBlocks.reduce((sum, [, data]) => sum + data.directLaputra, 0).toLocaleString('en-IN')} slabs
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        {sortedBlocks.reduce((sum, [, data]) => sum + data.directLaputraSqft, 0).toLocaleString('en-IN')} sqft
+                      </p>
+                    </div>
+
+                    <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                        <h4 className="text-sm font-semibold text-amber-900">Laputra Flow</h4>
+                      </div>
+                      <p className="text-2xl font-bold text-amber-700">
+                        {sortedBlocks.reduce((sum, [, data]) => sum + data.laputraGrindThenLaputra, 0).toLocaleString('en-IN')} slabs
+                      </p>
+                      <p className="text-xs text-amber-600 mt-1">
+                        {sortedBlocks.reduce((sum, [, data]) => sum + data.laputraGrindThenLaputraSqft, 0).toLocaleString('en-IN')} sqft
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* In-Progress Slabs */}
+                  {(sortedBlocks.reduce((sum, [, data]) => sum + data.grindingOnly + data.laputraGrindingOnly, 0) > 0) && (
+                    <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Clock className="w-5 h-5 text-yellow-600" />
+                        <h4 className="text-sm font-semibold text-yellow-900">In-Progress Slabs (Awaiting Final Polish)</h4>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-yellow-700 mb-1">Grinding Only (Not Yet Polished)</p>
+                          <p className="text-xl font-bold text-yellow-800">
+                            {sortedBlocks.reduce((sum, [, data]) => sum + data.grindingOnly, 0).toLocaleString('en-IN')} slabs
+                          </p>
+                          <p className="text-xs text-yellow-600 mt-1">
+                            {sortedBlocks.reduce((sum, [, data]) => sum + data.grindingOnlySqft, 0).toLocaleString('en-IN')} sqft
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-yellow-700 mb-1">Laputra Grinding Only (Not Yet Laputra)</p>
+                          <p className="text-xl font-bold text-yellow-800">
+                            {sortedBlocks.reduce((sum, [, data]) => sum + data.laputraGrindingOnly, 0).toLocaleString('en-IN')} slabs
+                          </p>
+                          <p className="text-xs text-yellow-600 mt-1">
+                            {sortedBlocks.reduce((sum, [, data]) => sum + data.laputraGrindingOnlySqft, 0).toLocaleString('en-IN')} sqft
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Detailed Block-wise Table */}
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-purple-50">
+                          <th className="text-left py-3 px-4 font-medium text-purple-900">Block Group</th>
+                          <th className="text-left py-3 px-4 font-medium text-purple-900 text-xs">Parts Processed</th>
+                          <th className="text-right py-3 px-4 font-medium text-blue-700">Direct Polish</th>
+                          <th className="text-right py-3 px-4 font-medium text-green-700">Grind→Polish</th>
+                          <th className="text-right py-3 px-4 font-medium text-purple-700">Direct Laputra</th>
+                          <th className="text-right py-3 px-4 font-medium text-amber-700">Laputra Flow</th>
+                          <th className="text-right py-3 px-4 font-medium text-yellow-700">In Progress</th>
+                          <th className="text-right py-3 px-4 font-medium text-purple-900">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedBlocks.map(([blockGroup, data]) => (
+                          <tr key={blockGroup} className="border-b hover:bg-purple-50 transition-colors">
+                            <td className="py-3 px-4">
+                              <span className="font-semibold text-gray-900">{blockGroup}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="text-xs text-gray-600">
+                                {data.blockNames.sort().join(', ')}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {data.directPolish > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                    {data.directPolish} slabs
+                                  </span>
+                                  <span className="text-xs text-gray-500 mt-1">{data.directPolishSqft.toLocaleString('en-IN')} sqft</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {data.grindThenPolish > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                    {data.grindThenPolish} slabs
+                                  </span>
+                                  <span className="text-xs text-gray-500 mt-1">{data.grindThenPolishSqft.toLocaleString('en-IN')} sqft</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {data.directLaputra > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                                    {data.directLaputra} slabs
+                                  </span>
+                                  <span className="text-xs text-gray-500 mt-1">{data.directLaputraSqft.toLocaleString('en-IN')} sqft</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {data.laputraGrindThenLaputra > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                                    {data.laputraGrindThenLaputra} slabs
+                                  </span>
+                                  <span className="text-xs text-gray-500 mt-1">{data.laputraGrindThenLaputraSqft.toLocaleString('en-IN')} sqft</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {(data.grindingOnly + data.laputraGrindingOnly) > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+                                    {data.grindingOnly + data.laputraGrindingOnly} slabs
+                                  </span>
+                                  <span className="text-xs text-gray-500 mt-1">
+                                    {(data.grindingOnlySqft + data.laputraGrindingOnlySqft).toLocaleString('en-IN')} sqft
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex flex-col items-end">
+                                <span className="font-bold text-purple-700 text-lg">
+                                  {data.totalProcessed.toLocaleString('en-IN')} slabs
+                                </span>
+                                <span className="text-xs text-gray-500 mt-1">{data.totalProcessedSqft.toLocaleString('en-IN')} sqft</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Total Row */}
+                        <tr className="border-t-2 bg-purple-100 font-bold">
+                          <td className="py-3 px-4 text-purple-900 text-lg" colSpan={2}>TOTAL</td>
+                          <td className="py-3 px-4 text-right text-blue-700">
+                            <div className="flex flex-col items-end">
+                              <span>{sortedBlocks.reduce((sum, [, data]) => sum + data.directPolish, 0).toLocaleString('en-IN')} slabs</span>
+                              <span className="text-xs">{sortedBlocks.reduce((sum, [, data]) => sum + data.directPolishSqft, 0).toLocaleString('en-IN')} sqft</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right text-green-700">
+                            <div className="flex flex-col items-end">
+                              <span>{sortedBlocks.reduce((sum, [, data]) => sum + data.grindThenPolish, 0).toLocaleString('en-IN')} slabs</span>
+                              <span className="text-xs">{sortedBlocks.reduce((sum, [, data]) => sum + data.grindThenPolishSqft, 0).toLocaleString('en-IN')} sqft</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right text-purple-700">
+                            <div className="flex flex-col items-end">
+                              <span>{sortedBlocks.reduce((sum, [, data]) => sum + data.directLaputra, 0).toLocaleString('en-IN')} slabs</span>
+                              <span className="text-xs">{sortedBlocks.reduce((sum, [, data]) => sum + data.directLaputraSqft, 0).toLocaleString('en-IN')} sqft</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right text-amber-700">
+                            <div className="flex flex-col items-end">
+                              <span>{sortedBlocks.reduce((sum, [, data]) => sum + data.laputraGrindThenLaputra, 0).toLocaleString('en-IN')} slabs</span>
+                              <span className="text-xs">{sortedBlocks.reduce((sum, [, data]) => sum + data.laputraGrindThenLaputraSqft, 0).toLocaleString('en-IN')} sqft</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right text-yellow-700">
+                            <div className="flex flex-col items-end">
+                              <span>{sortedBlocks.reduce((sum, [, data]) => sum + data.grindingOnly + data.laputraGrindingOnly, 0).toLocaleString('en-IN')} slabs</span>
+                              <span className="text-xs">{sortedBlocks.reduce((sum, [, data]) => sum + data.grindingOnlySqft + data.laputraGrindingOnlySqft, 0).toLocaleString('en-IN')} sqft</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right text-purple-900 text-lg">
+                            <div className="flex flex-col items-end">
+                              <span>{sortedBlocks.reduce((sum, [, data]) => sum + data.totalProcessed, 0).toLocaleString('en-IN')} slabs</span>
+                              <span className="text-xs">{sortedBlocks.reduce((sum, [, data]) => sum + data.totalProcessedSqft, 0).toLocaleString('en-IN')} sqft</span>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Processing Insights */}
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Processing Insights
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        <p className="text-gray-700">
+                          <span className="font-semibold">
+                            {Math.round((sortedBlocks.reduce((sum, [, data]) => sum + data.directPolish, 0) / Math.max(sortedBlocks.reduce((sum, [, data]) => sum + data.totalProcessed, 0), 1)) * 100)}%
+                          </span> of slabs were polished directly (no grinding needed)
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        <p className="text-gray-700">
+                          <span className="font-semibold">
+                            {Math.round((sortedBlocks.reduce((sum, [, data]) => sum + data.grindThenPolish, 0) / Math.max(sortedBlocks.reduce((sum, [, data]) => sum + data.totalProcessed, 0), 1)) * 100)}%
+                          </span> of slabs required grinding before polishing
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                        <p className="text-gray-700">
+                          <span className="font-semibold">
+                            {Math.round(((sortedBlocks.reduce((sum, [, data]) => sum + data.directLaputra + data.laputraGrindThenLaputra, 0)) / Math.max(sortedBlocks.reduce((sum, [, data]) => sum + data.totalProcessed, 0), 1)) * 100)}%
+                          </span> of slabs went through laputra processing
+                        </p>
+                      </div>
+                      {(sortedBlocks.reduce((sum, [, data]) => sum + data.grindingOnly + data.laputraGrindingOnly, 0) > 0) && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                          <p className="text-gray-700">
+                            <span className="font-semibold">
+                              {sortedBlocks.reduce((sum, [, data]) => sum + data.grindingOnly + data.laputraGrindingOnly, 0)}
+                            </span> slabs are currently in-progress (ground but not yet polished)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </Card>
       </div>

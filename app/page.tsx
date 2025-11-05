@@ -54,6 +54,7 @@ export default function Page() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showAllHistory, setShowAllHistory] = useState(false); // Toggle for viewing all periods vs current period only
+  const [showOneTimeCustomers, setShowOneTimeCustomers] = useState(false); // Toggle for showing one-time customers in dropdown
   const [consignmentSubmitted, setConsignmentSubmitted] = useState(false);
   const [transactionSubmitted, setTransactionSubmitted] = useState(false);
   const [editingOldDue, setEditingOldDue] = useState(false);
@@ -85,16 +86,19 @@ export default function Page() {
 
   useEffect(() => {
     async function boot() {
-      // Load customers for payments dropdown - regular always, one-time only if outstanding > ₹1
+      // Load customers based on toggle
+      // When disabled: regular always, one-time only if outstanding > ₹1
+      // When enabled: show all customers
+      const customerType = showOneTimeCustomers ? "all" : "for-payments";
       const [cust, accts] = await Promise.all([
-        fetch(`/api/customers?type=for-payments`).then((r) => r.json()),
+        fetch(`/api/customers?type=${customerType}`).then((r) => r.json()),
         fetch("/api/bank-accounts").then((r) => r.json()),
       ]);
       setCustomers(cust);
       setAccounts(accts);
     }
     boot();
-  }, []);
+  }, [showOneTimeCustomers]);
 
   useEffect(() => {
     // Calculate date range from month selector
@@ -714,6 +718,17 @@ export default function Page() {
                 <option value="all">All customers</option>
                 {customers.map((c) => <option key={c.id} value={c.id}>{maskName(c.name)}</option>)}
               </select>
+              <button
+                onClick={() => setShowOneTimeCustomers(!showOneTimeCustomers)}
+                className={`px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
+                  showOneTimeCustomers
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                title={showOneTimeCustomers ? 'Hide one-time customers without balance' : 'Show all one-time customers'}
+              >
+                {showOneTimeCustomers ? 'All' : 'Smart'}
+              </button>
             </div>
 
             <div className="flex items-center gap-2 md:col-span-3">

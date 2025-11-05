@@ -5,6 +5,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
+  const month = url.searchParams.get("month");
+  const year = url.searchParams.get("year");
   const shift = url.searchParams.get("shift");
   const activity = url.searchParams.get("activity");
 
@@ -15,8 +17,18 @@ export async function GET(req: Request) {
       .order("date", { ascending: false })
       .order("shift", { ascending: true });
 
-    if (from) query = query.gte("date", from);
-    if (to) query = query.lte("date", to);
+    // If month and year are provided, calculate date range
+    if (month && year) {
+      const startDate = `${year}-${month.padStart(2, '0')}-01`;
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const endDate = `${year}-${month.padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
+      query = query.gte("date", startDate).lte("date", endDate);
+    } else {
+      // Otherwise use from/to if provided
+      if (from) query = query.gte("date", from);
+      if (to) query = query.lte("date", to);
+    }
+    
     if (shift) query = query.eq("shift", shift);
     if (activity) query = query.eq("activity", activity);
 
