@@ -7,7 +7,7 @@ import { SortButton } from '@/components/ui/SortButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Plus, Edit3, Trash2, Users, BarChart3, Layers, TrendingUp, DollarSign, CreditCard, AlertCircle, Clock } from 'lucide-react';
+import { Plus, Edit3, Trash2, Users, BarChart3, Layers, TrendingUp, DollarSign, CreditCard, AlertCircle, Clock, Camera, Upload, X, Loader2 } from 'lucide-react';
 import { formatDisplayDate } from '@/lib/date-utils';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { UnsavedChangesIndicator } from '@/components/ui/UnsavedChangesIndicator';
@@ -172,6 +172,13 @@ export default function LinePolishPage() {
   // Inline remarks editing
   const [editingRemarksId, setEditingRemarksId] = useState<string | null>(null);
   const [editingRemarksText, setEditingRemarksText] = useState<string>('');
+
+  // OCR Image Upload states
+  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [processingImage, setProcessingImage] = useState(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReports();
@@ -486,6 +493,109 @@ export default function LinePolishPage() {
     } catch (error) {
       console.error('Error deleting report:', error);
     }
+  };
+
+  // OCR Image Upload Handlers
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedImage(file);
+      setOcrError(null);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleProcessImage = async () => {
+    if (!uploadedImage) return;
+
+    setProcessingImage(true);
+    setOcrError(null);
+
+    try {
+      const imageFormData = new FormData();
+      imageFormData.append('image', uploadedImage);
+
+      const response = await fetch('/api/ocr/parse-line-polish-image', {
+        method: 'POST',
+        body: imageFormData
+      });
+
+      const data = await response.json();
+      
+      console.log('📸 Frontend: Received response from API:', data);
+
+      if (!response.ok && response.status !== 200) {
+        throw new Error(data.error || 'Failed to process image');
+      }
+
+      if (data.parsedData && data.parsedData.length > 0 && data.parsedData[0].activities.length > 0) {
+        // Auto-fill form with the first parsed shift data
+        const parsed = data.parsedData[0];
+        
+        console.log('📸 Frontend: Parsed data:', parsed);
+        console.log('📸 Frontend: Activities:', parsed.activities);
+        
+        // Map activity rows
+        const mappedActivityRows = parsed.activities.map((activity: any) => ({
+          id: crypto.randomUUID(),
+          block_name: activity.blockName,
+          activity: activity.activityType as ActivityType,
+          number_of_slabs: activity.slabs.toString(),
+          total_sqft: activity.sqFt.toFixed(2)
+        }));
+
+        console.log('📸 Frontend: Mapped activity rows:', mappedActivityRows);
+
+        // Update form data
+        const newFormData: FormData = {
+          date: parsed.date,
+          shift: parsed.shift === 'A' ? 'MORNING' : 'NIGHT',
+          no_of_workers: parsed.workers.toString(),
+          no_of_hours: parsed.totalHours.toString(),
+          rate_per_hour: formData.rate_per_hour || '250', // Keep existing rate
+          remarks: '',
+          activityRows: mappedActivityRows
+        };
+
+        console.log('📸 Frontend: Setting form data:', newFormData);
+        setFormData(newFormData);
+        setInitialFormState(newFormData);
+        
+        // Close modal
+        setShowImageUploadModal(false);
+        setUploadedImage(null);
+        setImagePreview(null);
+        
+        // Show success message
+        alert(`✅ Successfully extracted ${parsed.activities.length} activities!\n\nDate: ${parsed.date}\nShift: ${parsed.shift === 'A' ? 'Morning' : 'Night'}\n\nPlease review and adjust if needed.`);
+        
+        // If multiple shifts were detected, inform user
+        if (data.parsedData.length > 1) {
+          alert(`Note: ${data.parsedData.length} shifts detected. Only the first shift was loaded. You can process the image again for other shifts.`);
+        }
+      } else {
+        console.error('📸 Frontend: No activities found in parsed data');
+        throw new Error(`No data could be extracted from the image.\n\nExtracted text:\n${data.extractedText?.substring(0, 200)}...\n\nPlease try a clearer photo or enter data manually.`);
+      }
+    } catch (error: any) {
+      console.error('Error processing image:', error);
+      setOcrError(error.message || 'Failed to process image. Please try again or enter data manually.');
+    } finally {
+      setProcessingImage(false);
+    }
+  };
+
+  const handleCloseImageModal = () => {
+    setShowImageUploadModal(false);
+    setUploadedImage(null);
+    setImagePreview(null);
+    setOcrError(null);
   };
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
@@ -1036,11 +1146,23 @@ export default function LinePolishPage() {
 
           {/* Add Polish Report */}
           <div className="bg-white rounded-lg shadow-sm border">
-            <div className="px-6 py-4 border-b bg-indigo-50">
-              <h2 className="text-lg font-semibold text-indigo-900">
-                {isEditing ? 'Edit Line Polish Report' : 'Add Line Polish Report'}
-              </h2>
-              <p className="text-sm text-indigo-600 mt-1">Enter common details and add multiple activities for the same shift</p>
+            <div className="px-6 py-4 border-b bg-indigo-50 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-indigo-900">
+                  {isEditing ? 'Edit Line Polish Report' : 'Add Line Polish Report'}
+                </h2>
+                <p className="text-sm text-indigo-600 mt-1">Enter common details and add multiple activities for the same shift</p>
+              </div>
+              {!isEditing && (
+                <Button
+                  type="button"
+                  onClick={() => setShowImageUploadModal(true)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  Upload Photo
+                </Button>
+              )}
             </div>
             
             <div className="p-6">
@@ -1844,6 +1966,156 @@ export default function LinePolishPage() {
               })()}
             </div>
           </div>
+
+          {/* Image Upload Modal */}
+          {showImageUploadModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                {/* Modal Header */}
+                <div className="px-6 py-4 border-b bg-purple-50 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
+                      <Camera className="w-5 h-5" />
+                      Upload Line Polish Photo
+                    </h3>
+                    <p className="text-sm text-purple-600 mt-1">
+                      Upload a photo of your handwritten line polish report
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCloseImageModal}
+                    className="text-gray-500 hover:text-gray-700"
+                    disabled={processingImage}
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-4">
+                  {/* Upload Area */}
+                  {!imagePreview && (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                        id="image-upload"
+                        disabled={processingImage}
+                      />
+                      <label
+                        htmlFor="image-upload"
+                        className="cursor-pointer flex flex-col items-center"
+                      >
+                        <Upload className="w-12 h-12 text-gray-400 mb-3" />
+                        <p className="text-gray-700 font-medium mb-1">
+                          Click to upload or drag and drop
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          PNG, JPG or JPEG (max 10MB)
+                        </p>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="space-y-4">
+                      <div className="relative border rounded-lg overflow-hidden">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="w-full h-auto max-h-96 object-contain"
+                        />
+                        {!processingImage && (
+                          <button
+                            onClick={() => {
+                              setUploadedImage(null);
+                              setImagePreview(null);
+                              setOcrError(null);
+                            }}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Processing Status */}
+                      {processingImage && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+                          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                          <div>
+                            <p className="text-blue-900 font-medium">Processing image...</p>
+                            <p className="text-sm text-blue-600">
+                              Extracting text and parsing data. This may take a few seconds.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Error Message */}
+                      {ocrError && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                            <div>
+                              <p className="text-red-900 font-medium">Error processing image</p>
+                              <p className="text-sm text-red-600 mt-1">{ocrError}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Instructions */}
+                      {!processingImage && !ocrError && (
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                          <p className="text-purple-900 font-medium mb-2">Tips for best results:</p>
+                          <ul className="text-sm text-purple-700 space-y-1 list-disc list-inside">
+                            <li>Ensure the image is clear and well-lit</li>
+                            <li>Make sure all text is visible and not cut off</li>
+                            <li>Keep the camera steady to avoid blur</li>
+                            <li>Include the entire report in the frame</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="px-6 py-4 border-t bg-gray-50 flex items-center justify-end gap-3">
+                  <Button
+                    type="button"
+                    onClick={handleCloseImageModal}
+                    variant="outline"
+                    disabled={processingImage}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleProcessImage}
+                    disabled={!uploadedImage || processingImage}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    {processingImage ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Process Image
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
       </div>
     </AppLayout>
   );
