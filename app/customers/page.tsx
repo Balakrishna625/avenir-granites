@@ -200,8 +200,8 @@ export default function CustomersPage() {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-        <div className="md:col-span-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+        <div className="lg:col-span-4">
           <Input
             placeholder="Search customers..."
             value={searchTerm}
@@ -209,7 +209,7 @@ export default function CustomersPage() {
             className="w-full"
           />
         </div>
-        <div className="flex items-center gap-2 border rounded-xl px-3 py-2 md:col-span-3">
+        <div className="flex items-center gap-2 border rounded-xl px-3 py-2 lg:col-span-3">
           <Calendar className="w-4 h-4" />
           <Input 
             type="date" 
@@ -230,7 +230,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Overview KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>

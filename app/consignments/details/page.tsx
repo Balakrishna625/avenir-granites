@@ -482,7 +482,8 @@ export default function ConsignmentDetailsPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="grid grid-cols-12 gap-3 text-xs font-medium text-gray-600 px-2">
+                  {/* Mobile: Stack labels with inputs, Desktop: Grid layout */}
+                  <div className="hidden sm:grid sm:grid-cols-12 gap-3 text-xs font-medium text-gray-600 px-2">
                     <div className="col-span-5">Block Name</div>
                     <div className="col-span-3 text-right">Net (m)</div>
                     <div className="col-span-3 text-right">Gross (m)</div>
@@ -490,46 +491,52 @@ export default function ConsignmentDetailsPage() {
                   </div>
 
                   {blockRows.map((row, index) => (
-                    <div key={row.id} className="grid grid-cols-12 gap-3 items-center bg-gray-50 p-3 rounded-lg">
-                      <div className="col-span-5">
-                        <Input
-                          value={row.block_name}
-                          onChange={(e) => handleBlockRowChange(row.id, 'block_name', e.target.value.toUpperCase())}
-                          placeholder="AVG-XXX"
-                          className="font-mono"
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={row.net_measurement}
-                          onChange={(e) => handleBlockRowChange(row.id, 'net_measurement', e.target.value)}
-                          placeholder="0.00"
-                          className="text-right"
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={row.gross_measurement}
-                          onChange={(e) => handleBlockRowChange(row.id, 'gross_measurement', e.target.value)}
-                          placeholder="0.00"
-                          className="text-right"
-                        />
-                      </div>
-                      <div className="col-span-1 flex justify-center">
-                        {blockRows.length > 1 && (
-                          <Button
-                            onClick={() => handleRemoveBlockRow(row.id)}
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:text-red-800 p-1"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
+                    <div key={row.id} className="bg-gray-50 p-3 rounded-lg">
+                      {/* Mobile: Vertical Stack, Desktop: Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                        <div className="sm:col-span-5">
+                          <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Block Name</label>
+                          <Input
+                            value={row.block_name}
+                            onChange={(e) => handleBlockRowChange(row.id, 'block_name', e.target.value.toUpperCase())}
+                            placeholder="AVG-XXX"
+                            className="font-mono w-full"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Net Measurement (m)</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={row.net_measurement}
+                            onChange={(e) => handleBlockRowChange(row.id, 'net_measurement', e.target.value)}
+                            placeholder="0.00"
+                            className="text-right w-full"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Gross Measurement (m)</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={row.gross_measurement}
+                            onChange={(e) => handleBlockRowChange(row.id, 'gross_measurement', e.target.value)}
+                            placeholder="0.00"
+                            className="text-right w-full"
+                          />
+                        </div>
+                        <div className="sm:col-span-1 flex justify-center">
+                          {blockRows.length > 1 && (
+                            <Button
+                              onClick={() => handleRemoveBlockRow(row.id)}
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-800 p-1 w-full sm:w-auto"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

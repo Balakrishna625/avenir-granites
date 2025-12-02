@@ -864,7 +864,7 @@ export default function LinePolishPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-4">
+      <div className="min-h-screen w-full bg-gray-50 p-4 sm:p-6 space-y-4">
         <div className="space-y-4">
           <div className="flex justify-between items-start">
             <div>
@@ -880,7 +880,7 @@ export default function LinePolishPage() {
           </div>
 
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
               <select
@@ -1060,7 +1060,7 @@ export default function LinePolishPage() {
           </div>
 
           {/* Metrics Tiles */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -1102,7 +1102,7 @@ export default function LinePolishPage() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>

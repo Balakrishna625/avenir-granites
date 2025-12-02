@@ -234,7 +234,7 @@ export default function SalesAnalyticsPage() {
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -274,7 +274,7 @@ export default function SalesAnalyticsPage() {
 
           {/* Tonnage Metrics */}
           {totalTons > 0 && (
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
               <Card className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -319,7 +319,7 @@ export default function SalesAnalyticsPage() {
           )}
 
           {/* Revenue Cards */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -358,7 +358,7 @@ export default function SalesAnalyticsPage() {
           </div>
 
           {/* Top Customers & Materials */}
-          <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Top Materials by Sq.Ft Sold */}
             <Card className="p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -441,7 +441,7 @@ export default function SalesAnalyticsPage() {
           </div>
 
           {/* Actual vs Official Material Metrics */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card className="p-4">
               <div className="text-xs text-gray-600 mb-1">ACTUAL MATERIAL SOLD</div>
               <div className="text-2xl font-bold text-blue-900">
@@ -480,7 +480,7 @@ export default function SalesAnalyticsPage() {
           </div>
 
           {/* Official Bill Summary */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
               <div className="text-sm font-medium text-blue-900 mb-2">ACTUAL SALE METRICS</div>
               <div className="space-y-1">

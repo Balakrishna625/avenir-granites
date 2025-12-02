@@ -768,7 +768,7 @@ export default function SalesDataEntryPage() {
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Date and Customer Row */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Date *</label>
               <Input
@@ -969,7 +969,7 @@ export default function SalesDataEntryPage() {
             {/* Additional Charges in one line */}
             <div>
               <label className="block text-sm font-medium mb-2">Additional Charges</label>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="text-xs text-gray-600 block mb-1">Tax</label>
                   <Input
@@ -1032,7 +1032,7 @@ export default function SalesDataEntryPage() {
                 {formData.officialBillItems.map((item, index) => (
                   <div key={item.id} className="bg-white p-3 rounded-lg border border-blue-200">
                     <div className="flex items-start gap-3">
-                      <div className="flex-1 grid grid-cols-4 gap-3">
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div>
                           <label className="text-xs text-gray-600 block mb-1">Material</label>
                           <Input
@@ -1127,7 +1127,7 @@ export default function SalesDataEntryPage() {
             {/* Payment Split - Auto-filled */}
             <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
               <label className="block text-sm font-semibold mb-3 text-yellow-900">Payment Split (Auto-calculated)</label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-700 block mb-1">RTGS Expected (Official)</label>
                   <Input

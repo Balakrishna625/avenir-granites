@@ -125,11 +125,11 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
   return (
     <Card className="rounded-2xl shadow-sm">
       <CardContent className="p-0 overflow-hidden">
-        <div className="p-6 border-b bg-gray-50">
-          <h2 className="text-2xl font-semibold mb-4">Payments (Transactions)</h2>
+        <div className="p-4 sm:p-6 border-b bg-gray-50">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4">Payments (Transactions)</h2>
           {onAddTransaction && (
             <form ref={formRef} onSubmit={handleAddTransaction} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Date</label>
                 <div className="flex items-center gap-2 border rounded-xl px-3 py-2">
@@ -192,7 +192,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
             
             <div className="flex justify-end">
               <Button 
-                className="rounded-xl" 
+                className="rounded-xl w-full sm:w-auto justify-center" 
                 type="submit"
                 disabled={isSubmitting}
               >
