@@ -1,7 +1,18 @@
 import { ReactNode } from "react";
 import { ToastProvider } from "@/components/ui/toast";
 import { MaskingProvider } from "@/contexts/MaskingContext";
-export const metadata = { title: "Granite Customer Dashboard" };
+import type { Metadata, Viewport } from 'next';
+
+export const metadata: Metadata = { 
+  title: "Granite Customer Dashboard" 
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+};
 
 import "./globals.css";
 

@@ -654,17 +654,17 @@ export default function Page() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
+      <div className="min-h-screen w-full bg-gray-50 p-4 sm:p-6 space-y-6">
       <div className="space-y-4">
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-semibold">Granite Customer Dashboard</h1>
-            <p className="text-gray-600">Manage consignments and payments with comprehensive table views</p>
+            <p className="text-gray-600 text-sm sm:text-base">Manage consignments and payments with comprehensive table views</p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             <Button 
               onClick={handleUnlockToggle}
-              className={`flex items-center space-x-2 ${
+              className={`flex items-center space-x-2 text-sm sm:text-base ${
                 isUnlocked 
                   ? 'bg-green-600 hover:bg-green-700' 
                   : 'bg-orange-600 hover:bg-orange-700'
@@ -673,42 +673,45 @@ export default function Page() {
               {isUnlocked ? (
                 <>
                   <Unlock className="w-4 h-4" />
-                  <span>Lock Names</span>
+                  <span className="hidden sm:inline">Lock Names</span>
+                  <span className="sm:hidden">Lock</span>
                 </>
               ) : (
                 <>
                   <Lock className="w-4 h-4" />
-                  <span>Unlock Names</span>
+                  <span className="hidden sm:inline">Unlock Names</span>
+                  <span className="sm:hidden">Unlock</span>
                 </>
               )}
             </Button>
             <a 
               href="/analytics" 
-              className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors"
+              className="inline-flex items-center px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
-              Analytics
+              <span className="hidden sm:inline">Analytics</span>
             </a>
             <a 
               href="/admin" 
-              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors"
+              className="inline-flex items-center px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors"
             >
               <Settings className="w-4 h-4 mr-2" />
-              Admin Panel
+              <span className="hidden sm:inline">Admin Panel</span>
             </a>
           </div>
         </div>
 
         <div className="w-full space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="md:col-span-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+            <div className="sm:col-span-1 lg:col-span-3">
+              <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Customer</label>
               <select className="border rounded-xl px-3 py-2 w-full" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
                 <option value="all">All customers</option>
                 {customers.map((c) => <option key={c.id} value={c.id}>{maskName(c.name)}</option>)}
               </select>
             </div>
 
-            <div className="md:col-span-3">
+            <div className="sm:col-span-1 lg:col-span-3">
               <label className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
                 <input
                   type="checkbox"
@@ -720,10 +723,10 @@ export default function Page() {
               </label>
             </div>
 
-            <div className="flex items-center gap-2 md:col-span-6">
-              <Calendar className="w-4 h-4 text-gray-500" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:col-span-2 lg:col-span-6">
+              <Calendar className="w-4 h-4 text-gray-500 hidden sm:block" />
               <select 
-                className="border rounded-xl px-3 py-2 flex-1" 
+                className="border rounded-xl px-3 py-2 w-full sm:flex-1" 
                 value={selectedYear}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -738,7 +741,7 @@ export default function Page() {
                 ))}
               </select>
               <select 
-                className="border rounded-xl px-3 py-2 flex-1" 
+                className="border rounded-xl px-3 py-2 w-full sm:flex-1" 
                 value={selectedMonth}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -756,9 +759,9 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <div className="px-6 py-2 rounded-full border text-lg font-semibold bg-blue-50 text-blue-700 border-blue-200 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+              <div className="px-4 sm:px-6 py-2 rounded-full border text-base sm:text-lg font-semibold bg-blue-50 text-blue-700 border-blue-200 shadow-sm w-full sm:w-auto text-center">
                 {maskName(currentCustomerName || "Select a customer")}
               </div>
               {customerId && customerId !== "all" && (
@@ -770,21 +773,21 @@ export default function Page() {
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="font-medium">Show All History</span>
-                  <span className="text-xs text-gray-500">(includes settled periods)</span>
+                  <span className="text-xs text-gray-500 hidden sm:inline">(includes settled periods)</span>
                 </label>
               )}
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
               {customerId && customerId !== "all" && (
                 <Button 
                   type="button" 
-                  className="rounded-2xl bg-green-600 hover:bg-green-700 pointer-events-auto" 
+                  className="rounded-2xl bg-green-600 hover:bg-green-700 pointer-events-auto w-full sm:w-auto justify-center" 
                   onClick={() => setShowSettlementModal(true)}
                 >
                   <Archive className="w-4 h-4 mr-2" /> Settle Account
                 </Button>
               )}
-              <Button type="button" className="rounded-2xl pointer-events-auto" variant="secondary" onClick={exportExcel}>
+              <Button type="button" className="rounded-2xl pointer-events-auto w-full sm:w-auto justify-center" variant="secondary" onClick={exportExcel}>
                 <Download className="w-4 h-4 mr-2" /> Export Excel
               </Button>
             </div>
@@ -793,7 +796,7 @@ export default function Page() {
       </div>
 
             {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
         <div className="bg-white rounded-xl p-4 border shadow-sm">
           <div className="text-xs text-gray-600 uppercase tracking-wide">Total Invoiced</div>
           <div className="text-2xl font-bold text-gray-900">{fmt(kpi.expectedTotal)}</div>

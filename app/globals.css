@@ -4,6 +4,12 @@
 
 html, body {
   height: 100%;
+  overflow-x: hidden; /* Prevent horizontal scroll on mobile */
+}
+
+/* Ensure all content respects mobile viewport */
+* {
+  box-sizing: border-box;
 }
 
 /* Remove number input spinner buttons (up/down arrows) */
@@ -19,3 +25,16 @@ input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Mobile-friendly touch targets */
+@media (max-width: 768px) {
+  button, a, input, select, textarea {
+    min-height: 44px; /* Apple's recommended minimum touch target */
+  }
+  
+  /* Prevent content from overflowing viewport */
+  .container, .grid, .flex {
+    max-width: 100vw;
+  }
+}
+
