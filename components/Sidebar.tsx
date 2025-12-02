@@ -21,7 +21,8 @@ import {
   Wrench,
   Zap,
   TrendingUp,
-  ShoppingBag
+  ShoppingBag,
+  Star
 } from 'lucide-react';
 
 interface MenuItem {
@@ -33,6 +34,11 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+  {
+    title: 'Galaxy Account',
+    href: '/galaxy',
+    icon: <Star className="w-5 h-5" />
+  },
   {
     title: 'Customer Management',
     icon: <Users className="w-5 h-5" />,

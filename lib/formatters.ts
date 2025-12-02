@@ -27,6 +27,29 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
+ * Format currency in Indian Rupee number format (e.g., 1,00,000)
+ * @param amount - Amount in rupees
+ * @returns Formatted string like "₹1,00,000"
+ */
+export function formatINR(amount: number): string {
+  const formatter = new Intl.NumberFormat('en-IN', { 
+    style: 'currency', 
+    currency: 'INR', 
+    maximumFractionDigits: 0 
+  });
+  return formatter.format(amount || 0);
+}
+
+/**
+ * Format plain number in Indian numbering system (without currency symbol)
+ * @param amount - Number to format
+ * @returns Formatted string like "1,00,000"
+ */
+export function formatIndianNumber(amount: number): string {
+  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(amount || 0);
+}
+
+/**
  * Format month name from "OCT-2025" to "October 2025"
  */
 export function formatMonthName(monthStr: string): string {

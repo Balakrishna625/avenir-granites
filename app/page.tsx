@@ -54,7 +54,7 @@ export default function Page() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showAllHistory, setShowAllHistory] = useState(false); // Toggle for viewing all periods vs current period only
-  const [showOneTimeCustomers, setShowOneTimeCustomers] = useState(false); // Toggle for showing one-time customers in dropdown
+  const [showOneTimeCustomers, setShowOneTimeCustomers] = useState(false); // Toggle for including all customers (regular + one-time) in dropdown
   const [consignmentSubmitted, setConsignmentSubmitted] = useState(false);
   const [transactionSubmitted, setTransactionSubmitted] = useState(false);
   const [editingOldDue, setEditingOldDue] = useState(false);
@@ -87,9 +87,9 @@ export default function Page() {
   useEffect(() => {
     async function boot() {
       // Load customers based on toggle
-      // When disabled: regular always, one-time only if outstanding > ₹1
-      // When enabled: show all customers
-      const customerType = showOneTimeCustomers ? "all" : "for-payments";
+      // When disabled: only regular customers
+      // When enabled: all customers (regular + one-time)
+      const customerType = showOneTimeCustomers ? "all" : "regular";
       const [cust, accts] = await Promise.all([
         fetch(`/api/customers?type=${customerType}`).then((r) => r.json()),
         fetch("/api/bank-accounts").then((r) => r.json()),
@@ -332,18 +332,6 @@ export default function Page() {
       console.error(err);
       alert("Export failed. Ensure internet (for CDN fallback) or bundle 'xlsx'.");
     }
-  }
-
-  async function addCustomer(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const name = String(new FormData(e.currentTarget).get("new_customer") || "").trim();
-    if (!name) return alert("Customer name is required");
-    const res = await fetch("/api/customers", { method: "POST", body: JSON.stringify({ name }) });
-    const data = await res.json();
-    if (!res.ok) return alert(data.error || "Create failed");
-    setCustomers((s) => [data, ...s]);
-    setCustomerId(data.id);
-    e.currentTarget.reset();
   }
 
   async function handleAddConsignment(e: React.FormEvent<HTMLFormElement>) {
@@ -713,25 +701,26 @@ export default function Page() {
 
         <div className="w-full space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="md:col-span-3 flex items-center gap-2">
-              <select className="border rounded-xl px-3 py-2 flex-1" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            <div className="md:col-span-3">
+              <select className="border rounded-xl px-3 py-2 w-full" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
                 <option value="all">All customers</option>
                 {customers.map((c) => <option key={c.id} value={c.id}>{maskName(c.name)}</option>)}
               </select>
-              <button
-                onClick={() => setShowOneTimeCustomers(!showOneTimeCustomers)}
-                className={`px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                  showOneTimeCustomers
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                title={showOneTimeCustomers ? 'Hide one-time customers without balance' : 'Show all one-time customers'}
-              >
-                {showOneTimeCustomers ? 'All' : 'Smart'}
-              </button>
             </div>
 
-            <div className="flex items-center gap-2 md:col-span-3">
+            <div className="md:col-span-3">
+              <label className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showOneTimeCustomers}
+                  onChange={(e) => setShowOneTimeCustomers(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Include All Customers</span>
+              </label>
+            </div>
+
+            <div className="flex items-center gap-2 md:col-span-6">
               <Calendar className="w-4 h-4 text-gray-500" />
               <select 
                 className="border rounded-xl px-3 py-2 flex-1" 
@@ -765,13 +754,6 @@ export default function Page() {
                 ))}
               </select>
             </div>
-
-            <form onSubmit={addCustomer} className="flex items-stretch gap-2 md:col-span-6 justify-self-end w-full md:w-auto">
-              <Input name="new_customer" placeholder="Add customer (unique)" className="border rounded-xl px-3 py-2 h-11 text-base flex-1 md:w-[260px]" />
-              <Button type="submit" className="h-11 rounded-2xl shrink-0">
-                <PlusCircle className="w-4 h-4 mr-2" /> Add
-              </Button>
-            </form>
           </div>
 
           <div className="flex justify-between items-center">

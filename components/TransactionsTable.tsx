@@ -37,13 +37,32 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
   const [rtgsSortOrder, setRtgsSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
   const [cashSortOrder, setCashSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
   const formRef = useRef<HTMLFormElement>(null);
+  const [amountInput, setAmountInput] = useState<string>(''); // For formatted display
+  const amountInputRef = useRef<HTMLInputElement>(null); // Hidden input for form submission
 
   const handleEdit = (transaction: Transaction) => {
     setEditingId(transaction.id);
     setEditValues({
+      date: transaction.date,
       amount: transaction.amount,
       note: transaction.note
     });
+  };
+
+  // Format number in Indian numbering system as user types
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Remove all non-digit characters
+    const numericValue = value.replace(/[^\d]/g, '');
+    
+    if (numericValue === '') {
+      setAmountInput('');
+      return;
+    }
+    
+    // Format in Indian numbering system
+    const formatted = new Intl.NumberFormat('en-IN').format(parseInt(numericValue));
+    setAmountInput(formatted);
   };
 
   const handleAddTransaction = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -57,6 +76,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
         if (formRef.current) {
           formRef.current.reset();
         }
+        setAmountInput(''); // Clear formatted amount input
       }
     } catch (error) {
       // Error is already handled by the parent component
@@ -143,11 +163,19 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Amount (₹)</label>
                 <Input 
-                  name="t_amount" 
-                  type="number" 
+                  type="text" 
+                  value={amountInput}
+                  onChange={handleAmountChange}
                   placeholder="Enter amount" 
                   className="border rounded-xl px-3 py-2 w-full" 
                   required 
+                />
+                {/* Hidden input for form submission with numeric value */}
+                <input 
+                  ref={amountInputRef}
+                  type="hidden" 
+                  name="t_amount" 
+                  value={amountInput.replace(/,/g, '')} // Remove commas for numeric value
                 />
               </div>
               
@@ -235,7 +263,18 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                       
                       return (
                         <tr key={t.id} className="hover:bg-blue-25 transition-colors">
-                          <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDisplayDate(t.date)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                            {isEditing ? (
+                              <Input
+                                type="date"
+                                value={editValues.date || t.date}
+                                onChange={(e) => setEditValues({ ...editValues, date: e.target.value })}
+                                className="w-32 p-1 text-sm"
+                              />
+                            ) : (
+                              formatDisplayDate(t.date)
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-900">{maskName(customer?.name || 'Unknown')}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{account?.name || 'Unknown'}</td>
                           
@@ -373,7 +412,18 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                       
                       return (
                         <tr key={t.id} className="hover:bg-green-25 transition-colors">
-                          <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDisplayDate(t.date)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                            {isEditing ? (
+                              <Input
+                                type="date"
+                                value={editValues.date || t.date}
+                                onChange={(e) => setEditValues({ ...editValues, date: e.target.value })}
+                                className="w-32 p-1 text-sm"
+                              />
+                            ) : (
+                              formatDisplayDate(t.date)
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-900">{maskName(customer?.name || 'Unknown')}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{account?.name || 'Unknown'}</td>
                           

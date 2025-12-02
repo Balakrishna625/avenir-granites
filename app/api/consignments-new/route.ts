@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
           net_measurement
         )
       `)
-      .order('purchase_date', { ascending: false });
+      .order('purchase_date', { ascending: true });
 
     // Apply filters
     if (month && year) {

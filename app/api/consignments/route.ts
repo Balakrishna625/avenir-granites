@@ -9,7 +9,13 @@ export async function GET(req: Request) {
   const to = url.searchParams.get("to");
   const activeOnly = url.searchParams.get("activeOnly") === "true";
 
-  let q = supabaseAdmin.from("consignments").select("*");
+  let q = supabaseAdmin.from("consignments").select(`
+    *,
+    customers (
+      id,
+      name
+    )
+  `);
   if (customerId && customerId !== "all") q = q.eq("customer_id", customerId);
   if (periodId) q = q.eq("period_id", periodId);
   

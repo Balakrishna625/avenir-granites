@@ -16,6 +16,10 @@ export async function GET(req: Request) {
     bank_accounts (
       id,
       name
+    ),
+    customers (
+      id,
+      name
     )
   `);
   if (customerId && customerId !== "all") q = q.eq("customer_id", customerId);

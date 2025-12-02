@@ -187,6 +187,34 @@ export async function PUT(
       return NextResponse.json({ error: itemsError.message }, { status: 500 });
     }
 
+    // Update linked consignment if it exists
+    const { data: existingSale } = await supabase
+      .from('sales')
+      .select('consignment_id')
+      .eq('id', id)
+      .single();
+
+    if (existingSale?.consignment_id) {
+      const consignmentRemarks = `Auto-created from ${saleData.sale_number}${remarks ? ' - ' + remarks : ''}`;
+      
+      const { error: consignmentError } = await supabase
+        .from('consignments')
+        .update({
+          customer_id,
+          date: sale_date,
+          total: gross_total,
+          rtgs_expected: Number(rtgs_expected),
+          cash_expected: Number(cash_expected),
+          remarks: consignmentRemarks
+        })
+        .eq('id', existingSale.consignment_id);
+
+      if (consignmentError) {
+        console.error('Error updating linked consignment:', consignmentError);
+        // Don't fail the whole operation, just log the error
+      }
+    }
+
     // Fetch updated sale with items
     const { data: updatedSale, error: fetchError } = await supabase
       .from('sales')
