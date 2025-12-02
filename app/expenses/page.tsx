@@ -765,7 +765,8 @@ export default function ExpensesPage() {
                       type="date"
                       value={formDate}
                       onChange={(e) => setFormDate(e.target.value)}
-                      className="w-full"
+                      className="w-full text-sm"
+                      placeholder="Select date"
                       required
                     />
                   </div>
@@ -971,7 +972,8 @@ export default function ExpensesPage() {
                                 type="date"
                                 value={editFormData.date}
                                 onChange={(e) => setEditFormData({...editFormData, date: e.target.value})}
-                                className="w-full"
+                                className="w-full text-sm"
+                                placeholder="Select date"
                               />
                             ) : (
                             <div className="flex items-center">

@@ -26,6 +26,36 @@ input[type=number] {
   appearance: textfield;
 }
 
+/* Fix date input appearance on mobile - make empty state look clean */
+input[type="date"]:not(:focus):invalid,
+input[type="date"]:not(:focus):not([value]),
+input[type="date"][value=""]:not(:focus) {
+  color: transparent;
+}
+
+input[type="date"]:focus:invalid {
+  color: inherit;
+}
+
+/* Make date input text visible when it has a value */
+input[type="date"]:valid {
+  color: inherit;
+}
+
+/* Improve date input appearance on iOS/Safari */
+input[type="date"]::-webkit-datetime-edit {
+  color: inherit;
+}
+
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+/* When date input is empty, hide the inner edit fields */
+input[type="date"]:not(:focus):invalid::-webkit-datetime-edit {
+  color: transparent;
+}
+
 /* Mobile-friendly touch targets */
 @media (max-width: 768px) {
   button, a, input, select, textarea {

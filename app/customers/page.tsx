@@ -210,21 +210,23 @@ export default function CustomersPage() {
           />
         </div>
         <div className="flex items-center gap-2 border rounded-xl px-3 py-2 lg:col-span-3">
-          <Calendar className="w-4 h-4" />
+          <Calendar className="w-4 h-4 text-gray-400" />
           <Input 
             type="date" 
-            className="border-0 p-0 focus-visible:ring-0 w-full" 
+            className="border-0 p-0 focus-visible:ring-0 w-full text-sm" 
             value={dateFrom} 
-            onChange={(e) => setDateFrom(e.target.value)} 
+            onChange={(e) => setDateFrom(e.target.value)}
+            placeholder="From date"
           />
         </div>
-        <div className="flex items-center gap-2 border rounded-xl px-3 py-2 md:col-span-3">
-          <Calendar className="w-4 h-4" />
+        <div className="flex items-center gap-2 border rounded-xl px-3 py-2 lg:col-span-3">
+          <Calendar className="w-4 h-4 text-gray-400" />
           <Input 
             type="date" 
-            className="border-0 p-0 focus-visible:ring-0 w-full" 
+            className="border-0 p-0 focus-visible:ring-0 w-full text-sm" 
             value={dateTo} 
-            onChange={(e) => setDateTo(e.target.value)} 
+            onChange={(e) => setDateTo(e.target.value)}
+            placeholder="To date"
           />
         </div>
       </div>

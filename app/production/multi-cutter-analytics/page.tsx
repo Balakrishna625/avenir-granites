@@ -320,7 +320,8 @@ export default function MultiCutterAnalyticsPage() {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full"
+                  className="w-full text-sm"
+                  placeholder="Start date"
                 />
               </div>
               <div className="flex-1 min-w-[140px]">
@@ -329,7 +330,8 @@ export default function MultiCutterAnalyticsPage() {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full"
+                  className="w-full text-sm"
+                  placeholder="End date"
                 />
               </div>
               <Button 

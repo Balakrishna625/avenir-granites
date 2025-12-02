@@ -212,14 +212,14 @@ export default function SalesAnalyticsPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="min-h-screen w-full bg-gray-50 p-4 sm:p-6 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Sales Analytics</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Sales Analytics</h1>
           <p className="text-gray-600 text-sm mt-1">Analyze sales performance and trends</p>
         </div>
-        <div>
-          <label className="text-sm font-medium mr-2">Month:</label>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Month:</label>
           <input
             type="month"
             value={selectedMonth}
@@ -527,8 +527,8 @@ export default function SalesAnalyticsPage() {
           </div>
 
           {/* Detailed Sales Table */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
+          <Card className="p-4 sm:p-6">
+            <div className="flex flex-col gap-3 mb-4">
               <h2 className="text-lg font-semibold">
                 Sales Details
                 {filterCustomerId !== 'all' && (
@@ -537,13 +537,13 @@ export default function SalesAnalyticsPage() {
                   </span>
                 )}
               </h2>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-gray-600">Customer:</label>
                   <select
                     value={filterCustomerId}
                     onChange={(e) => setFilterCustomerId(e.target.value)}
-                    className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 sm:flex-none border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Customers</option>
                     {customers.map(customer => (
@@ -555,7 +555,7 @@ export default function SalesAnalyticsPage() {
                 </div>
                 <button
                   onClick={toggleSortOrder}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   title={sortOrder === 'asc' ? 'Oldest first (click for newest)' : 'Newest first (click for oldest)'}
                 >
                   {sortOrder === 'asc' ? (
@@ -575,7 +575,7 @@ export default function SalesAnalyticsPage() {
                   <select
                     value={viewMode}
                     onChange={(e) => setViewMode(e.target.value as 'actual' | 'official')}
-                    className="border rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 sm:flex-none border rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="actual">Actual Sale</option>
                     <option value="official">Official Bill</option>

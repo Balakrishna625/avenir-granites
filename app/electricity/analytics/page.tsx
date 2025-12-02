@@ -124,14 +124,14 @@ export default function ElectricityAnalyticsPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <TrendingUp className="text-blue-600" />
-            Electricity Analytics - Month-wise Comparison
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <TrendingUp className="text-blue-600 w-6 h-6 sm:w-7 sm:h-7" />
+            Electricity Analytics
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-sm sm:text-base text-gray-600 mt-2">
             Compare consumption, costs, and efficiency across {stats.total_months} months
           </p>
         </div>

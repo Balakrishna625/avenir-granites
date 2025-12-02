@@ -126,9 +126,9 @@ function ConsignmentAnalyticsContent() {
 
   return (
     <AppLayout>
-      <div className="p-8 space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <Button
@@ -139,9 +139,9 @@ function ConsignmentAnalyticsContent() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
-              <h1 className="text-3xl font-bold text-gray-900">Consignment Analytics</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Consignment Analytics</h1>
             </div>
-            <p className="text-lg text-gray-600">
+            <p className="text-base sm:text-lg text-gray-600">
               {consignment.consignmentNumber} • {consignment.quarryName}
             </p>
           </div>

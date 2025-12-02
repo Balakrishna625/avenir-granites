@@ -291,6 +291,8 @@ export default function ProductionPage() {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
+                className="text-sm"
+                placeholder="Select start date"
               />
             </div>
             <div>
@@ -299,6 +301,8 @@ export default function ProductionPage() {
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
+                className="text-sm"
+                placeholder="Select end date"
               />
             </div>
             <Button 

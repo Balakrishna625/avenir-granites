@@ -153,6 +153,8 @@ export function AddExpenseForm({ onClose, onSuccess }: AddExpenseFormProps) {
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className="text-sm"
+                placeholder="Select date"
                 required
               />
             </div>
