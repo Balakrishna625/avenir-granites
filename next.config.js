@@ -1,3 +1,11 @@
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development',
+  buildExcludes: [/middleware-manifest\.json$/],
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
@@ -20,11 +28,15 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // allow loading external stylesheets (Google Fonts)
               "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "img-src 'self' data:",
+              "img-src 'self' data: blob:",
               // allow fetching from our own API routes and (future) Supabase if used client-side
               "connect-src 'self' https://*.supabase.co https://*.supabase.in",
               // allow Google Fonts
               "font-src 'self' data: https://fonts.gstatic.com",
+              // allow service worker
+              "worker-src 'self'",
+              // allow web app manifest
+              "manifest-src 'self'",
             ].join("; "),
           },
         ],
@@ -33,4 +45,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withPWA(nextConfig);
