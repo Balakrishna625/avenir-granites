@@ -674,15 +674,15 @@ export default function SalesDataEntryPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-4">
-        <div className="flex justify-between items-center">
+      <div className="min-h-screen w-full bg-gray-50 p-4 sm:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Sales Data Entry</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Sales Data Entry</h1>
             <p className="text-gray-600 text-sm mt-1">Record new sales and automatically create consignments</p>
           </div>
           
           {/* Month Selector */}
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm w-fit">
             <Button 
               onClick={goToPreviousMonth}
               variant="outline"
@@ -707,59 +707,59 @@ export default function SalesDataEntryPage() {
         </div>
 
         {/* Summary Statistics Tiles */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
-          <Card className="p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4">
+          <Card className="p-3 sm:p-4">
             <div className="text-xs text-gray-600 mb-1">TOTAL SALES</div>
-            <div className="text-xl font-bold text-gray-900">
+            <div className="text-lg sm:text-xl font-bold text-gray-900">
               {sales.length}
             </div>
           </Card>
 
-          <Card className="p-4">
+          <Card className="p-3 sm:p-4">
             <div className="text-xs text-gray-600 mb-1">TOTAL SLABS SOLD</div>
-            <div className="text-xl font-bold text-gray-900">
+            <div className="text-lg sm:text-xl font-bold text-gray-900">
               {salesStats.totalSlabs.toLocaleString('en-IN')}
             </div>
           </Card>
           
-          <Card className="p-4">
+          <Card className="p-3 sm:p-4">
             <div className="text-xs text-gray-600 mb-1">TOTAL SQ.FT SOLD</div>
-            <div className="text-xl font-bold text-gray-900">
+            <div className="text-lg sm:text-xl font-bold text-gray-900">
               {salesStats.totalSqft.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </Card>
           
-          <Card className="p-4">
+          <Card className="p-3 sm:p-4">
             <div className="text-xs text-gray-600 mb-1">TOTAL AMOUNT SOLD</div>
-            <div className="text-xl font-bold text-gray-900">
+            <div className="text-lg sm:text-xl font-bold text-gray-900">
               ₹{formatIndianNumber(salesStats.totalAmount)}
             </div>
           </Card>
           
-          <Card className="p-4">
+          <Card className="p-3 sm:p-4">
             <div className="text-xs text-gray-600 mb-1">TOTAL TAX</div>
-            <div className="text-xl font-bold text-orange-600">
+            <div className="text-lg sm:text-xl font-bold text-orange-600">
               ₹{formatIndianNumber(salesStats.totalTax)}
             </div>
           </Card>
           
-          <Card className="p-4">
+          <Card className="p-3 sm:p-4">
             <div className="text-xs text-gray-600 mb-1">TOTAL MINING</div>
-            <div className="text-xl font-bold text-purple-600">
+            <div className="text-lg sm:text-xl font-bold text-purple-600">
               ₹{formatIndianNumber(salesStats.totalMining)}
             </div>
           </Card>
           
-          <Card className="p-4">
+          <Card className="p-3 sm:p-4">
             <div className="text-xs text-gray-600 mb-1">TOTAL LOADING</div>
-            <div className="text-xl font-bold text-blue-600">
+            <div className="text-lg sm:text-xl font-bold text-blue-600">
               ₹{formatIndianNumber(salesStats.totalLoading)}
             </div>
           </Card>
         </div>
 
         {/* Sales Entry Form */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           {isEditing && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
               <Edit3 className="w-4 h-4 text-blue-600" />
@@ -806,8 +806,8 @@ export default function SalesDataEntryPage() {
               </Button>
             </div>
 
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="border rounded-lg overflow-x-auto">
+              <table className="w-full text-sm min-w-[800px]">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium w-12">S.No</th>
@@ -1217,8 +1217,8 @@ export default function SalesDataEntryPage() {
       </Card>
 
       {/* Sales Records Table */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
+      <Card className="p-4 sm:p-6">
+        <div className="flex flex-col gap-3 mb-4">
           <h2 className="text-lg font-semibold">
             All Sales
             {filterCustomerId !== 'all' && (
@@ -1227,13 +1227,13 @@ export default function SalesDataEntryPage() {
               </span>
             )}
           </h2>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">Customer:</label>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 flex-1 sm:flex-none">
+              <label className="text-sm text-gray-600 whitespace-nowrap">Customer:</label>
               <select
                 value={filterCustomerId}
                 onChange={(e) => setFilterCustomerId(e.target.value)}
-                className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 sm:flex-none border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Customers</option>
                 {customers.map(customer => (
@@ -1246,16 +1246,16 @@ export default function SalesDataEntryPage() {
             <Button
               onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
               variant="outline"
-              className="text-sm"
+              className="text-sm w-full sm:w-auto justify-center"
             >
               Sort: {sortOrder === 'asc' ? 'Oldest First ↑' : 'Newest First ↓'}
             </Button>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">View:</label>
+            <div className="flex items-center gap-2 flex-1 sm:flex-none">
+              <label className="text-sm text-gray-600 whitespace-nowrap">View:</label>
               <select
                 value={viewMode}
                 onChange={(e) => setViewMode(e.target.value as 'actual' | 'official')}
-                className="border rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 sm:flex-none border rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="actual">Actual Sale</option>
                 <option value="official">Official Bill</option>
@@ -1268,8 +1268,10 @@ export default function SalesDataEntryPage() {
         ) : sales.length === 0 ? (
           <div className="text-center py-8 text-gray-500">No sales recorded yet</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <div className="overflow-hidden">
+                <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium w-12">S.No</th>
@@ -1368,6 +1370,8 @@ export default function SalesDataEntryPage() {
                 })}
               </tbody>
             </table>
+              </div>
+            </div>
           </div>
         )}
       </Card>
