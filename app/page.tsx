@@ -594,6 +594,7 @@ export default function Page() {
 
   async function editTransaction(transactionId: string, updatedData: any) {
     const payload = {
+      date: updatedData.date,
       amount: updatedData.amount || 0,
       note: updatedData.note || '',
     };
