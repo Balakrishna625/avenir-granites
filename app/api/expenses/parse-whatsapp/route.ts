@@ -56,8 +56,10 @@ function parseWhatsAppMessage(message: string): ParsedExpense {
 
   // Amount extraction patterns (supports Rs, ₹, Indian comma format)
   const amountPatterns = [
-    /(?:Rs\.?\s*|₹\s*|INR\s*)?([\d,]+(?:\.\d{1,2})?)/gi, // Rs 5000, ₹ 12,500, 3000.50
-    /(?:paid|spent|cost|bill|amount)\s+(?:Rs\.?\s*|₹\s*|INR\s*)?([\d,]+(?:\.\d{1,2})?)/gi,
+    /(?:paid|spent|cost|bill|amount)\s+(?:Rs\.?\s*|₹\s*|INR\s*)?([\d,]+(?:\.\d{1,2})?)/gi, // "paid 5000", "spent Rs 5000"
+    /(?:Rs\.?\s*|₹\s*|INR\s*)([\d,]+(?:\.\d{1,2})?)/gi, // "Rs 5000", "₹ 12,500"
+    /\b([\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|₹|INR)\b/gi, // "5000 Rs", "12500 ₹"
+    /\b([\d,]+(?:\.\d{1,2})?)\b/g, // Fallback: any number (lowest priority)
   ];
 
   for (const pattern of amountPatterns) {
