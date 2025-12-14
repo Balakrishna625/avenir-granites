@@ -12,6 +12,7 @@ import { SortButton } from '@/components/ui/SortButton';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { UnsavedChangesIndicator } from '@/components/ui/UnsavedChangesIndicator';
 import { useSessionMonthYear } from '@/hooks/useSessionMonth';
+import { useToast } from '@/components/ui/toast';
 
 type MaterialType = 
   | 'S/G'
@@ -82,6 +83,7 @@ const fmtCurrency = (n: number) => INR.format(n || 0);
 export default function MultiCutterPage() {
   console.log('MultiCutterPage component mounted'); // Debug log
   
+  const { showToast } = useToast();
   const [reports, setReports] = useState<MultiCutterReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -324,6 +326,273 @@ export default function MultiCutterPage() {
     const slabs = blocks.reduce((sum, row) => sum + (parseFloat(row.slabs) || 0), 0);
     const sqft = blocks.reduce((sum, row) => sum + (parseFloat(row.sqft) || 0), 0);
     return { slabs, sqft };
+  }
+
+  // Parse WhatsApp message and auto-fill form
+  function parseWhatsAppMessage(message: string) {
+    try {
+      const lines = message.split('\n').map(line => line.trim()).filter(Boolean);
+      const unparsedLines: string[] = [];
+      const warnings: string[] = [];
+      
+      // Check for "No Running" scenario first
+      const hasNoRunning = lines.some(line => line.match(/no\s+running/i));
+      
+      // Extract date
+      const dateMatch = lines[0].match(/(\d{1,2})\/(\d{1,2})\/(\d{2})/);
+      let parsedDate = new Date().toISOString().split('T')[0];
+      if (dateMatch) {
+        const [_, day, month, year] = dateMatch;
+        parsedDate = `20${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      } else {
+        warnings.push('Date not found in expected format, using today\'s date');
+      }
+      
+      // Handle "No Running" case
+      if (hasNoRunning) {
+        // Extract notes from the message (skip date line and generic lines)
+        const notesLines = lines.slice(1).filter(line => 
+          !line.match(/no\s+running/i) && 
+          !line.match(/no\s+production/i) &&
+          !line.match(/day\s*&?\s*night/i) &&
+          !line.match(/holiday/i) &&
+          line.length > 0
+        ).map(line => {
+          // Clean up asterisks and extra formatting
+          return line.replace(/^\*+\s*/, '').trim();
+        }).filter(Boolean);
+        
+        const notes = notesLines.length > 0 ? notesLines.join(' - ') : 'NO RUNNING';
+        
+        const newFormData: FormData = {
+          date: parsedDate,
+          machine1: {
+            blockRows: [{
+              id: crypto.randomUUID(),
+              block_name: 'NO RUNNING',
+              material_type: 'S/G',
+              slabs: '0',
+              sqft: '0',
+              notes: notes
+            }]
+          },
+          machine2: {
+            blockRows: [{
+              id: crypto.randomUUID(),
+              block_name: 'NO RUNNING',
+              material_type: 'S/G',
+              slabs: '0',
+              sqft: '0',
+              notes: notes
+            }]
+          },
+          machine3: {
+            blockRows: [{
+              id: crypto.randomUUID(),
+              block_name: 'NO RUNNING',
+              material_type: 'S/G',
+              slabs: '0',
+              sqft: '0',
+              notes: notes
+            }]
+          }
+        };
+        
+        setFormData(newFormData);
+        setInitialFormData(newFormData);
+        showToast('success', `No Running day detected! Notes: ${notes}`);
+        return;
+      }
+
+      const newFormData: FormData = {
+        date: parsedDate,
+        machine1: { blockRows: [] },
+        machine2: { blockRows: [] },
+        machine3: { blockRows: [] }
+      };
+
+      let currentMachine: 'machine1' | 'machine2' | 'machine3' | null = null;
+      let currentBlock: Partial<BlockRow> = {};
+      let expectedSlabsLine = false;
+      const machineNoRunningNotes: { [key: string]: string } = {};
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        let lineProcessed = false;
+        
+        // Detect machine
+        if (line.match(/Machine\s*-?\s*1/i)) {
+          currentMachine = 'machine1';
+          lineProcessed = true;
+        } else if (line.match(/Machine\s*-?\s*2/i)) {
+          currentMachine = 'machine2';
+          lineProcessed = true;
+        } else if (line.match(/Machine\s*-?\s*3/i)) {
+          currentMachine = 'machine3';
+          lineProcessed = true;
+        }
+        // Skip total and production lines
+        else if (line.match(/Total\s+(Sft|Production)/i)) {
+          lineProcessed = true;
+        }
+        // Skip date line
+        else if (line.match(/Date\s*:-?/i)) {
+          lineProcessed = true;
+        }
+        // Check for per-machine "No Running" scenario
+        else if (currentMachine && line.match(/no\s*-?\s*running/i)) {
+          // Extract the reason/notes after "No Running"
+          const notesMatch = line.match(/no\s*-?\s*running[,:\s-]*(.*)/i);
+          const notes = notesMatch && notesMatch[1] ? notesMatch[1].trim() : 'NO RUNNING';
+          machineNoRunningNotes[currentMachine] = notes;
+          lineProcessed = true;
+        }
+        else if (currentMachine) {
+          // Parse block line - improved regex to handle spaces in block numbers and material types
+          // Matches: Avg - 39A - S/G - SJ  OR  Avg - 8A - B/G  OR  Avg - 1319A - S/G - SL.2A
+          // First try with suffix part (format: Avg - XXX - Material - Suffix)
+          let blockMatch = line.match(/(avg|AVG)\s*-\s*([^\-]+?)\s*-\s*(S\/G|B\/P|B\/G|Burgandy|Others)\s*-\s*(.+)/i);
+          let hasSuffix = true;
+          
+          // If no match, try without suffix part (format: Avg - XXX - Material)
+          if (!blockMatch) {
+            blockMatch = line.match(/(avg|AVG)\s*-\s*([^\-]+?)\s*-\s*(S\/G|B\/P|B\/G|Burgandy|Others)\s*$/i);
+            hasSuffix = false;
+          }
+          
+          if (blockMatch) {
+            const cleanBlockNum = blockMatch[2].trim().replace(/\s+/g, '');
+            let materialType = blockMatch[3].trim();
+            
+            // Normalize B/G to Burgandy
+            if (materialType.toUpperCase() === 'B/G') {
+              materialType = 'Burgandy';
+            }
+            
+            let blockName: string;
+            let notes: string;
+            
+            if (hasSuffix && blockMatch[4]) {
+              const suffixPart = blockMatch[4];
+              // Parse suffix part - could be "SJ", "SL 13A", "GK 25B", or "SL.2A"
+              // Try to match patterns with block numbers: "SL 13A", "SL.2A", "GK25B"
+              const suffixWithBlockMatch = suffixPart.trim().match(/^([A-Z]+)[\s.]+(\d+[A-Z]?)$/i);
+              
+              if (suffixWithBlockMatch) {
+                // Case: "SL 13A" or "SL.2A" or "GK 25B" - has number after suffix
+                const [__, prefix, blockId] = suffixWithBlockMatch;
+                blockName = `AVG-${prefix.toUpperCase()}-${blockId.toUpperCase()}`;
+                notes = `AVG-${cleanBlockNum}`;
+              } else {
+                // Case: "SJ" or "SL" - no number after suffix
+                const suffix = suffixPart.trim();
+                blockName = `AVG-${suffix.toUpperCase()}-${cleanBlockNum}`;
+                notes = `AVG-${cleanBlockNum}`;
+              }
+            } else {
+              // No suffix part - add material type prefix for clarity
+              // B/G -> BG, S/G -> SG, etc.
+              const materialPrefix = materialType === 'Burgandy' ? 'BG' : 
+                                    materialType === 'S/G' ? 'SG' : 
+                                    materialType === 'B/P' ? 'BP' : '';
+              blockName = materialPrefix ? `AVG-${materialPrefix}-${cleanBlockNum}` : `AVG-${cleanBlockNum}`;
+              notes = `AVG-${cleanBlockNum}`;
+            }
+            
+            currentBlock = {
+              id: crypto.randomUUID(),
+              block_name: blockName,
+              material_type: materialType as MaterialType,
+              notes: notes,
+              slabs: '',
+              sqft: ''
+            };
+            expectedSlabsLine = true;
+            lineProcessed = true;
+          }
+          // Parse slabs line: Slabs - 32 - 888 Sft
+          else {
+            const slabsMatch = line.match(/Slabs\s*-\s*(\d+)\s*-\s*(\d+)/i);
+            if (slabsMatch && currentBlock.block_name) {
+              const [_, slabs, sqft] = slabsMatch;
+              currentBlock.slabs = slabs;
+              currentBlock.sqft = sqft;
+              
+              // Add complete block to current machine
+              newFormData[currentMachine].blockRows.push(currentBlock as BlockRow);
+              currentBlock = {};
+              expectedSlabsLine = false;
+              lineProcessed = true;
+            } else if (expectedSlabsLine && slabsMatch && !currentBlock.block_name) {
+              warnings.push(`Found slabs data but no block info: "${line}"`);
+              lineProcessed = true;
+              expectedSlabsLine = false;
+            }
+          }
+        }
+
+        // Track unparsed lines
+        if (!lineProcessed && line.length > 0) {
+          unparsedLines.push(line);
+        }
+      }
+
+      // Check for incomplete blocks
+      if (currentBlock.block_name && !currentBlock.slabs) {
+        warnings.push(`Block "${currentBlock.block_name}" has no slab data`);
+      }
+
+      // Ensure each machine has at least one row - either NO RUNNING or empty
+      (['machine1', 'machine2', 'machine3'] as const).forEach(machine => {
+        if (newFormData[machine].blockRows.length === 0) {
+          // Check if this machine has a "No Running" note
+          if (machineNoRunningNotes[machine]) {
+            newFormData[machine].blockRows.push({
+              id: crypto.randomUUID(),
+              block_name: 'NO RUNNING',
+              material_type: 'S/G',
+              slabs: '0',
+              sqft: '0',
+              notes: machineNoRunningNotes[machine]
+            });
+          } else {
+            newFormData[machine].blockRows.push({
+              id: crypto.randomUUID(),
+              block_name: 'AVG-',
+              material_type: 'S/G',
+              slabs: '',
+              sqft: '',
+              notes: ''
+            });
+          }
+        }
+      });
+
+      // Count parsed blocks
+      const totalBlocks = newFormData.machine1.blockRows.filter(b => b.slabs).length +
+                         newFormData.machine2.blockRows.filter(b => b.slabs).length +
+                         newFormData.machine3.blockRows.filter(b => b.slabs).length;
+
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
+
+      // Show appropriate toast
+      if (unparsedLines.length > 0 || warnings.length > 0) {
+        const errorMsg = [
+          unparsedLines.length > 0 ? `Could not parse ${unparsedLines.length} line(s):` : '',
+          ...unparsedLines.slice(0, 3).map(l => `  "${l}"`),
+          unparsedLines.length > 3 ? `  ...and ${unparsedLines.length - 3} more` : '',
+          ...warnings
+        ].filter(Boolean).join('\n');
+        
+        showToast('error', `Parsed ${totalBlocks} blocks with issues:\n${errorMsg}`);
+      } else {
+        showToast('success', `Successfully parsed ${totalBlocks} blocks! Please review and submit.`);
+      }
+    } catch (error) {
+      console.error('Error parsing message:', error);
+      showToast('error', `Failed to parse message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // Submit form - creates reports for all 3 machines
@@ -694,6 +963,39 @@ export default function MultiCutterPage() {
                 {editingId ? 'Edit Multi Cutter Report' : 'Add Multi Cutter Report'}
               </h2>
             </div>
+
+            {/* WhatsApp Message Parser */}
+            {!editingId && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Quick Fill from WhatsApp Message
+                </h3>
+                <textarea
+                  placeholder="Paste your WhatsApp message here and click 'Auto Fill'..."
+                  className="w-full p-3 border border-blue-300 rounded-lg text-sm font-mono resize-y min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  id="whatsapp-message"
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const textarea = document.getElementById('whatsapp-message') as HTMLTextAreaElement;
+                    if (textarea.value.trim()) {
+                      parseWhatsAppMessage(textarea.value);
+                      textarea.value = '';
+                    } else {
+                      alert('Please paste a message first');
+                    }
+                  }}
+                  className="mt-3 bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Auto Fill from Message
+                </Button>
+                <p className="text-xs text-gray-600 mt-2">
+                  Paste the production message from your supervisor and click to auto-fill all fields below.
+                </p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Machine 1 - Balanced */}
