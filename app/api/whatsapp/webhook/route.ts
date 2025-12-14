@@ -29,14 +29,19 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
 
-    // Ignore empty messages
-    if (!body || body.trim().length === 0) {
-      return new NextResponse('No message content', { status: 200 });
-    }
+    // Check for recent messages from same sender (within 60 seconds)
+    const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
+    const { data: recentMessages } = await supabase
+      .from('pending_expenses')
+      .select('*')
+      .eq('sender_phone', from)
+      .eq('status', 'pending')
+      .gte('created_at', sixtySecondsAgo)
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-    // Parse the message to extract expense data
-    const parsed = await parseMessage(body);
-    
+    console.log(`Found ${recentMessages?.length || 0} recent messages from ${from}`);
+
     // Handle media attachments (receipt images)
     let imageUrl = null;
     if (numMedia > 0) {
@@ -53,9 +58,51 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create pending expense
+    const hasImage = imageUrl !== null;
+    const hasText = body && body.trim().length > 0;
+    
+    // Smart grouping logic
+    if (recentMessages && recentMessages.length > 0) {
+      // Find the most recent primary expense (images waiting for description)
+      const primaryExpense = recentMessages.find(msg => msg.is_primary && msg.image_url);
+      
+      // If this is a text-only message AND there are recent image messages, group them
+      if (!hasImage && hasText && primaryExpense) {
+        console.log('📝 Grouping text with recent image expense:', primaryExpense.id);
+        
+        // Parse the text message
+        const parsed = await parseMessage(body);
+        
+        // Update the primary expense with the description
+        const { error: updateError } = await supabase
+          .from('pending_expenses')
+          .update({
+            message_text: body.trim(),
+            description: parsed.description || body.trim(),
+            amount: parsed.amount || primaryExpense.amount || 0,
+            expense_date: parsed.date || primaryExpense.expense_date,
+            parsed_text_amount: parsed.amount,
+            confidence_score: Math.max(parsed.confidence || 0.5, primaryExpense.confidence_score || 0.5),
+            notes: `${primaryExpense.notes}\nDescription: ${body.trim()}`
+          })
+          .eq('id', primaryExpense.id);
+
+        if (updateError) {
+          console.error('❌ Failed to update grouped expense:', updateError);
+        } else {
+          console.log('✅ Updated expense with description');
+          return new NextResponse('Message grouped', { status: 200 });
+        }
+      }
+    }
+
+    // Parse the message to extract expense data
+    const parsed = await parseMessage(body || 'WhatsApp expense');
+    
+    // Create new pending expense (first message in potential group)
+    const messageGroupId = crypto.randomUUID();
     const pendingExpense = {
-      message_text: body.trim(),
+      message_text: body?.trim() || '',
       image_url: imageUrl,
       amount: parsed.amount || 0,
       description: parsed.description || `WhatsApp expense from ${profileName || 'Unknown'}`,
@@ -63,7 +110,11 @@ export async function POST(request: NextRequest) {
       parsed_text_amount: parsed.amount,
       confidence_score: parsed.confidence || 0.5,
       notes: `Auto-imported from WhatsApp (${profileName || from})`,
-      status: 'pending'
+      status: 'pending',
+      sender_phone: from,
+      message_group_id: messageGroupId,
+      message_sequence: 1,
+      is_primary: true
     };
 
     const { data, error } = await supabase
