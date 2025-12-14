@@ -152,6 +152,11 @@ const menuItems: MenuItem[] = [
         title: 'Record Expenses',
         href: '/expenses',
         icon: <ShoppingCart className="w-4 h-4" />
+      },
+      {
+        title: 'Pending Approvals',
+        href: '/expenses/pending',
+        icon: <Receipt className="w-4 h-4" />
       }
     ]
   }
