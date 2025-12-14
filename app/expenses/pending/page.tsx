@@ -292,13 +292,13 @@ export default function PendingExpensesPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
+                      <button
+                        type="button"
                         onClick={() => toggleExpand(expense.id)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                       >
                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </Button>
+                      </button>
                     </div>
                   </div>
 
