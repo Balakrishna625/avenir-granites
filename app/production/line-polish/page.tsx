@@ -7,11 +7,12 @@ import { SortButton } from '@/components/ui/SortButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Plus, Edit3, Trash2, Users, BarChart3, Layers, TrendingUp, DollarSign, CreditCard, AlertCircle, Clock, Camera, Upload, X, Loader2 } from 'lucide-react';
+import { Plus, Edit3, Trash2, Users, BarChart3, Layers, TrendingUp, DollarSign, CreditCard, AlertCircle, Clock } from 'lucide-react';
 import { formatDisplayDate } from '@/lib/date-utils';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { UnsavedChangesIndicator } from '@/components/ui/UnsavedChangesIndicator';
 import { useSessionMonthString } from '@/hooks/useSessionMonth';
+import { useToast } from '@/components/ui/toast';
 
 type ActivityType = 
   | 'S/G Polishing'
@@ -94,14 +95,18 @@ interface ActivityRow {
   total_sqft: string;
 }
 
-interface FormData {
-  date: string;
-  shift: 'MORNING' | 'NIGHT';
+interface ShiftFormData {
   no_of_workers: string;
   no_of_hours: string;
   rate_per_hour: string;
   remarks: string;
   activityRows: ActivityRow[]; // Multiple activity rows
+}
+
+interface FormData {
+  date: string;
+  morning: ShiftFormData;
+  evening: ShiftFormData;
 }
 
 const fmt = (value: string | number): string => {
@@ -110,6 +115,7 @@ const fmt = (value: string | number): string => {
 };
 
 export default function LinePolishPage() {
+  const { showToast } = useToast();
   const [reports, setReports] = useState<LinePolishReport[]>([]);
   const [payments, setPayments] = useState<LinePolishPayment[]>([]);
   const [previousDues, setPreviousDues] = useState<LinePolishPreviousDue[]>([]);
@@ -137,20 +143,36 @@ export default function LinePolishPage() {
   // Create initial form state once using useMemo to prevent regenerating UUIDs on every render
   const initialFormData: FormData = useMemo(() => ({
     date: new Date().toISOString().split('T')[0],
-    shift: 'MORNING',
-    no_of_workers: '3', // Prefilled with 3
-    no_of_hours: '',
-    rate_per_hour: '250', // Prefilled with 250
-    remarks: '',
-    activityRows: [
-      {
-        id: crypto.randomUUID(),
-        block_name: 'AVG-',
-        activity: 'S/G Polishing',
-        number_of_slabs: '',
-        total_sqft: ''
-      }
-    ]
+    morning: {
+      no_of_workers: '3', // Prefilled with 3
+      no_of_hours: '',
+      rate_per_hour: '250', // Prefilled with 250
+      remarks: '',
+      activityRows: [
+        {
+          id: crypto.randomUUID(),
+          block_name: 'AVG-',
+          activity: 'S/G Polishing',
+          number_of_slabs: '',
+          total_sqft: ''
+        }
+      ]
+    },
+    evening: {
+      no_of_workers: '3', // Prefilled with 3
+      no_of_hours: '',
+      rate_per_hour: '250', // Prefilled with 250
+      remarks: '',
+      activityRows: [
+        {
+          id: crypto.randomUUID(),
+          block_name: 'AVG-',
+          activity: 'S/G Polishing',
+          number_of_slabs: '',
+          total_sqft: ''
+        }
+      ]
+    }
   }), []); // Empty dependency array - only create once
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -173,13 +195,6 @@ export default function LinePolishPage() {
   const [editingRemarksId, setEditingRemarksId] = useState<string | null>(null);
   const [editingRemarksText, setEditingRemarksText] = useState<string>('');
 
-  // OCR Image Upload states
-  const [showImageUploadModal, setShowImageUploadModal] = useState(false);
-  const [uploadedImage, setUploadedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [processingImage, setProcessingImage] = useState(false);
-  const [ocrError, setOcrError] = useState<string | null>(null);
-
   useEffect(() => {
     fetchReports();
     fetchPayments();
@@ -191,27 +206,7 @@ export default function LinePolishPage() {
     fetchPreviousDues();
   }, [selectedMonth]);
 
-  useEffect(() => {
-    // Auto-calculate total amount based on hours * rate
-    const hours = parseFloat(formData.no_of_hours) || 0;
-    const rate = parseFloat(formData.rate_per_hour) || 0;
-    const calculatedAmount = hours * rate;
-    setFormData(prev => ({
-      ...prev,
-      debit_amount: calculatedAmount.toString()
-    }));
-  }, [formData.no_of_hours, formData.rate_per_hour]);
-
-  useEffect(() => {
-    // Auto-calculate debit amount
-    const hours = parseFloat(formData.no_of_hours) || 0;
-    const rate = parseFloat(formData.rate_per_hour) || 0;
-    const calculatedAmount = hours * rate;
-    setFormData(prev => ({
-      ...prev,
-      debit_amount: calculatedAmount.toString()
-    }));
-  }, [formData.no_of_hours, formData.rate_per_hour]);
+  // Auto-calculation is now handled in calculateShiftTotals function
 
   const fetchReports = async () => {
     try {
@@ -291,183 +286,460 @@ export default function LinePolishPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleActivityRowChange = (rowId: string, field: keyof ActivityRow, value: string) => {
+  const handleShiftInputChange = (shift: 'morning' | 'evening', field: keyof ShiftFormData, value: string) => {
     setFormData(prev => ({
       ...prev,
-      activityRows: prev.activityRows.map(row =>
-        row.id === rowId ? { ...row, [field]: value } : row
-      )
+      [shift]: { ...prev[shift], [field]: value }
     }));
   };
 
-  const addActivityRow = () => {
+  const handleActivityRowChange = (shift: 'morning' | 'evening', rowId: string, field: keyof ActivityRow, value: string) => {
     setFormData(prev => ({
       ...prev,
-      activityRows: [
-        ...prev.activityRows,
-        {
-          id: crypto.randomUUID(),
-          block_name: 'AVG-',
-          activity: 'S/G Polishing',
-          number_of_slabs: '',
-          total_sqft: ''
-        }
-      ]
+      [shift]: {
+        ...prev[shift],
+        activityRows: prev[shift].activityRows.map(row =>
+          row.id === rowId ? { ...row, [field]: value } : row
+        )
+      }
     }));
   };
 
-  const removeActivityRow = (rowId: string) => {
-    if (formData.activityRows.length <= 1) {
+  const addActivityRow = (shift: 'morning' | 'evening') => {
+    setFormData(prev => ({
+      ...prev,
+      [shift]: {
+        ...prev[shift],
+        activityRows: [
+          ...prev[shift].activityRows,
+          {
+            id: crypto.randomUUID(),
+            block_name: 'AVG-',
+            activity: 'S/G Polishing',
+            number_of_slabs: '',
+            total_sqft: ''
+          }
+        ]
+      }
+    }));
+  };
+
+  const removeActivityRow = (shift: 'morning' | 'evening', rowId: string) => {
+    if (formData[shift].activityRows.length <= 1) {
       alert('At least one activity is required');
       return;
     }
     setFormData(prev => ({
       ...prev,
-      activityRows: prev.activityRows.filter(row => row.id !== rowId)
+      [shift]: {
+        ...prev[shift],
+        activityRows: prev[shift].activityRows.filter(row => row.id !== rowId)
+      }
     }));
   };
 
-  const calculateTotals = () => {
-    const totalSlabs = formData.activityRows.reduce(
+  const calculateShiftTotals = (shift: 'morning' | 'evening') => {
+    const shiftData = formData[shift];
+    const totalSlabs = shiftData.activityRows.reduce(
       (sum, row) => sum + (parseInt(row.number_of_slabs) || 0), 
       0
     );
-    const totalSqft = formData.activityRows.reduce(
+    const totalSqft = shiftData.activityRows.reduce(
       (sum, row) => sum + (parseFloat(row.total_sqft) || 0), 
       0
     );
-    const totalAmount = (parseFloat(formData.no_of_hours) || 0) * (parseFloat(formData.rate_per_hour) || 0);
+    const totalAmount = (parseFloat(shiftData.no_of_hours) || 0) * (parseFloat(shiftData.rate_per_hour) || 0);
     
     return { totalSlabs, totalSqft, totalAmount };
   };
+
+  // Parse markdown message and auto-fill form
+  function parseMarkdownMessage(message: string) {
+    try {
+      const lines = message.split('\n').map(line => line.trim()).filter(Boolean);
+      const unparsedLines: string[] = [];
+      const warnings: string[] = [];
+
+      // Extract date from header: ### 📅 Date: **04-11-2025**
+      const dateMatch = message.match(/Date:\s*\*?\*?(\d{2})-(\d{2})-(\d{4})\*?\*?/i);
+      let parsedDate = new Date().toISOString().split('T')[0];
+      if (dateMatch) {
+        const [_, day, month, year] = dateMatch;
+        parsedDate = `${year}-${month}-${day}`;
+      } else {
+        warnings.push('Date not found in expected format, using today\'s date');
+      }
+
+      const newFormData: FormData = {
+        date: parsedDate,
+        morning: {
+          no_of_workers: '3',
+          no_of_hours: '',
+          rate_per_hour: '250',
+          remarks: '',
+          activityRows: []
+        },
+        evening: {
+          no_of_workers: '3',
+          no_of_hours: '',
+          rate_per_hour: '250',
+          remarks: '',
+          activityRows: []
+        }
+      };
+
+      let currentShift: 'morning' | 'evening' | null = null;
+      let inTableSection = false;
+      let inNotesSection = false;
+      const shiftNotes: { morning: string[], evening: string[] } = { morning: [], evening: [] };
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        let lineProcessed = false;
+
+        // Detect shift sections and extract hours
+        // Pattern: Day Shift (12 Hours) or 🟢 Day Shift (12 Hours) or Day Shift - 12 Hours
+        const dayShiftMatch = line.match(/(?:🟢.*)?Day\s+Shift.*?[\(\-\:]?\s*(\d+)\s*Hours?\)?/i);
+        if (dayShiftMatch || line.match(/Day\s+Shift/i) || line.match(/🟢.*Day.*Shift/i)) {
+          currentShift = 'morning';
+          inTableSection = false;
+          inNotesSection = false;
+          if (dayShiftMatch && dayShiftMatch[1]) {
+            newFormData.morning.no_of_hours = dayShiftMatch[1];
+          }
+          lineProcessed = true;
+        } 
+        // Pattern: Night Shift (12 Hours) or 🌙 Night Shift (12 Hours) or Night Shift - 12 Hours
+        const nightShiftMatch = line.match(/(?:🌙.*)?Night\s+Shift.*?[\(\-\:]?\s*(\d+)\s*Hours?\)?/i);
+        if (nightShiftMatch || line.match(/Night\s+Shift/i) || line.match(/🌙.*Night.*Shift/i)) {
+          currentShift = 'evening';
+          inTableSection = false;
+          inNotesSection = false;
+          if (nightShiftMatch && nightShiftMatch[1]) {
+            newFormData.evening.no_of_hours = nightShiftMatch[1];
+          }
+          lineProcessed = true;
+        }
+        // Detect notes section: **Day Shift Notes:** or **Night Shift Notes:**
+        else if (line.match(/\*\*.*Day\s+Shift\s+Notes.*:\*\*/i) || line.match(/Day\s+Shift\s+Notes:/i)) {
+          currentShift = 'morning';
+          inNotesSection = true;
+          inTableSection = false;
+          lineProcessed = true;
+        }
+        else if (line.match(/\*\*.*Night\s+Shift\s+Notes.*:\*\*/i) || line.match(/Night\s+Shift\s+Notes:/i)) {
+          currentShift = 'evening';
+          inNotesSection = true;
+          inTableSection = false;
+          lineProcessed = true;
+        }
+        // Skip markdown table header separators (|---|---|---|)
+        else if (line.match(/^\|[\s\-:|]+\|$/)) {
+          inTableSection = true;
+          lineProcessed = true;
+        }
+        // Skip table headers (| Block Name | Material | Process | Qty | SFT |)
+        else if (line.match(/Block\s+Name.*Material.*Process.*Qty.*SFT/i)) {
+          lineProcessed = true;
+        }
+        // Skip total lines
+        else if (line.match(/Total\s+SFT/i) || line.match(/Shift\s+Total/i)) {
+          lineProcessed = true;
+        }
+        // Skip horizontal separators (but exit notes section)
+        else if (line.match(/^[-=*_]{3,}$/)) {
+          inNotesSection = false;
+          lineProcessed = true;
+        }
+        // Collect notes if in notes section
+        else if (inNotesSection && currentShift && line.trim().length > 0) {
+          // Skip lines that are just markdown formatting or headers
+          if (!line.match(/^\*\*.*\*\*$/) && !line.match(/^[#]+\s/)) {
+            shiftNotes[currentShift].push(line.trim());
+          }
+          lineProcessed = true;
+        }
+        // Parse table row data: | AVG-696A | S/G | Grinding | 65 | 1852.50 | Notes |
+        else if (currentShift && line.startsWith('|')) {
+          const parts = line.split('|').map(p => p.trim()).filter(Boolean);
+          
+          // Expected format: [Block Name, Material, Process, Qty, SFT, Notes (optional)]
+          if (parts.length >= 5) {
+            const blockName = parts[0];
+            const material = parts[1];
+            const process = parts[2];
+            const qty = parts[3];
+            const sft = parts[4];
+            const notes = parts.length >= 6 ? parts[5] : '';
+
+            // Skip "NO RUNNING" rows or rows with dash material/process
+            if (blockName.toUpperCase().includes('NO RUNNING') || 
+                material === '—' || material === '-' || material === '--' ||
+                process === '—' || process === '-' || process === '--') {
+              lineProcessed = true;
+              continue;
+            }
+
+            // Collect notes for this shift (if not empty and not already added)
+            if (notes && notes.trim() && !notes.match(/^[-—]+$/) && !shiftNotes[currentShift].includes(notes.trim())) {
+              shiftNotes[currentShift].push(notes.trim());
+            }
+
+            // Map material + process to ActivityType
+            let activityType: ActivityType = 'S/G Polishing'; // default
+            
+            // Normalize material
+            const normalizedMaterial = material.toUpperCase().replace(/\s+/g, '');
+            const normalizedProcess = process.toLowerCase().trim();
+
+            // Map to activity types
+            if (normalizedMaterial === 'S/G' || normalizedMaterial === 'SG') {
+              if (normalizedProcess.includes('polish') && normalizedProcess.includes('grind')) {
+                activityType = 'S/G Polish Grinding';
+              } else if (normalizedProcess.includes('laputra') && normalizedProcess.includes('grind')) {
+                activityType = 'S/G Laputra Grinding';
+              } else if (normalizedProcess.includes('polish')) {
+                activityType = 'S/G Polishing';
+              } else if (normalizedProcess.includes('laputra')) {
+                activityType = 'S/G Laputra';
+              } else if (normalizedProcess.includes('grind')) {
+                activityType = 'S/G Grinding';
+              }
+            } else if (normalizedMaterial === 'B/P' || normalizedMaterial === 'BP') {
+              if (normalizedProcess.includes('polish') && normalizedProcess.includes('grind')) {
+                activityType = 'B/P Polish Grinding';
+              } else if (normalizedProcess.includes('laputra') && normalizedProcess.includes('grind')) {
+                activityType = 'B/P Laputra Grinding';
+              } else if (normalizedProcess.includes('polish')) {
+                activityType = 'B/P Polishing';
+              } else if (normalizedProcess.includes('laputra')) {
+                activityType = 'B/P Laputra';
+              } else if (normalizedProcess.includes('grind')) {
+                activityType = 'B/P Grinding';
+              }
+            } else if (normalizedMaterial.includes('BURG') || normalizedMaterial === 'B/G' || normalizedMaterial === 'BG') {
+              if (normalizedProcess.includes('polish') && normalizedProcess.includes('grind')) {
+                activityType = 'Burgandy Polish Grinding';
+              } else if (normalizedProcess.includes('polish')) {
+                activityType = 'Burgandy Polishing';
+              } else if (normalizedProcess.includes('grind')) {
+                activityType = 'Burgandy Grinding';
+              }
+            } else {
+              // Unknown material, default to S/G Polishing but warn
+              warnings.push(`Unknown material type "${material}", defaulting to S/G Polishing`);
+            }
+
+            newFormData[currentShift].activityRows.push({
+              id: crypto.randomUUID(),
+              block_name: blockName,
+              activity: activityType,
+              number_of_slabs: qty,
+              total_sqft: sft
+            });
+
+            lineProcessed = true;
+          }
+        }
+
+        // Track unparsed lines (skip headers and formatting)
+        if (!lineProcessed && line.length > 0 && 
+            !line.match(/^[#*_\-=]+/) && // Skip markdown headers/formatting
+            !line.match(/^📅|🟢|🌙/) // Skip emoji headers
+           ) {
+          unparsedLines.push(line);
+        }
+      }
+
+      // Apply collected notes to shift remarks
+      if (shiftNotes.morning.length > 0) {
+        newFormData.morning.remarks = shiftNotes.morning.join('\n');
+      }
+      if (shiftNotes.evening.length > 0) {
+        newFormData.evening.remarks = shiftNotes.evening.join('\n');
+      }
+
+      // Ensure each shift has at least one row
+      if (newFormData.morning.activityRows.length === 0) {
+        newFormData.morning.activityRows.push({
+          id: crypto.randomUUID(),
+          block_name: 'AVG-',
+          activity: 'S/G Polishing',
+          number_of_slabs: '',
+          total_sqft: ''
+        });
+      }
+
+      if (newFormData.evening.activityRows.length === 0) {
+        newFormData.evening.activityRows.push({
+          id: crypto.randomUUID(),
+          block_name: 'AVG-',
+          activity: 'S/G Polishing',
+          number_of_slabs: '',
+          total_sqft: ''
+        });
+      }
+
+      // Count parsed activities
+      const morningCount = newFormData.morning.activityRows.filter(r => r.number_of_slabs).length;
+      const eveningCount = newFormData.evening.activityRows.filter(r => r.number_of_slabs).length;
+      const totalActivities = morningCount + eveningCount;
+
+      setFormData(newFormData);
+      setInitialFormState(newFormData);
+
+      // Build success/error message details
+      const morningHours = newFormData.morning.no_of_hours || '0';
+      const eveningHours = newFormData.evening.no_of_hours || '0';
+      const hoursInfo = `Morning: ${morningCount} activities (${morningHours}h), Evening: ${eveningCount} activities (${eveningHours}h)`;
+
+      // Show appropriate toast
+      if (unparsedLines.length > 0 || warnings.length > 0) {
+        const errorMsg = [
+          unparsedLines.length > 0 ? `Could not parse ${unparsedLines.length} line(s):` : '',
+          ...unparsedLines.slice(0, 3).map(l => `  "${l}"`),
+          unparsedLines.length > 3 ? `  ...and ${unparsedLines.length - 3} more` : '',
+          ...warnings
+        ].filter(Boolean).join('\n');
+        
+        showToast('error', `Parsed ${totalActivities} activities with issues.\n${hoursInfo}\n\n${errorMsg}`);
+      } else {
+        showToast('success', `Successfully parsed ${totalActivities} activities!\n${hoursInfo}\nPlease review and submit.`);
+      }
+    } catch (error) {
+      console.error('Error parsing message:', error);
+      showToast('error', `Failed to parse message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Validate that we have at least one activity
-      if (formData.activityRows.length === 0) {
-        alert('Please add at least one activity');
+      // If editing, use the old single-shift logic
+      if (isEditing) {
+        // Old editing logic remains unchanged for backward compatibility
+        showToast('error', 'Edit mode is not yet updated for dual-shift. Please delete and re-add.');
         setLoading(false);
         return;
       }
 
-      // Calculate totals
-      const totalSlabs = formData.activityRows.reduce(
-        (sum, row) => sum + (parseInt(row.number_of_slabs) || 0), 
-        0
+      // Check if at least one shift has data
+      const morningHasData = formData.morning.activityRows.some(row => 
+        row.number_of_slabs || row.total_sqft || formData.morning.no_of_hours
       );
-      const totalSqft = formData.activityRows.reduce(
-        (sum, row) => sum + (parseFloat(row.total_sqft) || 0), 
-        0
+      const eveningHasData = formData.evening.activityRows.some(row => 
+        row.number_of_slabs || row.total_sqft || formData.evening.no_of_hours
       );
-      const totalAmount = (parseFloat(formData.no_of_hours) || 0) * (parseFloat(formData.rate_per_hour) || 0);
 
-      // Create activities array for JSONB storage
-      const activities = formData.activityRows.map(row => ({
-        block_name: row.block_name || '',
-        activity: row.activity,
-        slabs: parseInt(row.number_of_slabs) || 0,
-        sqft: parseFloat(row.total_sqft) || 0
-      }));
+      if (!morningHasData && !eveningHasData) {
+        showToast('error', 'Please fill in data for at least one shift (morning or evening)');
+        setLoading(false);
+        return;
+      }
 
-      // Create summary text for the activity column (for display/search)
-      const activitySummary = formData.activityRows
-        .map(row => row.activity)
-        .join(', ');
+      const entries = [];
 
-      // Create ONE entry for the entire shift
-      const entry = {
-        date: formData.date,
-        shift: formData.shift,
-        activity: activitySummary, // "S/G Polishing, B/P Grinding"
-        activities: activities, // JSONB array with details
-        no_of_workers: parseInt(formData.no_of_workers) || 3,
-        total_slabs: totalSlabs, // Total across all activities
-        total_sqft: totalSqft, // Total across all activities
-        no_of_hours: parseFloat(formData.no_of_hours) || 0, // Total for entire shift
-        rate_per_hour: parseFloat(formData.rate_per_hour) || 0,
-        debit_amount: totalAmount, // Total amount for entire shift (NOT split)
-        remarks: formData.remarks.trim() || null
-      };
+      // Process Morning Shift if it has data
+      if (morningHasData) {
+        const morningTotals = calculateShiftTotals('morning');
+        const morningActivities = formData.morning.activityRows.map(row => ({
+          block_name: row.block_name || '',
+          activity: row.activity,
+          slabs: parseInt(row.number_of_slabs) || 0,
+          sqft: parseFloat(row.total_sqft) || 0
+        }));
+        const morningActivitySummary = formData.morning.activityRows
+          .map(row => row.activity)
+          .join(', ');
 
-      // Submit the single entry (POST for new, PUT for edit)
-      const url = isEditing ? `/api/line-polish-reports?id=${editingId}` : '/api/line-polish-reports';
-      const method = isEditing ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(isEditing ? { ...entry, id: editingId } : entry)
-      });
+        entries.push({
+          date: formData.date,
+          shift: 'MORNING',
+          activity: morningActivitySummary,
+          activities: morningActivities,
+          no_of_workers: parseInt(formData.morning.no_of_workers) || 3,
+          total_slabs: morningTotals.totalSlabs,
+          total_sqft: morningTotals.totalSqft,
+          no_of_hours: parseFloat(formData.morning.no_of_hours) || 0,
+          rate_per_hour: parseFloat(formData.morning.rate_per_hour) || 0,
+          debit_amount: morningTotals.totalAmount,
+          remarks: formData.morning.remarks.trim() || null
+        });
+      }
 
-      if (response.ok) {
+      // Process Evening Shift if it has data
+      if (eveningHasData) {
+        const eveningTotals = calculateShiftTotals('evening');
+        const eveningActivities = formData.evening.activityRows.map(row => ({
+          block_name: row.block_name || '',
+          activity: row.activity,
+          slabs: parseInt(row.number_of_slabs) || 0,
+          sqft: parseFloat(row.total_sqft) || 0
+        }));
+        const eveningActivitySummary = formData.evening.activityRows
+          .map(row => row.activity)
+          .join(', ');
+
+        entries.push({
+          date: formData.date,
+          shift: 'NIGHT',
+          activity: eveningActivitySummary,
+          activities: eveningActivities,
+          no_of_workers: parseInt(formData.evening.no_of_workers) || 3,
+          total_slabs: eveningTotals.totalSlabs,
+          total_sqft: eveningTotals.totalSqft,
+          no_of_hours: parseFloat(formData.evening.no_of_hours) || 0,
+          rate_per_hour: parseFloat(formData.evening.rate_per_hour) || 0,
+          debit_amount: eveningTotals.totalAmount,
+          remarks: formData.evening.remarks.trim() || null
+        });
+      }
+
+      // Submit all entries (one or two shifts)
+      let allSuccess = true;
+      for (const entry of entries) {
+        const response = await fetch('/api/line-polish-reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entry)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('Failed to save report:', error);
+          showToast('error', `Failed to save ${entry.shift} shift: ${error.error || 'Unknown error'}`);
+          allSuccess = false;
+          break;
+        }
+      }
+
+      if (allSuccess) {
         const freshFormData = initialFormData;
         setFormData(freshFormData);
         setInitialFormState(freshFormData);
-        setIsEditing(false);
-        setEditingId(null);
         allowNavigation(); // Clear unsaved changes warning
         await fetchReports();
         
         // Update monthly balance for the report's month
         const reportMonth = formData.date.slice(0, 7);
         await updateMonthlyBalance(reportMonth);
-      } else {
-        const error = await response.json();
-        console.error('Failed to save report:', error);
-        alert('Failed to save report: ' + (error.error || 'Unknown error'));
+        
+        showToast('success', `Successfully saved ${entries.length} shift${entries.length > 1 ? 's' : ''}!`);
       }
     } catch (error) {
       console.error('Error saving report:', error);
-      alert('Error saving report. Please try again.');
+      showToast('error', 'Error saving report. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleEdit = (report: LinePolishReport) => {
-    // Reconstruct activity rows from JSONB activities array
-    let activityRows: ActivityRow[];
-    
-    if (report.activities && Array.isArray(report.activities) && report.activities.length > 0) {
-      // New format: Use activities JSONB array
-      activityRows = report.activities.map(act => ({
-        id: crypto.randomUUID(),
-        block_name: act.block_name || '',
-        activity: act.activity as ActivityType,
-        number_of_slabs: act.slabs.toString(),
-        total_sqft: act.sqft.toString()
-      }));
-    } else {
-      // Fallback for old format: Use the old fields
-      activityRows = [
-        {
-          id: crypto.randomUUID(),
-          block_name: 'AVG-',
-          activity: 'S/G Polishing' as ActivityType, // Default to a valid type
-          number_of_slabs: (report.number_of_slabs || 0).toString(),
-          total_sqft: (report.total_sqft || 0).toString()
-        }
-      ];
-    }
-
-    const editFormData = {
-      date: report.date,
-      shift: report.shift,
-      no_of_workers: report.no_of_workers.toString(),
-      no_of_hours: report.no_of_hours.toString(),
-      rate_per_hour: report.rate_per_hour.toString(),
-      remarks: report.remarks || '',
-      activityRows: activityRows
-    };
-    
-    setFormData(editFormData);
-    setInitialFormState(editFormData); // Set initial state to prevent false unsaved warning
-    setIsEditing(true);
-    setEditingId(report.id);
-    document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' });
+    showToast('error', 'Edit feature is temporarily disabled in dual-shift mode. Please delete the entry and create a new one.');
+    // TODO: Implement edit for dual-shift form
+    return;
   };
 
   const handleDelete = async (id: string) => {
@@ -493,109 +765,6 @@ export default function LinePolishPage() {
     } catch (error) {
       console.error('Error deleting report:', error);
     }
-  };
-
-  // OCR Image Upload Handlers
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadedImage(file);
-      setOcrError(null);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleProcessImage = async () => {
-    if (!uploadedImage) return;
-
-    setProcessingImage(true);
-    setOcrError(null);
-
-    try {
-      const imageFormData = new FormData();
-      imageFormData.append('image', uploadedImage);
-
-      const response = await fetch('/api/ocr/parse-line-polish-image', {
-        method: 'POST',
-        body: imageFormData
-      });
-
-      const data = await response.json();
-      
-      console.log('📸 Frontend: Received response from API:', data);
-
-      if (!response.ok && response.status !== 200) {
-        throw new Error(data.error || 'Failed to process image');
-      }
-
-      if (data.parsedData && data.parsedData.length > 0 && data.parsedData[0].activities.length > 0) {
-        // Auto-fill form with the first parsed shift data
-        const parsed = data.parsedData[0];
-        
-        console.log('📸 Frontend: Parsed data:', parsed);
-        console.log('📸 Frontend: Activities:', parsed.activities);
-        
-        // Map activity rows
-        const mappedActivityRows = parsed.activities.map((activity: any) => ({
-          id: crypto.randomUUID(),
-          block_name: activity.blockName,
-          activity: activity.activityType as ActivityType,
-          number_of_slabs: activity.slabs.toString(),
-          total_sqft: activity.sqFt.toFixed(2)
-        }));
-
-        console.log('📸 Frontend: Mapped activity rows:', mappedActivityRows);
-
-        // Update form data
-        const newFormData: FormData = {
-          date: parsed.date,
-          shift: parsed.shift === 'A' ? 'MORNING' : 'NIGHT',
-          no_of_workers: parsed.workers.toString(),
-          no_of_hours: parsed.totalHours.toString(),
-          rate_per_hour: formData.rate_per_hour || '250', // Keep existing rate
-          remarks: '',
-          activityRows: mappedActivityRows
-        };
-
-        console.log('📸 Frontend: Setting form data:', newFormData);
-        setFormData(newFormData);
-        setInitialFormState(newFormData);
-        
-        // Close modal
-        setShowImageUploadModal(false);
-        setUploadedImage(null);
-        setImagePreview(null);
-        
-        // Show success message
-        alert(`✅ Successfully extracted ${parsed.activities.length} activities!\n\nDate: ${parsed.date}\nShift: ${parsed.shift === 'A' ? 'Morning' : 'Night'}\n\nPlease review and adjust if needed.`);
-        
-        // If multiple shifts were detected, inform user
-        if (data.parsedData.length > 1) {
-          alert(`Note: ${data.parsedData.length} shifts detected. Only the first shift was loaded. You can process the image again for other shifts.`);
-        }
-      } else {
-        console.error('📸 Frontend: No activities found in parsed data');
-        throw new Error(`No data could be extracted from the image.\n\nExtracted text:\n${data.extractedText?.substring(0, 200)}...\n\nPlease try a clearer photo or enter data manually.`);
-      }
-    } catch (error: any) {
-      console.error('Error processing image:', error);
-      setOcrError(error.message || 'Failed to process image. Please try again or enter data manually.');
-    } finally {
-      setProcessingImage(false);
-    }
-  };
-
-  const handleCloseImageModal = () => {
-    setShowImageUploadModal(false);
-    setUploadedImage(null);
-    setImagePreview(null);
-    setOcrError(null);
   };
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
@@ -1144,25 +1313,11 @@ export default function LinePolishPage() {
             </Card>
           </div>
 
-          {/* Add Polish Report */}
+          {/* Add Polish Report - Dual Shift Form */}
           <div className="bg-white rounded-lg shadow-sm border">
-            <div className="px-6 py-4 border-b bg-indigo-50 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-indigo-900">
-                  {isEditing ? 'Edit Line Polish Report' : 'Add Line Polish Report'}
-                </h2>
-                <p className="text-sm text-indigo-600 mt-1">Enter common details and add multiple activities for the same shift</p>
-              </div>
-              {!isEditing && (
-                <Button
-                  type="button"
-                  onClick={() => setShowImageUploadModal(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
-                >
-                  <Camera className="w-4 h-4" />
-                  Upload Photo
-                </Button>
-              )}
+            <div className="px-6 py-4 border-b bg-indigo-50">
+              <h2 className="text-lg font-semibold text-indigo-900">Add Line Polish Report</h2>
+              <p className="text-sm text-indigo-600 mt-1">Enter data for both shifts and submit together</p>
             </div>
             
             <div className="p-6">
@@ -1172,246 +1327,438 @@ export default function LinePolishPage() {
                   <UnsavedChangesIndicator hasUnsavedChanges={hasUnsavedChanges} />
                 )}
 
-                {/* Common Fields - Date, Shift, Workers, Hours, Rate */}
+                {/* Markdown Message Parser */}
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    Quick Fill from Markdown Table
+                  </h3>
+                  <textarea
+                    placeholder="Paste your markdown table here (with Day Shift and Night Shift sections) and click 'Auto Fill'..."
+                    className="w-full p-3 border border-blue-300 rounded-lg text-sm font-mono resize-y min-h-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    id="markdown-message"
+                  />
+                  <div className="flex gap-3 mt-3">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const textarea = document.getElementById('markdown-message') as HTMLTextAreaElement;
+                        if (textarea.value.trim()) {
+                          parseMarkdownMessage(textarea.value);
+                          textarea.value = '';
+                        } else {
+                          showToast('error', 'Please paste markdown data first');
+                        }
+                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      Auto Fill from Markdown
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const freshFormData = initialFormData;
+                        setFormData(freshFormData);
+                        setInitialFormState(freshFormData);
+                        const textarea = document.getElementById('markdown-message') as HTMLTextAreaElement;
+                        if (textarea) textarea.value = '';
+                        showToast('success', 'Form cleared successfully');
+                      }}
+                      variant="outline"
+                      className="border-red-300 text-red-600 hover:bg-red-50"
+                    >
+                      Clear Form
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-2">
+                    Paste the markdown table with Day Shift and Night Shift sections (including hours). The parser will extract block names, materials, processes, quantities, hours, and sqft automatically.
+                  </p>
+                </div>
+
+                {/* Common Date Field */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Shift Details (Common for all activities)</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="max-w-xs">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+                    <Input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => handleInputChange('date', e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* MORNING SHIFT SECTION */}
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-bold">A</div>
+                    <h3 className="text-sm font-semibold text-amber-900">Morning Shift</h3>
+                  </div>
+
+                  {/* Morning Shift Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
-                      <Input
-                        type="date"
-                        value={formData.date}
-                        onChange={(e) => handleInputChange('date', e.target.value)}
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Shift *</label>
-                      <select
-                        value={formData.shift}
-                        onChange={(e) => handleInputChange('shift', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
-                        required
-                      >
-                        <option value="MORNING">A (Morning)</option>
-                        <option value="NIGHT">B (Night)</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Workers</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Workers</label>
                       <Input
                         type="number"
                         min="1"
-                        value={formData.no_of_workers}
-                        onChange={(e) => handleInputChange('no_of_workers', e.target.value)}
+                        value={formData.morning.no_of_workers}
+                        onChange={(e) => handleShiftInputChange('morning', 'no_of_workers', e.target.value)}
+                        className="text-sm h-8"
                       />
                     </div>
-                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Total Hours *</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Total Hours</label>
                       <Input
                         type="number"
                         min="0"
                         step="0.5"
                         placeholder="145"
-                        value={formData.no_of_hours}
-                        onChange={(e) => handleInputChange('no_of_hours', e.target.value)}
-                        required
+                        value={formData.morning.no_of_hours}
+                        onChange={(e) => handleShiftInputChange('morning', 'no_of_hours', e.target.value)}
+                        className="text-sm h-8"
                       />
                     </div>
-                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Rate/Hr (₹)</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Rate/Hr (₹)</label>
                       <Input
                         type="number"
                         min="0"
-                        value={formData.rate_per_hour}
-                        onChange={(e) => handleInputChange('rate_per_hour', e.target.value)}
+                        value={formData.morning.rate_per_hour}
+                        onChange={(e) => handleShiftInputChange('morning', 'rate_per_hour', e.target.value)}
+                        className="text-sm h-8"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
+                      <Input
+                        type="text"
+                        placeholder="Optional notes"
+                        value={formData.morning.remarks}
+                        onChange={(e) => handleShiftInputChange('morning', 'remarks', e.target.value)}
+                        className="text-sm h-8"
                       />
                     </div>
                   </div>
-                </div>
 
-                {/* Activity Rows */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-900">Activity Details</h3>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addActivityRow}
-                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add Activity
-                    </Button>
-                  </div>
+                  {/* Morning Activity Rows */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-gray-900">Activity Details</h4>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addActivityRow('morning')}
+                        className="text-amber-700 border-amber-600 hover:bg-amber-100"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Activity
+                      </Button>
+                    </div>
 
-                  {/* Activity Table */}
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Block Name</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Activity Type *</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Slabs</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Sq Ft</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 w-20">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {formData.activityRows.map((row, index) => (
-                          <tr key={row.id} className="bg-white hover:bg-gray-50">
-                            <td className="px-4 py-2">
-                              <Input
-                                type="text"
-                                placeholder="e.g., AVG-1A"
-                                value={row.block_name}
-                                onChange={(e) => handleActivityRowChange(row.id, 'block_name', e.target.value)}
-                                className="text-sm"
-                              />
-                            </td>
-                            <td className="px-4 py-2">
-                              <select
-                                value={row.activity}
-                                onChange={(e) => handleActivityRowChange(row.id, 'activity', e.target.value)}
-                                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                                required
-                              >
-                                <optgroup label="S/G (Steel Grey)">
-                                  <option value="S/G Polishing">S/G Polishing</option>
-                                  <option value="S/G Laputra">S/G Laputra</option>
-                                  <option value="S/G Grinding">S/G Grinding</option>
-                                  <option value="S/G Polish Grinding">S/G Polish Grinding</option>
-                                  <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
-                                </optgroup>
-                                <optgroup label="B/P (Black Pearl)">
-                                  <option value="B/P Polishing">B/P Polishing</option>
-                                  <option value="B/P Laputra">B/P Laputra</option>
-                                  <option value="B/P Grinding">B/P Grinding</option>
-                                  <option value="B/P Polish Grinding">B/P Polish Grinding</option>
-                                  <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
-                                </optgroup>
-                                <optgroup label="Burgandy">
-                                  <option value="Burgandy Polishing">Burgandy Polishing</option>
-                                  <option value="Burgandy Grinding">Burgandy Grinding</option>
-                                  <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
-                                </optgroup>
-                              </select>
-                            </td>
-                            <td className="px-4 py-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                placeholder="14"
-                                value={row.number_of_slabs}
-                                onChange={(e) => handleActivityRowChange(row.id, 'number_of_slabs', e.target.value)}
-                                className="text-sm"
-                              />
-                            </td>
-                            <td className="px-4 py-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="1234.50"
-                                value={row.total_sqft}
-                                onChange={(e) => handleActivityRowChange(row.id, 'total_sqft', e.target.value)}
-                                className="text-sm"
-                              />
-                            </td>
-                            <td className="px-4 py-2 text-center">
-                              <button
-                                type="button"
-                                onClick={() => removeActivityRow(row.id)}
-                                disabled={formData.activityRows.length === 1}
-                                className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                title="Remove activity"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
+                    <div className="border border-amber-200 rounded-lg overflow-hidden bg-white">
+                      <table className="w-full">
+                        <thead className="bg-amber-100">
+                          <tr>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Block Name</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Activity Type</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Slabs</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Sq Ft</th>
+                            <th className="px-2 py-1 text-center text-xs font-medium text-gray-700 w-16">Action</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {formData.morning.activityRows.map((row) => (
+                            <tr key={row.id} className="hover:bg-amber-50">
+                              <td className="px-2 py-1">
+                                <Input
+                                  type="text"
+                                  placeholder="e.g., AVG-1A"
+                                  value={row.block_name}
+                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'block_name', e.target.value)}
+                                  className="text-xs h-7"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <select
+                                  value={row.activity}
+                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'activity', e.target.value)}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                                >
+                                  <optgroup label="S/G (Steel Grey)">
+                                    <option value="S/G Polishing">S/G Polishing</option>
+                                    <option value="S/G Laputra">S/G Laputra</option>
+                                    <option value="S/G Grinding">S/G Grinding</option>
+                                    <option value="S/G Polish Grinding">S/G Polish Grinding</option>
+                                    <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
+                                  </optgroup>
+                                  <optgroup label="B/P (Black Pearl)">
+                                    <option value="B/P Polishing">B/P Polishing</option>
+                                    <option value="B/P Laputra">B/P Laputra</option>
+                                    <option value="B/P Grinding">B/P Grinding</option>
+                                    <option value="B/P Polish Grinding">B/P Polish Grinding</option>
+                                    <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
+                                  </optgroup>
+                                  <optgroup label="Burgandy">
+                                    <option value="Burgandy Polishing">Burgandy Polishing</option>
+                                    <option value="Burgandy Grinding">Burgandy Grinding</option>
+                                    <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
+                                  </optgroup>
+                                </select>
+                              </td>
+                              <td className="px-2 py-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  placeholder="14"
+                                  value={row.number_of_slabs}
+                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'number_of_slabs', e.target.value)}
+                                  className="text-xs h-7"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="1234.50"
+                                  value={row.total_sqft}
+                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'total_sqft', e.target.value)}
+                                  className="text-xs h-7"
+                                />
+                              </td>
+                              <td className="px-2 py-1 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeActivityRow('morning', row.id)}
+                                  disabled={formData.morning.activityRows.length === 1}
+                                  className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                  title="Remove activity"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
 
-                  {/* Totals Summary */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">Total Slabs:</span>
-                        <span className="ml-2 font-semibold text-gray-900">{calculateTotals().totalSlabs}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Total Sq Ft:</span>
-                        <span className="ml-2 font-semibold text-gray-900">{calculateTotals().totalSqft.toFixed(2)}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Total Amount:</span>
-                        <span className="ml-2 font-semibold text-blue-700">{fmt(calculateTotals().totalAmount)}</span>
+                    {/* Morning Totals */}
+                    <div className="bg-amber-100 border border-amber-300 rounded-lg p-2">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <span className="text-gray-600">Total Slabs:</span>
+                          <span className="ml-2 font-semibold text-gray-900">{calculateShiftTotals('morning').totalSlabs}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Total Sq Ft:</span>
+                          <span className="ml-2 font-semibold text-gray-900">{calculateShiftTotals('morning').totalSqft.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Total Amount:</span>
+                          <span className="ml-2 font-semibold text-amber-700">{fmt(calculateShiftTotals('morning').totalAmount)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Remarks */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Remarks (Optional)</label>
-                  <Input
-                    type="text"
-                    placeholder="Enter any notes or comments"
-                    value={formData.remarks}
-                    onChange={(e) => handleInputChange('remarks', e.target.value)}
-                  />
+                {/* EVENING SHIFT SECTION */}
+                <div className="bg-indigo-50 border border-indigo-300 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 text-xs bg-indigo-500 text-white rounded-full flex items-center justify-center font-bold">B</div>
+                    <h3 className="text-sm font-semibold text-indigo-900">Evening Shift</h3>
+                  </div>
+
+                  {/* Evening Shift Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Workers</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={formData.evening.no_of_workers}
+                        onChange={(e) => handleShiftInputChange('evening', 'no_of_workers', e.target.value)}
+                        className="text-sm h-8"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Total Hours</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        placeholder="145"
+                        value={formData.evening.no_of_hours}
+                        onChange={(e) => handleShiftInputChange('evening', 'no_of_hours', e.target.value)}
+                        className="text-sm h-8"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Rate/Hr (₹)</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={formData.evening.rate_per_hour}
+                        onChange={(e) => handleShiftInputChange('evening', 'rate_per_hour', e.target.value)}
+                        className="text-sm h-8"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
+                      <Input
+                        type="text"
+                        placeholder="Optional notes"
+                        value={formData.evening.remarks}
+                        onChange={(e) => handleShiftInputChange('evening', 'remarks', e.target.value)}
+                        className="text-sm h-8"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Evening Activity Rows */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-gray-900">Activity Details</h4>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addActivityRow('evening')}
+                        className="text-indigo-700 border-indigo-600 hover:bg-indigo-100"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Activity
+                      </Button>
+                    </div>
+
+                    <div className="border border-indigo-200 rounded-lg overflow-hidden bg-white">
+                      <table className="w-full">
+                        <thead className="bg-indigo-100">
+                          <tr>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Block Name</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Activity Type</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Slabs</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Sq Ft</th>
+                            <th className="px-2 py-1 text-center text-xs font-medium text-gray-700 w-16">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {formData.evening.activityRows.map((row) => (
+                            <tr key={row.id} className="hover:bg-indigo-50">
+                              <td className="px-2 py-1">
+                                <Input
+                                  type="text"
+                                  placeholder="e.g., AVG-1A"
+                                  value={row.block_name}
+                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'block_name', e.target.value)}
+                                  className="text-xs h-7"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <select
+                                  value={row.activity}
+                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'activity', e.target.value)}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                >
+                                  <optgroup label="S/G (Steel Grey)">
+                                    <option value="S/G Polishing">S/G Polishing</option>
+                                    <option value="S/G Laputra">S/G Laputra</option>
+                                    <option value="S/G Grinding">S/G Grinding</option>
+                                    <option value="S/G Polish Grinding">S/G Polish Grinding</option>
+                                    <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
+                                  </optgroup>
+                                  <optgroup label="B/P (Black Pearl)">
+                                    <option value="B/P Polishing">B/P Polishing</option>
+                                    <option value="B/P Laputra">B/P Laputra</option>
+                                    <option value="B/P Grinding">B/P Grinding</option>
+                                    <option value="B/P Polish Grinding">B/P Polish Grinding</option>
+                                    <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
+                                  </optgroup>
+                                  <optgroup label="Burgandy">
+                                    <option value="Burgandy Polishing">Burgandy Polishing</option>
+                                    <option value="Burgandy Grinding">Burgandy Grinding</option>
+                                    <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
+                                  </optgroup>
+                                </select>
+                              </td>
+                              <td className="px-2 py-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  placeholder="14"
+                                  value={row.number_of_slabs}
+                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'number_of_slabs', e.target.value)}
+                                  className="text-xs h-7"
+                                />
+                              </td>
+                              <td className="px-2 py-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="1234.50"
+                                  value={row.total_sqft}
+                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'total_sqft', e.target.value)}
+                                  className="text-xs h-7"
+                                />
+                              </td>
+                              <td className="px-2 py-1 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeActivityRow('evening', row.id)}
+                                  disabled={formData.evening.activityRows.length === 1}
+                                  className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                  title="Remove activity"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Evening Totals */}
+                    <div className="bg-indigo-100 border border-indigo-300 rounded-lg p-2">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <span className="text-gray-600">Total Slabs:</span>
+                          <span className="ml-2 font-semibold text-gray-900">{calculateShiftTotals('evening').totalSlabs}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Total Sq Ft:</span>
+                          <span className="ml-2 font-semibold text-gray-900">{calculateShiftTotals('evening').totalSqft.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Total Amount:</span>
+                          <span className="ml-2 font-semibold text-indigo-700">{fmt(calculateShiftTotals('evening').totalAmount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Submit Button */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t">
-                  {isEditing && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => {
-                        if (hasUnsavedChanges) {
-                          if (window.confirm('You have unsaved changes. Are you sure you want to cancel?')) {
-                            allowNavigation();
-                            const freshFormData = initialFormData;
-                            setFormData(freshFormData);
-                            setInitialFormState(freshFormData);
-                            setIsEditing(false);
-                            setEditingId(null);
-                          }
-                        } else {
-                          const freshFormData = initialFormData;
-                          setFormData(freshFormData);
-                          setInitialFormState(freshFormData);
-                          setIsEditing(false);
-                          setEditingId(null);
-                        }
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  )}
+                {/* Submit Button - ONE for both shifts */}
+                <div className="flex items-center justify-center pt-2 border-t">
                   <Button 
                     type="submit" 
                     disabled={loading}
-                    className="bg-blue-600 text-white hover:bg-blue-700 flex items-center px-6"
+                    size="sm"
+                    className="bg-gradient-to-r from-amber-600 to-indigo-600 text-white hover:from-amber-700 hover:to-indigo-700 flex items-center shadow-lg"
                   >
                     {loading ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Saving...
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                        Saving Both Shifts...
                       </>
                     ) : (
                       <>
-                        <Plus className="w-4 h-4 mr-2" />
-                        {isEditing ? 'Update Report' : 'Submit All Activities'}
+                        <Plus className="w-4 h-4 mr-1" />
+                        Submit Both Shifts
                       </>
                     )}
                   </Button>
@@ -1967,155 +2314,6 @@ export default function LinePolishPage() {
             </div>
           </div>
 
-          {/* Image Upload Modal */}
-          {showImageUploadModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                {/* Modal Header */}
-                <div className="px-6 py-4 border-b bg-purple-50 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
-                      <Camera className="w-5 h-5" />
-                      Upload Line Polish Photo
-                    </h3>
-                    <p className="text-sm text-purple-600 mt-1">
-                      Upload a photo of your handwritten line polish report
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleCloseImageModal}
-                    className="text-gray-500 hover:text-gray-700"
-                    disabled={processingImage}
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-
-                {/* Modal Body */}
-                <div className="p-6 space-y-4">
-                  {/* Upload Area */}
-                  {!imagePreview && (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageSelect}
-                        className="hidden"
-                        id="image-upload"
-                        disabled={processingImage}
-                      />
-                      <label
-                        htmlFor="image-upload"
-                        className="cursor-pointer flex flex-col items-center"
-                      >
-                        <Upload className="w-12 h-12 text-gray-400 mb-3" />
-                        <p className="text-gray-700 font-medium mb-1">
-                          Click to upload or drag and drop
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          PNG, JPG or JPEG (max 10MB)
-                        </p>
-                      </label>
-                    </div>
-                  )}
-
-                  {/* Image Preview */}
-                  {imagePreview && (
-                    <div className="space-y-4">
-                      <div className="relative border rounded-lg overflow-hidden">
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="w-full h-auto max-h-96 object-contain"
-                        />
-                        {!processingImage && (
-                          <button
-                            onClick={() => {
-                              setUploadedImage(null);
-                              setImagePreview(null);
-                              setOcrError(null);
-                            }}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Processing Status */}
-                      {processingImage && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
-                          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                          <div>
-                            <p className="text-blue-900 font-medium">Processing image...</p>
-                            <p className="text-sm text-blue-600">
-                              Extracting text and parsing data. This may take a few seconds.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Error Message */}
-                      {ocrError && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                          <div className="flex items-start gap-3">
-                            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                            <div>
-                              <p className="text-red-900 font-medium">Error processing image</p>
-                              <p className="text-sm text-red-600 mt-1">{ocrError}</p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Instructions */}
-                      {!processingImage && !ocrError && (
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                          <p className="text-purple-900 font-medium mb-2">Tips for best results:</p>
-                          <ul className="text-sm text-purple-700 space-y-1 list-disc list-inside">
-                            <li>Ensure the image is clear and well-lit</li>
-                            <li>Make sure all text is visible and not cut off</li>
-                            <li>Keep the camera steady to avoid blur</li>
-                            <li>Include the entire report in the frame</li>
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Modal Footer */}
-                <div className="px-6 py-4 border-t bg-gray-50 flex items-center justify-end gap-3">
-                  <Button
-                    type="button"
-                    onClick={handleCloseImageModal}
-                    variant="outline"
-                    disabled={processingImage}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleProcessImage}
-                    disabled={!uploadedImage || processingImage}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    {processingImage ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Process Image
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
       </div>
     </AppLayout>
   );
