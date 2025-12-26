@@ -911,6 +911,7 @@ export default function SalesDataEntryPage() {
                             type="number"
                             value={row.slabs_count}
                             onChange={(e) => handleItemRowChange(row.id, 'slabs_count', e.target.value)}
+                            onWheel={(e) => e.currentTarget.blur()}
                             className="w-20"
                             placeholder="Slabs"
                           />
@@ -929,6 +930,7 @@ export default function SalesDataEntryPage() {
                               step="0.01"
                               value={row.tons}
                               onChange={(e) => handleItemRowChange(row.id, 'tons', e.target.value)}
+                              onWheel={(e) => e.currentTarget.blur()}
                               className="w-24"
                               placeholder="Tons"
                               required
@@ -938,6 +940,7 @@ export default function SalesDataEntryPage() {
                               step="0.01"
                               value={row.square_feet}
                               onChange={(e) => handleItemRowChange(row.id, 'square_feet', e.target.value)}
+                              onWheel={(e) => e.currentTarget.blur()}
                               className="w-24 text-xs"
                               placeholder="Sq.Ft (opt)"
                               title="Optional: Square feet. If empty, calculated as Tons × 155"
@@ -948,6 +951,7 @@ export default function SalesDataEntryPage() {
                             type="number"
                             step="0.01"
                             value={row.square_feet}
+                            onWheel={(e) => e.currentTarget.blur()}
                             onChange={(e) => handleItemRowChange(row.id, 'square_feet', e.target.value)}
                             className="w-24"
                             placeholder="Sq.Ft"
@@ -961,6 +965,7 @@ export default function SalesDataEntryPage() {
                           step="0.01"
                           value={isTonnage ? row.rate_per_ton : row.rate_per_sqft}
                           onChange={(e) => handleItemRowChange(row.id, isTonnage ? 'rate_per_ton' : 'rate_per_sqft', e.target.value)}
+                          onWheel={(e) => e.currentTarget.blur()}
                           className="w-24"
                           placeholder={isTonnage ? "Rate/Ton" : "Rate/Sq.Ft"}
                           required
@@ -1023,6 +1028,7 @@ export default function SalesDataEntryPage() {
                       // Auto-sync to official tax
                       handleInputChange('official_tax', taxValue);
                     }}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="0.00"
                   />
                 </div>
@@ -1033,6 +1039,7 @@ export default function SalesDataEntryPage() {
                     step="0.01"
                     value={formData.mining_amount}
                     onChange={(e) => handleInputChange('mining_amount', e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="0.00"
                   />
                 </div>
@@ -1043,6 +1050,7 @@ export default function SalesDataEntryPage() {
                     step="0.01"
                     value={formData.loading_amount}
                     onChange={(e) => handleInputChange('loading_amount', e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
                     placeholder="0.00"
                   />
                 </div>
@@ -1096,6 +1104,7 @@ export default function SalesDataEntryPage() {
                             step="0.01"
                             value={item.square_feet}
                             onChange={(e) => handleOfficialBillItemChange(item.id, 'square_feet', e.target.value)}
+                            onWheel={(e) => e.currentTarget.blur()}
                             placeholder="0.00"
                             className="text-sm"
                           />
@@ -1107,6 +1116,7 @@ export default function SalesDataEntryPage() {
                             step="0.01"
                             value={item.rate_per_sqft}
                             onChange={(e) => handleOfficialBillItemChange(item.id, 'rate_per_sqft', e.target.value)}
+                            onWheel={(e) => e.currentTarget.blur()}
                             placeholder="0.00"
                             className="text-sm"
                           />
@@ -1142,6 +1152,7 @@ export default function SalesDataEntryPage() {
                   step="0.01"
                   value={formData.official_tax}
                   onChange={(e) => handleInputChange('official_tax', e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                   placeholder="0.00"
                   className="bg-white max-w-xs"
                 />
