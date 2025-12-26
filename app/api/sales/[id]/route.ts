@@ -76,15 +76,27 @@ export async function PUT(
       end_customer_name = null,
       rtgs_expected = 0,
       cash_expected = 0,
-      remarks = ''
+      remarks = '',
+      onlyBill = false // Only bill mode
     } = body;
 
-    // Validation
-    if (!customer_id || !sale_date || !items || items.length === 0) {
-      return NextResponse.json(
-        { error: 'Missing required fields: customer_id, sale_date, and items are required' },
-        { status: 400 }
-      );
+    // Validation - different rules for onlyBill mode
+    if (onlyBill) {
+      // Only bill mode: only require date and official bill items
+      if (!sale_date || !official_bill_items || official_bill_items.length === 0) {
+        return NextResponse.json(
+          { error: 'Missing required fields: sale_date and official_bill_items are required for bill-only sales' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Normal mode: require customer and items
+      if (!customer_id || !sale_date || !items || items.length === 0) {
+        return NextResponse.json(
+          { error: 'Missing required fields: customer_id, sale_date, and items are required' },
+          { status: 400 }
+        );
+      }
     }
 
     // Calculate totals from items
@@ -93,17 +105,20 @@ export async function PUT(
     let total_tons = 0;
     let subtotal_amount = 0;
 
-    items.forEach((item: any) => {
-      if (item.is_tonnage_material) {
-        total_tons += Number(item.tons) || 0;
-        // Tonnage materials can also have square feet now
-        total_sqft += Number(item.square_feet) || 0;
-      } else {
-        total_slabs += Number(item.slabs_count) || 0;
-        total_sqft += Number(item.square_feet) || 0;
-      }
-      subtotal_amount += Number(item.total_amount) || 0;
-    });
+    // Only calculate from items if not onlyBill mode
+    if (!onlyBill && items && items.length > 0) {
+      items.forEach((item: any) => {
+        if (item.is_tonnage_material) {
+          total_tons += Number(item.tons) || 0;
+          // Tonnage materials can also have square feet now
+          total_sqft += Number(item.square_feet) || 0;
+        } else {
+          total_slabs += Number(item.slabs_count) || 0;
+          total_sqft += Number(item.square_feet) || 0;
+        }
+        subtotal_amount += Number(item.total_amount) || 0;
+      });
+    }
 
     const gross_total = subtotal_amount + Number(tax_amount) + Number(mining_amount) + Number(loading_amount);
 
@@ -111,20 +126,22 @@ export async function PUT(
     const official_subtotal = official_bill_items.reduce((sum: number, item: any) => sum + (Number(item.total_amount) || 0), 0);
     const official_total = official_subtotal + Number(official_tax);
 
-    // Validate payment split
-    const payment_total = Number(rtgs_expected) + Number(cash_expected);
-    if (Math.abs(payment_total - gross_total) > 0.01) {
-      return NextResponse.json(
-        { error: `Payment split (₹${payment_total.toFixed(2)}) must equal gross total (₹${gross_total.toFixed(2)})` },
-        { status: 400 }
-      );
+    // Validate payment split only if not onlyBill mode
+    if (!onlyBill) {
+      const payment_total = Number(rtgs_expected) + Number(cash_expected);
+      if (Math.abs(payment_total - gross_total) > 0.01) {
+        return NextResponse.json(
+          { error: `Payment split (₹${payment_total.toFixed(2)}) must equal gross total (₹${gross_total.toFixed(2)})` },
+          { status: 400 }
+        );
+      }
     }
 
     // Update sale
     const { data: saleData, error: saleError } = await supabase
       .from('sales')
       .update({
-        customer_id,
+        customer_id: onlyBill ? null : customer_id,
         sale_date,
         total_slabs,
         total_sqft,
@@ -141,6 +158,7 @@ export async function PUT(
         rtgs_expected: Number(rtgs_expected),
         cash_expected: Number(cash_expected),
         remarks,
+        only_bill: onlyBill,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -163,38 +181,40 @@ export async function PUT(
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
-    // Insert new sale items
-    const itemsToInsert = items.map((item: any) => ({
-      sale_id: id,
-      material_type_id: item.material_type_id || null,
-      material_name: item.material_name,
-      slabs_count: Number(item.slabs_count) || 0,
-      square_feet: Number(item.square_feet) || 0,
-      rate_per_sqft: Number(item.rate_per_sqft) || 0,
-      tons: Number(item.tons) || 0,
-      rate_per_ton: Number(item.rate_per_ton) || 0,
-      is_tonnage_material: Boolean(item.is_tonnage_material),
-      total_amount: Number(item.total_amount) || 0,
-      remarks: item.remarks || ''
-    }));
+    // Insert new sale items only if not onlyBill mode
+    if (!onlyBill && items && items.length > 0) {
+      const itemsToInsert = items.map((item: any) => ({
+        sale_id: id,
+        material_type_id: item.material_type_id || null,
+        material_name: item.material_name,
+        slabs_count: Number(item.slabs_count) || 0,
+        square_feet: Number(item.square_feet) || 0,
+        rate_per_sqft: Number(item.rate_per_sqft) || 0,
+        tons: Number(item.tons) || 0,
+        rate_per_ton: Number(item.rate_per_ton) || 0,
+        is_tonnage_material: Boolean(item.is_tonnage_material),
+        total_amount: Number(item.total_amount) || 0,
+        remarks: item.remarks || ''
+      }));
 
-    const { error: itemsError } = await supabase
-      .from('sale_items')
-      .insert(itemsToInsert);
+      const { error: itemsError } = await supabase
+        .from('sale_items')
+        .insert(itemsToInsert);
 
-    if (itemsError) {
-      console.error('Error inserting sale items:', itemsError);
-      return NextResponse.json({ error: itemsError.message }, { status: 500 });
+      if (itemsError) {
+        console.error('Error inserting sale items:', itemsError);
+        return NextResponse.json({ error: itemsError.message }, { status: 500 });
+      }
     }
 
-    // Update linked consignment if it exists
+    // Update linked consignment if it exists and not onlyBill mode
     const { data: existingSale } = await supabase
       .from('sales')
       .select('consignment_id')
       .eq('id', id)
       .single();
 
-    if (existingSale?.consignment_id) {
+    if (!onlyBill && existingSale?.consignment_id) {
       const consignmentRemarks = `Auto-created from ${saleData.sale_number}${remarks ? ' - ' + remarks : ''}`;
       
       const { error: consignmentError } = await supabase

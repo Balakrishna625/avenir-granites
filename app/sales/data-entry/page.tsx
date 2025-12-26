@@ -97,6 +97,7 @@ interface FormData {
   cash_expected: string
   remarks: string
   createConsignment: boolean
+  onlyBill: boolean
 }
 
 function formatIndianNumber(num: number): string {
@@ -155,7 +156,8 @@ export default function SalesDataEntryPage() {
     rtgs_expected: '',
     cash_expected: '',
     remarks: '',
-    createConsignment: true
+    createConsignment: true,
+    onlyBill: false
   }), [])
 
   const [formData, setFormData] = useState<FormData>(initialFormData)
@@ -420,14 +422,23 @@ export default function SalesDataEntryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.customer_id) {
-      showToast('error', 'Please select a customer')
-      return
-    }
+    // Only Bill mode: customer is optional, only official bill is required
+    if (formData.onlyBill) {
+      if (formData.officialBillItems.length === 0 || !formData.officialBillItems[0].square_feet) {
+        showToast('error', 'Please add at least one official bill item')
+        return
+      }
+    } else {
+      // Normal mode: customer and items are required
+      if (!formData.customer_id) {
+        showToast('error', 'Please select a customer')
+        return
+      }
 
-    if (formData.itemRows.length === 0 || !formData.itemRows[0].material_name) {
-      showToast('error', 'Please add at least one item')
-      return
+      if (formData.itemRows.length === 0 || !formData.itemRows[0].material_name) {
+        showToast('error', 'Please add at least one item')
+        return
+      }
     }
 
     const { grossTotal, rtgs, cash } = calculateTotals()
@@ -442,9 +453,9 @@ export default function SalesDataEntryPage() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer_id: formData.customer_id,
+          customer_id: formData.onlyBill ? null : formData.customer_id,
           sale_date: formData.date,
-          items: formData.itemRows.map(item => ({
+          items: formData.onlyBill ? [] : formData.itemRows.map(item => ({
             material_type_id: item.material_type_id || null,
             material_name: item.material_name,
             slabs_count: parseInt(item.slabs_count) || 0,
@@ -469,7 +480,8 @@ export default function SalesDataEntryPage() {
           rtgs_expected: rtgs,
           cash_expected: cash,
           remarks: formData.remarks,
-          createConsignment: formData.createConsignment
+          createConsignment: formData.onlyBill ? false : formData.createConsignment,
+          onlyBill: formData.onlyBill
         })
       })
 
@@ -524,7 +536,8 @@ export default function SalesDataEntryPage() {
       setFormData({
         date: saleDetails.sale_date.split('T')[0],
         customer_id: saleDetails.customer_id,
-        itemRows: saleDetails.sale_items?.map((item: any) => {
+        onlyBill: saleDetails.only_bill || false,
+        itemRows: (saleDetails.sale_items && saleDetails.sale_items.length > 0) ? saleDetails.sale_items.map((item: any) => {
           const isTonnage = item.is_tonnage_material || false
           return {
             id: crypto.randomUUID(),
@@ -538,7 +551,18 @@ export default function SalesDataEntryPage() {
             is_tonnage_material: isTonnage,
             total_amount: item.total_amount
           }
-        }) || [],
+        }) : [{
+          id: crypto.randomUUID(),
+          material_type_id: '',
+          material_name: '',
+          slabs_count: '',
+          square_feet: '',
+          rate_per_sqft: '',
+          tons: '',
+          rate_per_ton: '',
+          is_tonnage_material: false,
+          total_amount: 0
+        }],
         tax_amount: saleDetails.tax_amount.toString(),
         mining_amount: saleDetails.mining_amount.toString(),
         loading_amount: saleDetails.loading_amount.toString(),
@@ -767,6 +791,22 @@ export default function SalesDataEntryPage() {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Only Bill Checkbox */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.onlyBill}
+                  onChange={(e) => handleInputChange('onlyBill', e.target.checked)}
+                  className="w-4 h-4 text-amber-600 rounded focus:ring-2 focus:ring-amber-500"
+                />
+                <span className="text-sm font-medium text-amber-900">Only Bill (No actual sale - for mining audit only)</span>
+              </label>
+              {formData.onlyBill && (
+                <p className="text-xs text-amber-700 mt-1 ml-6">When enabled, you only need to fill the Official Bill section below. Customer and sales items are optional.</p>
+              )}
+            </div>
+
             {/* Date and Customer Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -779,14 +819,15 @@ export default function SalesDataEntryPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Customer *</label>
+              <label className="block text-sm font-medium mb-1">Customer {!formData.onlyBill && '*'}</label>
               <select
                 value={formData.customer_id}
                 onChange={(e) => handleInputChange('customer_id', e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
-                required
+                required={!formData.onlyBill}
+                disabled={formData.onlyBill}
               >
-                <option value="">Select customer...</option>
+                <option value="">{formData.onlyBill ? 'N/A (Only Bill Mode)' : 'Select customer...'}</option>
                 {customers.map(customer => (
                   <option key={customer.id} value={customer.id}>
                     {customer.name}
@@ -976,7 +1017,12 @@ export default function SalesDataEntryPage() {
                     type="number"
                     step="0.01"
                     value={formData.tax_amount}
-                    onChange={(e) => handleInputChange('tax_amount', e.target.value)}
+                    onChange={(e) => {
+                      const taxValue = e.target.value;
+                      handleInputChange('tax_amount', taxValue);
+                      // Auto-sync to official tax
+                      handleInputChange('official_tax', taxValue);
+                    }}
                     placeholder="0.00"
                   />
                 </div>
