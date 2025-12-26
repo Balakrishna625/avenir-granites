@@ -218,8 +218,11 @@ export default function MultiCutterAnalyticsPage() {
 
     // Use blockGroupsData instead of topBlocks for the visual overview
     blockGroupsData.forEach(block => {
-      // Skip running blocks - not specific blocks
-      if (block.block_name.toLowerCase().includes('running')) {
+      // Skip running blocks, blocks with "0", and "No Cuttin" - not specific blocks
+      const blockNameLower = block.block_name.toLowerCase();
+      if (blockNameLower.includes('running') || 
+          blockNameLower.includes('no cuttin') || 
+          block.block_name === '0') {
         return;
       }
 
@@ -263,17 +266,17 @@ export default function MultiCutterAnalyticsPage() {
     groupedBlocks.forEach(group => {
       // Extract prefix
       // For patterns like AVG-SL-1, AVG-SJ-43 → prefix is "AVG-SL", "AVG-SJ"
-      // For patterns like AVG-1, AVG-2 → prefix is "AVG"
+      // For patterns like AVG-1, AVG-2, AVG-B, AVG20-, ABG-19, ABG-21 → prefix is "AVG"
       let prefix = group.base_name;
       
-      const matchWithSuffix = group.base_name.match(/^([A-Za-z]+-[A-Za-z]+)-/);
+      const matchWithSuffix = group.base_name.match(/^([A-Za-z]+-[A-Za-z]{2,})-/);
       if (matchWithSuffix) {
-        // Has pattern like AVG-SL-1
+        // Has pattern like AVG-SL-1, AVG-SJ-43 (two or more letters after hyphen)
         prefix = matchWithSuffix[1];
       } else {
-        // Check if it's just AVG-number pattern
-        const matchAVG = group.base_name.match(/^(AVG)-/);
-        if (matchAVG) {
+        // Check if it starts with AVG or ABG (any variation)
+        const matchAVGFamily = group.base_name.match(/^(AVG|ABG)/i);
+        if (matchAVGFamily) {
           prefix = 'AVG';
         }
       }
@@ -284,8 +287,9 @@ export default function MultiCutterAnalyticsPage() {
       prefixGroups.get(prefix)!.push(group);
     });
 
-    // Natural sort helper
+    // Natural sort helper - handles mixed alphanumeric sorting
     const naturalSort = (a: string, b: string) => {
+      // Split into parts (letters and numbers)
       const aParts = a.match(/(\d+|\D+)/g) || [];
       const bParts = b.match(/(\d+|\D+)/g) || [];
       
@@ -296,22 +300,44 @@ export default function MultiCutterAnalyticsPage() {
         const aNum = parseInt(aPart);
         const bNum = parseInt(bPart);
         
+        // If both parts are numbers, compare numerically
         if (!isNaN(aNum) && !isNaN(bNum)) {
           if (aNum !== bNum) return aNum - bNum;
         } else {
-          if (aPart !== bPart) return aPart.localeCompare(bPart);
+          // Compare as strings (case-insensitive)
+          const comparison = aPart.toLowerCase().localeCompare(bPart.toLowerCase());
+          if (comparison !== 0) return comparison;
         }
       }
       return 0;
     };
 
+    // Custom sort order for prefixes
+    const prefixOrder = ['AVG-SJ', 'AVG-SL', 'AVG-GK', 'AVG-BG', 'AVG'];
+    
     // Convert to array and sort blocks within each prefix by base_name ascending
     return Array.from(prefixGroups.entries()).map(([prefix, blocks]) => ({
       prefix,
-      blocks: blocks.sort((a, b) => naturalSort(a.base_name, b.base_name)),
+      blocks: blocks.sort((a, b) => {
+        // First sort by base_name naturally
+        const nameCompare = naturalSort(a.base_name, b.base_name);
+        if (nameCompare !== 0) return nameCompare;
+        // If names are equal, sort by material type
+        return a.material_type.localeCompare(b.material_type);
+      }),
       material_type: blocks[0]?.material_type || '' // Get material type from first block
     })).sort((a, b) => {
-      // Sort prefixes by total sqft
+      // Use custom prefix order if both are in the list
+      const aIndex = prefixOrder.indexOf(a.prefix);
+      const bIndex = prefixOrder.indexOf(b.prefix);
+      
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      
+      // For other prefixes, sort by total sqft
       const aTotal = a.blocks.reduce((sum, b) => sum + b.total_sqft, 0);
       const bTotal = b.blocks.reduce((sum, b) => sum + b.total_sqft, 0);
       return bTotal - aTotal;
