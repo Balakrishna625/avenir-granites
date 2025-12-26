@@ -204,6 +204,11 @@ export default function MultiCutterAnalyticsPage() {
     }>();
 
     topBlocks.forEach(block => {
+      // Skip running blocks - not specific blocks
+      if (block.block_name.toLowerCase().includes('running')) {
+        return;
+      }
+
       // Remove the last character if it's a letter (A, B, C, etc.)
       let baseName = block.block_name;
       if (/[A-Za-z]$/.test(baseName)) {
@@ -252,10 +257,32 @@ export default function MultiCutterAnalyticsPage() {
       prefixGroups.get(prefix)!.push(group);
     });
 
-    // Convert to array and sort each group's blocks by sqft
+    // Natural sort helper
+    const naturalSort = (a: string, b: string) => {
+      const aParts = a.match(/(\d+|\D+)/g) || [];
+      const bParts = b.match(/(\d+|\D+)/g) || [];
+      
+      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+        const aPart = aParts[i] || '';
+        const bPart = bParts[i] || '';
+        
+        const aNum = parseInt(aPart);
+        const bNum = parseInt(bPart);
+        
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          if (aNum !== bNum) return aNum - bNum;
+        } else {
+          if (aPart !== bPart) return aPart.localeCompare(bPart);
+        }
+      }
+      return 0;
+    };
+
+    // Convert to array and sort blocks within each prefix by base_name ascending
     return Array.from(prefixGroups.entries()).map(([prefix, blocks]) => ({
       prefix,
-      blocks: blocks.sort((a, b) => b.total_sqft - a.total_sqft)
+      blocks: blocks.sort((a, b) => naturalSort(a.base_name, b.base_name)),
+      material_type: blocks[0]?.material_type || '' // Get material type from first block
     })).sort((a, b) => {
       // Sort prefixes by total sqft
       const aTotal = a.blocks.reduce((sum, b) => sum + b.total_sqft, 0);
@@ -1004,8 +1031,13 @@ export default function MultiCutterAnalyticsPage() {
                 <div key={prefixGroup.prefix} className={`${colors.bg} rounded-xl p-5 border-2 ${colors.border}`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className={`${colors.header} px-4 py-2 rounded-lg`}>
+                      <div className={`${colors.header} px-4 py-2 rounded-lg flex items-center gap-2`}>
                         <h3 className="text-lg font-bold text-white">{prefixGroup.prefix}</h3>
+                        {prefixGroup.material_type && (
+                          <span className="text-xs bg-white/20 px-2 py-0.5 rounded text-white font-medium">
+                            {prefixGroup.material_type}
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-gray-600">
                         <span className="font-semibold">{prefixGroup.blocks.length}</span> block groups
@@ -1023,7 +1055,7 @@ export default function MultiCutterAnalyticsPage() {
                         key={`${block.base_name}-${block.material_type}`} 
                         className="flex flex-col items-center"
                       >
-                        <div className={`relative w-28 h-20 ${colors.bg} border-2 ${colors.border} rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-shadow`}>
+                        <div className={`w-28 h-20 ${colors.bg} border-2 ${colors.border} rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-shadow`}>
                           <div className="text-center px-2">
                             <div className={`text-xs font-bold ${colors.text} truncate`}>
                               {block.base_name}
@@ -1031,10 +1063,6 @@ export default function MultiCutterAnalyticsPage() {
                             <div className="text-[10px] text-gray-500 mt-0.5">
                               {block.block_count} variant{block.block_count > 1 ? 's' : ''}
                             </div>
-                          </div>
-                          {/* Material badge */}
-                          <div className="absolute -top-2 -right-2 bg-white border border-gray-300 rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-gray-700 shadow-sm">
-                            {block.material_type}
                           </div>
                         </div>
                         <div className={`mt-2 text-center font-bold ${colors.sqft} text-sm`}>
