@@ -191,6 +191,79 @@ export default function MultiCutterAnalyticsPage() {
   // Add sorting for Material Breakdown table
   const { sortedData: sortedMaterialBreakdown, sortConfig: materialSortConfig, requestSort: requestMaterialSort } = useTableSort(materialBreakdown);
 
+  // Group blocks by base name (removing suffix letter)
+  const groupedBlocks = useMemo(() => {
+    const groups = new Map<string, {
+      base_name: string;
+      material_type: string;
+      block_count: number;
+      total_slabs: number;
+      total_sqft: number;
+      times_processed: number;
+      blocks: string[];
+    }>();
+
+    topBlocks.forEach(block => {
+      // Remove the last character if it's a letter (A, B, C, etc.)
+      let baseName = block.block_name;
+      if (/[A-Za-z]$/.test(baseName)) {
+        baseName = baseName.slice(0, -1);
+      }
+
+      const key = `${baseName}|${block.material_type}`;
+      
+      if (!groups.has(key)) {
+        groups.set(key, {
+          base_name: baseName,
+          material_type: block.material_type,
+          block_count: 0,
+          total_slabs: 0,
+          total_sqft: 0,
+          times_processed: 0,
+          blocks: []
+        });
+      }
+
+      const group = groups.get(key)!;
+      group.block_count++;
+      group.total_slabs += block.total_slabs;
+      group.total_sqft += block.total_sqft;
+      group.times_processed += block.times_processed;
+      group.blocks.push(block.block_name);
+    });
+
+    // Convert to array and sort by total_sqft descending
+    return Array.from(groups.values())
+      .sort((a, b) => b.total_sqft - a.total_sqft);
+  }, [topBlocks]);
+
+  // Group blocks by prefix (AVG-SL, AVG-SJ, AVG-GK, etc.) for visual display
+  const blocksByPrefix = useMemo(() => {
+    const prefixGroups = new Map<string, typeof groupedBlocks>();
+
+    groupedBlocks.forEach(group => {
+      // Extract prefix (e.g., "AVG-SL" from "AVG-SL-1")
+      const match = group.base_name.match(/^([A-Za-z]+-[A-Za-z]+)/);
+      const prefix = match ? match[1] : group.base_name;
+
+      if (!prefixGroups.has(prefix)) {
+        prefixGroups.set(prefix, []);
+      }
+      prefixGroups.get(prefix)!.push(group);
+    });
+
+    // Convert to array and sort each group's blocks by sqft
+    return Array.from(prefixGroups.entries()).map(([prefix, blocks]) => ({
+      prefix,
+      blocks: blocks.sort((a, b) => b.total_sqft - a.total_sqft)
+    })).sort((a, b) => {
+      // Sort prefixes by total sqft
+      const aTotal = a.blocks.reduce((sum, b) => sum + b.total_sqft, 0);
+      const bTotal = b.blocks.reduce((sum, b) => sum + b.total_sqft, 0);
+      return bTotal - aTotal;
+    });
+  }, [groupedBlocks]);
+
   useEffect(() => {
     loadAnalytics();
   }, [dateFrom, dateTo, selectedMonth, selectedYear]);
@@ -891,6 +964,170 @@ export default function MultiCutterAnalyticsPage() {
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-gray-500">
                       No block data available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* Visual Block Representation by Prefix */}
+        <Card className="p-4 sm:p-6 bg-white">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2.5 rounded-lg">
+              <Layers className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Block Groups Visual Overview</h2>
+              <p className="text-sm text-gray-600">All grouped blocks organized by prefix</p>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            {blocksByPrefix.map((prefixGroup, prefixIndex) => {
+              // Assign colors to each prefix
+              const colorSchemes = [
+                { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-900', header: 'bg-blue-600', sqft: 'text-blue-700' },
+                { bg: 'bg-purple-50', border: 'border-purple-300', text: 'text-purple-900', header: 'bg-purple-600', sqft: 'text-purple-700' },
+                { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-900', header: 'bg-green-600', sqft: 'text-green-700' },
+                { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-900', header: 'bg-orange-600', sqft: 'text-orange-700' },
+                { bg: 'bg-pink-50', border: 'border-pink-300', text: 'text-pink-900', header: 'bg-pink-600', sqft: 'text-pink-700' },
+                { bg: 'bg-teal-50', border: 'border-teal-300', text: 'text-teal-900', header: 'bg-teal-600', sqft: 'text-teal-700' },
+                { bg: 'bg-indigo-50', border: 'border-indigo-300', text: 'text-indigo-900', header: 'bg-indigo-600', sqft: 'text-indigo-700' },
+                { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-900', header: 'bg-red-600', sqft: 'text-red-700' },
+              ];
+              const colors = colorSchemes[prefixIndex % colorSchemes.length];
+              const totalSqft = prefixGroup.blocks.reduce((sum, b) => sum + b.total_sqft, 0);
+
+              return (
+                <div key={prefixGroup.prefix} className={`${colors.bg} rounded-xl p-5 border-2 ${colors.border}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`${colors.header} px-4 py-2 rounded-lg`}>
+                        <h3 className="text-lg font-bold text-white">{prefixGroup.prefix}</h3>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        <span className="font-semibold">{prefixGroup.blocks.length}</span> block groups
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-gray-600 uppercase tracking-wide">Total Production</div>
+                      <div className={`text-xl font-bold ${colors.sqft}`}>{fmt(totalSqft)} sq.ft</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-4">
+                    {prefixGroup.blocks.map((block) => (
+                      <div 
+                        key={`${block.base_name}-${block.material_type}`} 
+                        className="flex flex-col items-center"
+                      >
+                        <div className={`relative w-28 h-20 ${colors.bg} border-2 ${colors.border} rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-shadow`}>
+                          <div className="text-center px-2">
+                            <div className={`text-xs font-bold ${colors.text} truncate`}>
+                              {block.base_name}
+                            </div>
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                              {block.block_count} variant{block.block_count > 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          {/* Material badge */}
+                          <div className="absolute -top-2 -right-2 bg-white border border-gray-300 rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-gray-700 shadow-sm">
+                            {block.material_type}
+                          </div>
+                        </div>
+                        <div className={`mt-2 text-center font-bold ${colors.sqft} text-sm`}>
+                          {fmt(block.total_sqft)}
+                        </div>
+                        <div className="text-[10px] text-gray-500 uppercase tracking-wide">
+                          sq.ft
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {blocksByPrefix.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No block data available
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Grouped Blocks by Base Name */}
+        <Card className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-slate-100">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-slate-600 p-2.5 rounded-lg">
+              <Box className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Grouped Block Production</h2>
+              <p className="text-sm text-slate-600">Combined output by base block number</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b-2 border-slate-300 bg-slate-50">
+                  <th className="text-center py-3 px-3 text-sm font-semibold text-slate-700">Rank</th>
+                  <th className="py-3 px-4 text-left text-sm font-semibold text-slate-700">Base Block</th>
+                  <th className="py-3 px-4 text-left text-sm font-semibold text-slate-700">Material</th>
+                  <th className="py-3 px-4 text-center text-sm font-semibold text-slate-700">Variants</th>
+                  <th className="py-3 px-4 text-right text-sm font-semibold text-slate-700">Total Slabs</th>
+                  <th className="py-3 px-4 text-right text-sm font-semibold text-slate-700">Total Sq. Ft.</th>
+                  <th className="py-3 px-4 text-right text-sm font-semibold text-slate-700">Times Cut</th>
+                  <th className="py-3 px-4 text-right text-sm font-semibold text-slate-700">Avg Sqft/Variant</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupedBlocks.map((group, index) => {
+                  const rankColors = [
+                    'bg-yellow-100 text-yellow-900 border-yellow-400',
+                    'bg-gray-300 text-gray-800 border-gray-500', 
+                    'bg-orange-200 text-orange-900 border-orange-400'
+                  ];
+                  const rankColor = index < 3 ? rankColors[index] : 'bg-slate-100 text-slate-900 border-slate-300';
+                  const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+                  
+                  return (
+                    <tr key={`${group.base_name}-${group.material_type}`} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-3 text-center">
+                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold border-2 ${rankColor}`}>
+                          {rankEmoji}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-slate-900 text-base">{group.base_name}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {group.blocks.sort().join(', ')}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                          {group.material_type}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-200 text-slate-800 font-bold text-sm">
+                          {group.block_count}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-slate-900 text-base">{fmt(group.total_slabs)}</td>
+                      <td className="py-3 px-4 text-right font-bold text-green-600 text-base">{fmt(group.total_sqft)}</td>
+                      <td className="py-3 px-4 text-right font-semibold text-blue-600">{group.times_processed}×</td>
+                      <td className="py-3 px-4 text-right text-slate-600 font-medium">
+                        {fmt(Math.round(group.total_sqft / group.block_count))}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {groupedBlocks.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-slate-500">
+                      No grouped block data available
                     </td>
                   </tr>
                 )}
