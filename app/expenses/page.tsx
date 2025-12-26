@@ -50,6 +50,10 @@ interface Expense {
   bank_accounts?: {
     name: string;
   };
+  expense_categories?: {
+    name: string;
+    color?: string;
+  };
 }
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -1090,6 +1094,9 @@ export default function ExpensesPage() {
                           Date
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           Account
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -1133,6 +1140,19 @@ export default function ExpensesPage() {
                               </span>
                             </div>
                             )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {expense.expense_categories?.color && (
+                                <div 
+                                  className="w-3 h-3 rounded-full flex-shrink-0" 
+                                  style={{ backgroundColor: expense.expense_categories.color }}
+                                />
+                              )}
+                              <span className="text-sm text-gray-900 font-medium">
+                                {expense.expense_categories?.name || 'Uncategorized'}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {isEditing ? (
