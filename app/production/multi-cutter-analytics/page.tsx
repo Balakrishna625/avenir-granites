@@ -254,10 +254,85 @@ export default function MultiCutterAnalyticsPage() {
       group.blocks.push(block.block_name);
     });
 
-    // Convert to array and sort by total_sqft descending
-    return Array.from(groups.values())
-      .sort((a, b) => b.total_sqft - a.total_sqft);
+    // Convert to array - initially unsorted
+    return Array.from(groups.values());
   }, [blockGroupsData]);
+
+  // Flattened and sorted array for table display (ascending by base_name within each prefix)
+  const sortedGroupedBlocksForTable = useMemo(() => {
+    // Natural sort helper
+    const naturalSort = (a: string, b: string) => {
+      const aParts = a.match(/(\d+|\D+)/g) || [];
+      const bParts = b.match(/(\d+|\D+)/g) || [];
+      
+      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+        const aPart = aParts[i] || '';
+        const bPart = bParts[i] || '';
+        
+        const aNum = parseInt(aPart);
+        const bNum = parseInt(bPart);
+        
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          if (aNum !== bNum) return aNum - bNum;
+        } else {
+          const comparison = aPart.toLowerCase().localeCompare(bPart.toLowerCase());
+          if (comparison !== 0) return comparison;
+        }
+      }
+      return 0;
+    };
+
+    // Group by prefix
+    const prefixMap = new Map<string, typeof groupedBlocks>();
+    
+    groupedBlocks.forEach(group => {
+      let prefix = group.base_name;
+      
+      const matchWithSuffix = group.base_name.match(/^([A-Za-z]+-[A-Za-z]{2,})-/);
+      if (matchWithSuffix) {
+        prefix = matchWithSuffix[1];
+      } else {
+        const matchAVGFamily = group.base_name.match(/^(AVG|ABG)/i);
+        if (matchAVGFamily) {
+          prefix = 'AVG';
+        }
+      }
+
+      if (!prefixMap.has(prefix)) {
+        prefixMap.set(prefix, []);
+      }
+      prefixMap.get(prefix)!.push(group);
+    });
+
+    // Sort within each prefix and flatten
+    const prefixOrder = ['AVG-SJ', 'AVG-SL', 'AVG-GK', 'AVG-BG', 'AVG'];
+    const result: typeof groupedBlocks = [];
+
+    // Add blocks from ordered prefixes first
+    prefixOrder.forEach(prefix => {
+      const blocks = prefixMap.get(prefix);
+      if (blocks) {
+        blocks.sort((a, b) => naturalSort(a.base_name, b.base_name));
+        result.push(...blocks);
+        prefixMap.delete(prefix);
+      }
+    });
+
+    // Add remaining prefixes sorted by total sqft
+    const remaining = Array.from(prefixMap.entries())
+      .sort((a, b) => {
+        const aTotal = a[1].reduce((sum, block) => sum + block.total_sqft, 0);
+        const bTotal = b[1].reduce((sum, block) => sum + block.total_sqft, 0);
+        return bTotal - aTotal;
+      });
+
+    remaining.forEach(([_, blocks]) => {
+      blocks.sort((a, b) => naturalSort(a.base_name, b.base_name));
+      result.push(...blocks);
+    });
+
+    return result;
+  }, [groupedBlocks]);
 
   // Group blocks by prefix (AVG-SL, AVG-SJ, AVG-GK, etc.) for visual display
   const blocksByPrefix = useMemo(() => {
@@ -1200,7 +1275,7 @@ export default function MultiCutterAnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {groupedBlocks.map((group, index) => {
+                {sortedGroupedBlocksForTable.map((group, index) => {
                   const rankColors = [
                     'bg-yellow-100 text-yellow-900 border-yellow-400',
                     'bg-gray-300 text-gray-800 border-gray-500', 
@@ -1241,7 +1316,7 @@ export default function MultiCutterAnalyticsPage() {
                     </tr>
                   );
                 })}
-                {groupedBlocks.length === 0 && (
+                {sortedGroupedBlocksForTable.length === 0 && (
                   <tr>
                     <td colSpan={8} className="py-8 text-center text-slate-500">
                       No grouped block data available

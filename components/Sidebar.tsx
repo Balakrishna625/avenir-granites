@@ -180,8 +180,10 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   };
 
   const isActive = (href: string) => {
+    // Exact match for home page
     if (href === '/') return pathname === '/';
-    return pathname.startsWith(href);
+    // Exact match for all other pages to prevent multiple highlights
+    return pathname === href;
   };
 
   const renderMenuItem = (item: MenuItem, level = 0) => {
