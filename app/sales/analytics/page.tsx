@@ -250,11 +250,11 @@ export default function SalesAnalyticsPage() {
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Slabs</p>
-                  <p className="text-2xl font-bold mt-1">{totalSlabs}</p>
+                  <p className="text-sm text-gray-600">Avg Rate We Sold Overall This Month</p>
+                  <p className="text-2xl font-bold mt-1">₹{totalSqft > 0 ? (totalRevenue / totalSqft).toFixed(2) : '0.00'}</p>
                 </div>
                 <div className="bg-purple-100 p-3 rounded-lg">
-                  <Layers className="w-6 h-6 text-purple-600" />
+                  <TrendingUp className="w-6 h-6 text-purple-600" />
                 </div>
               </div>
             </Card>
