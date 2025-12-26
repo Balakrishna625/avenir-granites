@@ -261,9 +261,22 @@ export default function MultiCutterAnalyticsPage() {
     const prefixGroups = new Map<string, typeof groupedBlocks>();
 
     groupedBlocks.forEach(group => {
-      // Extract prefix (e.g., "AVG-SL" from "AVG-SL-1")
-      const match = group.base_name.match(/^([A-Za-z]+-[A-Za-z]+)/);
-      const prefix = match ? match[1] : group.base_name;
+      // Extract prefix
+      // For patterns like AVG-SL-1, AVG-SJ-43 → prefix is "AVG-SL", "AVG-SJ"
+      // For patterns like AVG-1, AVG-2 → prefix is "AVG"
+      let prefix = group.base_name;
+      
+      const matchWithSuffix = group.base_name.match(/^([A-Za-z]+-[A-Za-z]+)-/);
+      if (matchWithSuffix) {
+        // Has pattern like AVG-SL-1
+        prefix = matchWithSuffix[1];
+      } else {
+        // Check if it's just AVG-number pattern
+        const matchAVG = group.base_name.match(/^(AVG)-/);
+        if (matchAVG) {
+          prefix = 'AVG';
+        }
+      }
 
       if (!prefixGroups.has(prefix)) {
         prefixGroups.set(prefix, []);
