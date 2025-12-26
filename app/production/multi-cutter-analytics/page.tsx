@@ -87,6 +87,19 @@ export default function MultiCutterAnalyticsPage() {
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [blockLimit, setBlockLimit] = useState<number>(10); // Default to Top 10
+  
+  // Separate date range selector for Block Groups Visual Overview
+  const currentDate = new Date();
+  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  
+  const [blockGroupsFromDate, setBlockGroupsFromDate] = useState(
+    firstDayOfMonth.toISOString().split('T')[0]
+  );
+  const [blockGroupsToDate, setBlockGroupsToDate] = useState(
+    lastDayOfMonth.toISOString().split('T')[0]
+  );
+  const [blockGroupsData, setBlockGroupsData] = useState<TopBlock[]>([]);
 
   // Extract data (use empty arrays while loading to prevent hook issues)
   const summary = analytics?.summary || {} as AnalyticsSummary;
@@ -203,7 +216,8 @@ export default function MultiCutterAnalyticsPage() {
       blocks: string[];
     }>();
 
-    topBlocks.forEach(block => {
+    // Use blockGroupsData instead of topBlocks for the visual overview
+    blockGroupsData.forEach(block => {
       // Skip running blocks - not specific blocks
       if (block.block_name.toLowerCase().includes('running')) {
         return;
@@ -240,7 +254,7 @@ export default function MultiCutterAnalyticsPage() {
     // Convert to array and sort by total_sqft descending
     return Array.from(groups.values())
       .sort((a, b) => b.total_sqft - a.total_sqft);
-  }, [topBlocks]);
+  }, [blockGroupsData]);
 
   // Group blocks by prefix (AVG-SL, AVG-SJ, AVG-GK, etc.) for visual display
   const blocksByPrefix = useMemo(() => {
@@ -294,6 +308,24 @@ export default function MultiCutterAnalyticsPage() {
   useEffect(() => {
     loadAnalytics();
   }, [dateFrom, dateTo, selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    loadBlockGroupsData();
+  }, [blockGroupsFromDate, blockGroupsToDate]);
+
+  async function loadBlockGroupsData() {
+    try {
+      const params = new URLSearchParams();
+      if (blockGroupsFromDate) params.set('from', blockGroupsFromDate);
+      if (blockGroupsToDate) params.set('to', blockGroupsToDate);
+      
+      const response = await fetch(`/api/multi-cutter-reports/analytics?${params.toString()}`);
+      const data = await response.json();
+      setBlockGroupsData(data.top_blocks || []);
+    } catch (error) {
+      console.error('Failed to load block groups data:', error);
+    }
+  }
 
   async function loadAnalytics() {
     try {
@@ -1001,13 +1033,31 @@ export default function MultiCutterAnalyticsPage() {
 
         {/* Visual Block Representation by Prefix */}
         <Card className="p-4 sm:p-5 bg-white">
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-lg">
-              <Layers className="w-5 h-5 text-white" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-lg">
+                <Layers className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Block Groups Visual Overview</h2>
+                <p className="text-xs text-gray-600">All grouped blocks organized by prefix</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Block Groups Visual Overview</h2>
-              <p className="text-xs text-gray-600">All grouped blocks organized by prefix</p>
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <input
+                type="date"
+                value={blockGroupsFromDate}
+                onChange={(e) => setBlockGroupsFromDate(e.target.value)}
+                className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <span className="text-gray-500 text-xs">to</span>
+              <input
+                type="date"
+                value={blockGroupsToDate}
+                onChange={(e) => setBlockGroupsToDate(e.target.value)}
+                className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
             </div>
           </div>
 
