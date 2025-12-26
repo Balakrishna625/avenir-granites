@@ -40,6 +40,9 @@ export function CustomerSettlementModal({
   onClose,
   onSuccess
 }: SettlementModalProps) {
+  const totalOwed = currentBalance + oldDueAmount - waivedAmount;
+  const isZeroBalance = totalOwed === 0;
+  
   const [step, setStep] = useState<'confirm' | 'details' | 'processing' | 'success'>('confirm');
   const [settlementMode, setSettlementMode] = useState<string>('RTGS');
   const [settlementAmount, setSettlementAmount] = useState<string>(currentBalance.toString());
@@ -48,7 +51,6 @@ export function CustomerSettlementModal({
   const [waiveRemaining, setWaiveRemaining] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const totalOwed = currentBalance + oldDueAmount - waivedAmount;
   const remainingAfterPayment = Math.max(0, totalOwed - parseFloat(settlementAmount || '0'));
 
   const handleSettlement = async () => {
@@ -61,11 +63,11 @@ export function CustomerSettlementModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId,
-          settlementAmount: parseFloat(settlementAmount) || 0,
-          settlementMode,
-          settlementReference,
-          settlementNotes,
-          waiveRemaining,
+          settlementAmount: isZeroBalance ? 0 : parseFloat(settlementAmount) || 0,
+          settlementMode: isZeroBalance ? 'FULL_WAIVER' : settlementMode,
+          settlementReference: isZeroBalance ? '' : settlementReference,
+          settlementNotes: isZeroBalance ? 'Zero balance settlement - all cleared' : settlementNotes,
+          waiveRemaining: isZeroBalance ? true : waiveRemaining,
           settledBy: 'admin' // You can get this from user session
         })
       });
@@ -83,7 +85,7 @@ export function CustomerSettlementModal({
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to settle account');
-      setStep('details');
+      setStep(isZeroBalance ? 'confirm' : 'details');
     }
   };
 
@@ -114,17 +116,30 @@ export function CustomerSettlementModal({
                   <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
                   <div className="flex-1">
                     <h3 className="font-semibold text-amber-900 mb-2">
-                      About Account Settlement
+                      {isZeroBalance ? 'Settle Account with Zero Balance' : 'About Account Settlement'}
                     </h3>
-                    <p className="text-sm text-amber-800 mb-3">
-                      Settling an account will:
-                    </p>
-                    <ul className="text-sm text-amber-800 space-y-1 list-disc list-inside">
-                      <li>Archive all current consignments and transactions</li>
-                      <li>Close the current accounting period</li>
-                      <li>Start a fresh new period with zero balance</li>
-                      <li>Keep all historical data accessible for viewing</li>
-                    </ul>
+                    {isZeroBalance ? (
+                      <>
+                        <p className="text-sm text-amber-800 mb-3">
+                          The customer has a zero balance. Click "Yes, Settle Account" to close the current period and start fresh.
+                        </p>
+                        <p className="text-sm text-amber-800 font-medium">
+                          No payment details required since balance is fully cleared.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-amber-800 mb-3">
+                          Settling an account will:
+                        </p>
+                        <ul className="text-sm text-amber-800 space-y-1 list-disc list-inside">
+                          <li>Archive all current consignments and transactions</li>
+                          <li>Close the current accounting period</li>
+                          <li>Start a fresh new period with zero balance</li>
+                          <li>Keep all historical data accessible for viewing</li>
+                        </ul>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -162,8 +177,17 @@ export function CustomerSettlementModal({
                 <Button variant="outline" onClick={onClose} className="flex-1">
                   Cancel
                 </Button>
-                <Button onClick={() => setStep('details')} className="flex-1 bg-green-600 hover:bg-green-700">
-                  Continue to Settlement
+                <Button 
+                  onClick={() => {
+                    if (isZeroBalance) {
+                      handleSettlement();
+                    } else {
+                      setStep('details');
+                    }
+                  }} 
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  {isZeroBalance ? 'Yes, Settle Account' : 'Continue to Settlement'}
                 </Button>
               </div>
             </div>
