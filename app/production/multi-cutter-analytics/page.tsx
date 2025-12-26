@@ -1000,18 +1000,18 @@ export default function MultiCutterAnalyticsPage() {
         </Card>
 
         {/* Visual Block Representation by Prefix */}
-        <Card className="p-4 sm:p-6 bg-white">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2.5 rounded-lg">
-              <Layers className="w-6 h-6 text-white" />
+        <Card className="p-4 sm:p-5 bg-white">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-lg">
+              <Layers className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Block Groups Visual Overview</h2>
-              <p className="text-sm text-gray-600">All grouped blocks organized by prefix</p>
+              <h2 className="text-lg font-bold text-gray-900">Block Groups Visual Overview</h2>
+              <p className="text-xs text-gray-600">All grouped blocks organized by prefix</p>
             </div>
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-5">
             {blocksByPrefix.map((prefixGroup, prefixIndex) => {
               // Assign colors to each prefix
               const colorSchemes = [
@@ -1028,47 +1028,47 @@ export default function MultiCutterAnalyticsPage() {
               const totalSqft = prefixGroup.blocks.reduce((sum, b) => sum + b.total_sqft, 0);
 
               return (
-                <div key={prefixGroup.prefix} className={`${colors.bg} rounded-xl p-5 border-2 ${colors.border}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`${colors.header} px-4 py-2 rounded-lg flex items-center gap-2`}>
-                        <h3 className="text-lg font-bold text-white">{prefixGroup.prefix}</h3>
+                <div key={prefixGroup.prefix} className={`${colors.bg} rounded-lg p-3.5 border-2 ${colors.border}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`${colors.header} px-3 py-1.5 rounded-md flex items-center gap-2`}>
+                        <h3 className="text-base font-bold text-white">{prefixGroup.prefix}</h3>
                         {prefixGroup.material_type && (
-                          <span className="text-xs bg-white/20 px-2 py-0.5 rounded text-white font-medium">
+                          <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded text-white font-medium">
                             {prefixGroup.material_type}
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-xs text-gray-600">
                         <span className="font-semibold">{prefixGroup.blocks.length}</span> block groups
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-gray-600 uppercase tracking-wide">Total Production</div>
-                      <div className={`text-xl font-bold ${colors.sqft}`}>{fmt(totalSqft)} sq.ft</div>
+                      <div className="text-[10px] text-gray-600 uppercase tracking-wide">Total Production</div>
+                      <div className={`text-lg font-bold ${colors.sqft}`}>{fmt(totalSqft)} sq.ft</div>
                     </div>
                   </div>
                   
-                  <div className="flex flex-wrap gap-4">
+                  <div className="flex flex-wrap gap-3">
                     {prefixGroup.blocks.map((block) => (
                       <div 
                         key={`${block.base_name}-${block.material_type}`} 
                         className="flex flex-col items-center"
                       >
-                        <div className={`w-28 h-20 ${colors.bg} border-2 ${colors.border} rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-shadow`}>
-                          <div className="text-center px-2">
-                            <div className={`text-xs font-bold ${colors.text} truncate`}>
+                        <div className={`w-24 h-16 ${colors.bg} border-2 ${colors.border} rounded-md flex items-center justify-center shadow-sm hover:shadow-md transition-shadow`}>
+                          <div className="text-center px-1.5">
+                            <div className={`text-[11px] font-bold ${colors.text} truncate`}>
                               {block.base_name}
                             </div>
-                            <div className="text-[10px] text-gray-500 mt-0.5">
+                            <div className="text-[9px] text-gray-500 mt-0.5">
                               {block.block_count} variant{block.block_count > 1 ? 's' : ''}
                             </div>
                           </div>
                         </div>
-                        <div className={`mt-2 text-center font-bold ${colors.sqft} text-sm`}>
+                        <div className={`mt-1.5 text-center font-bold ${colors.sqft} text-xs`}>
                           {fmt(block.total_sqft)}
                         </div>
-                        <div className="text-[10px] text-gray-500 uppercase tracking-wide">
+                        <div className="text-[9px] text-gray-500 uppercase tracking-wide">
                           sq.ft
                         </div>
                       </div>
