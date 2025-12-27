@@ -129,22 +129,6 @@ const menuItems: MenuItem[] = [
     ]
   },
   {
-    title: 'Electricity Info',
-    icon: <Zap className="w-5 h-5" />,
-    children: [
-      {
-        title: 'Bills & Upload',
-        href: '/electricity',
-        icon: <FileText className="w-4 h-4" />
-      },
-      {
-        title: 'Production Correlation',
-        href: '/electricity/analytics',
-        icon: <TrendingUp className="w-4 h-4" />
-      }
-    ]
-  },
-  {
     title: 'Expense Management',
     icon: <Receipt className="w-5 h-5" />,
     children: [
@@ -154,9 +138,9 @@ const menuItems: MenuItem[] = [
         icon: <ShoppingCart className="w-4 h-4" />
       },
       {
-        title: 'Pending Approvals',
-        href: '/expenses/pending',
-        icon: <Receipt className="w-4 h-4" />
+        title: 'Expense Analytics',
+        href: '/expenses/analytics',
+        icon: <TrendingUp className="w-4 h-4" />
       }
     ]
   }
@@ -169,7 +153,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Sales Management', 'Consignment Management', 'Production Management', 'Electricity Info', 'Expense Management']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Sales Management', 'Consignment Management', 'Production Management', 'Expense Management']);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems(prev => 
