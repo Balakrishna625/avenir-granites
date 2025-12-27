@@ -94,8 +94,11 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
   return (
     <Card className="rounded-2xl shadow-sm">
       <CardContent className="p-0 overflow-hidden">
-        <div className="p-4 sm:p-6 border-b bg-gray-50">
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4">Consignments (Expected)</h2>
+        <div className="p-4 sm:p-6 border-b bg-gray-50 border-t-4 border-t-orange-500">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-1 h-8 bg-orange-500 rounded-full"></div>
+            <h2 className="text-xl sm:text-2xl font-semibold">Consignments (Expected)</h2>
+          </div>
           {onAddConsignment && (
             <form ref={formRef} onSubmit={handleAddConsignment} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

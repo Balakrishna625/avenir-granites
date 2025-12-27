@@ -125,8 +125,11 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
   return (
     <Card className="rounded-2xl shadow-sm">
       <CardContent className="p-0 overflow-hidden">
-        <div className="p-4 sm:p-6 border-b bg-gray-50">
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4">Payments (Transactions)</h2>
+        <div className="p-4 sm:p-6 border-b bg-gray-50 border-t-4 border-t-green-500">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-1 h-8 bg-green-500 rounded-full"></div>
+            <h2 className="text-xl sm:text-2xl font-semibold">Payments (Transactions)</h2>
+          </div>
           {onAddTransaction && (
             <form ref={formRef} onSubmit={handleAddTransaction} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
