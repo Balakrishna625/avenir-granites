@@ -47,7 +47,7 @@ export default function ExpenseAnalyticsPage() {
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [expenseCount, setExpenseCount] = useState(0);
   const [avgExpense, setAvgExpense] = useState(0);
-  const [topCategory, setTopCategory] = useState<string>('');
+  const [costPerSqft, setCostPerSqft] = useState(0);
 
   useEffect(() => {
     loadAnalytics();
@@ -106,7 +106,6 @@ export default function ExpenseAnalyticsPage() {
         .sort((a, b) => b.total_amount - a.total_amount);
 
       setCategoryData(categories);
-      setTopCategory(categories[0]?.category_name || 'N/A');
 
       // Group by account
       const accountMap = new Map<string, {name: string, total: number, count: number}>();
@@ -134,6 +133,9 @@ export default function ExpenseAnalyticsPage() {
 
       setAccountData(accounts);
 
+      // Load production data for cost per sqft
+      await loadProductionData();
+
       // Load 6-month trend
       await loadMonthlyTrend();
 
@@ -141,6 +143,29 @@ export default function ExpenseAnalyticsPage() {
       console.error("Failed to load analytics:", error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadProductionData() {
+    try {
+      const params = new URLSearchParams();
+      if (selectedMonth) params.append('month', selectedMonth.toString());
+      if (selectedYear) params.append('year', selectedYear.toString());
+      
+      const response = await fetch(`/api/line-polish-reports?${params.toString()}`);
+      const data = await response.json();
+      
+      // Calculate total sqft from production
+      const totalSqft = Array.isArray(data) 
+        ? data.reduce((sum, report) => sum + (report.total_sqft || 0), 0)
+        : 0;
+      
+      // Calculate cost per sqft
+      const perSqft = totalSqft > 0 ? totalExpenses / totalSqft : 0;
+      setCostPerSqft(perSqft);
+    } catch (error) {
+      console.error("Failed to load production data:", error);
+      setCostPerSqft(0);
     }
   }
 
@@ -272,8 +297,8 @@ export default function ExpenseAnalyticsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Top Category</p>
-                  <h3 className="text-lg font-bold text-gray-900 mt-2">{topCategory}</h3>
+                  <p className="text-sm font-medium text-gray-600">Cost per SFT</p>
+                  <h3 className="text-2xl font-bold text-gray-900 mt-2">{fmt(costPerSqft)}</h3>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                   <Zap className="w-6 h-6 text-purple-600" />
