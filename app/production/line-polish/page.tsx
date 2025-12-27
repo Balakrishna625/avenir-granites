@@ -1742,6 +1742,43 @@ export default function LinePolishPage() {
                   </div>
                 </div>
 
+                {/* COMBINED TOTAL (Morning + Evening) */}
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">∑</div>
+                    <h3 className="text-sm font-bold text-purple-900">Total (Morning + Evening)</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-white rounded-lg p-2 border border-purple-200">
+                      <div className="text-xs text-gray-600 mb-1">Total Slabs</div>
+                      <div className="text-lg font-bold text-gray-900">
+                        {calculateShiftTotals('morning').totalSlabs + calculateShiftTotals('evening').totalSlabs}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Morning: {calculateShiftTotals('morning').totalSlabs} + Evening: {calculateShiftTotals('evening').totalSlabs}
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg p-2 border border-purple-200">
+                      <div className="text-xs text-gray-600 mb-1">Total Sq Ft</div>
+                      <div className="text-lg font-bold text-gray-900">
+                        {(calculateShiftTotals('morning').totalSqft + calculateShiftTotals('evening').totalSqft).toFixed(2)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Morning: {calculateShiftTotals('morning').totalSqft.toFixed(2)} + Evening: {calculateShiftTotals('evening').totalSqft.toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg p-2 border border-purple-200">
+                      <div className="text-xs text-gray-600 mb-1">Total Amount</div>
+                      <div className="text-lg font-bold text-purple-700">
+                        {fmt(calculateShiftTotals('morning').totalAmount + calculateShiftTotals('evening').totalAmount)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Morning: {fmt(calculateShiftTotals('morning').totalAmount)} + Evening: {fmt(calculateShiftTotals('evening').totalAmount)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Submit Button - ONE for both shifts */}
                 <div className="flex items-center justify-center pt-2 border-t">
                   <Button 

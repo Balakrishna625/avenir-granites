@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,41 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
   const formRef = useRef<HTMLFormElement>(null);
   const [amountInput, setAmountInput] = useState<string>(''); // For formatted display
   const amountInputRef = useRef<HTMLInputElement>(null); // Hidden input for form submission
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState<'RTGS' | 'CASH'>('RTGS');
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+
+  // Initialize account selection when component mounts or accounts change
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccountId) {
+      // Find IDBI RTGS account
+      const idbiRtgsAccount = accounts.find(acc => 
+        acc.name && acc.name.toLowerCase().includes('idbi') && acc.name.toLowerCase().includes('rtgs')
+      );
+      
+      if (idbiRtgsAccount) {
+        setSelectedAccountId(idbiRtgsAccount.id);
+      } else {
+        // Fallback to first account if IDBI RTGS not found
+        setSelectedAccountId(accounts[0].id);
+      }
+    }
+  }, [accounts, selectedAccountId]);
+
+  // Handle payment mode change - auto-select IDBI RTGS for RTGS mode
+  const handlePaymentModeChange = (mode: 'RTGS' | 'CASH') => {
+    setSelectedPaymentMode(mode);
+    
+    if (mode === 'RTGS') {
+      // Auto-select IDBI RTGS account when RTGS is selected
+      const idbiRtgsAccount = accounts.find(acc => 
+        acc.name && acc.name.toLowerCase().includes('idbi') && acc.name.toLowerCase().includes('rtgs')
+      );
+      
+      if (idbiRtgsAccount) {
+        setSelectedAccountId(idbiRtgsAccount.id);
+      }
+    }
+  };
 
   const handleEdit = (transaction: Transaction) => {
     setEditingId(transaction.id);
@@ -148,7 +183,12 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
               
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Payment Mode</label>
-                <select name="t_mode" className="border rounded-xl px-3 py-2 w-full h-10 text-sm">
+                <select 
+                  name="t_mode" 
+                  value={selectedPaymentMode}
+                  onChange={(e) => handlePaymentModeChange(e.target.value as 'RTGS' | 'CASH')}
+                  className="border rounded-xl px-3 py-2 w-full h-10 text-sm"
+                >
                   <option value="RTGS">RTGS</option>
                   <option value="CASH">CASH</option>
                 </select>
@@ -156,7 +196,12 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
               
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Bank Account</label>
-                <select name="t_account" className="border rounded-xl px-3 py-2 w-full h-10 text-sm">
+                <select 
+                  name="t_account" 
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="border rounded-xl px-3 py-2 w-full h-10 text-sm"
+                >
                   {accounts.map((b) => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
