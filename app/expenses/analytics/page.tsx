@@ -61,9 +61,16 @@ export default function ExpenseAnalyticsPage() {
       const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString().split('T')[0];
       const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0];
 
-      // Fetch expense data
-      const response = await fetch(`/api/expenses?from=${startDate}&to=${endDate}`);
-      const expenses = await response.json();
+      // Parallel API calls for better performance
+      const [expensesResponse, productionResponse] = await Promise.all([
+        fetch(`/api/expenses?from=${startDate}&to=${endDate}`),
+        fetch(`/api/line-polish-reports?month=${selectedMonth}&year=${selectedYear}`)
+      ]);
+
+      const [expenses, productionData] = await Promise.all([
+        expensesResponse.json(),
+        productionResponse.json()
+      ]);
 
       if (!Array.isArray(expenses)) {
         setLoading(false);
@@ -78,6 +85,13 @@ export default function ExpenseAnalyticsPage() {
       setTotalExpenses(total);
       setExpenseCount(count);
       setAvgExpense(average);
+
+      // Calculate cost per sqft from production data
+      const totalSqft = Array.isArray(productionData) 
+        ? productionData.reduce((sum, report) => sum + (report.total_sqft || 0), 0)
+        : 0;
+      const perSqft = totalSqft > 0 ? total / totalSqft : 0;
+      setCostPerSqft(perSqft);
 
       // Group by category
       const categoryMap = new Map<string, {name: string, color: string, total: number, count: number}>();
@@ -133,10 +147,7 @@ export default function ExpenseAnalyticsPage() {
 
       setAccountData(accounts);
 
-      // Load production data for cost per sqft
-      await loadProductionData();
-
-      // Load 6-month trend
+      // Load 6-month trend in parallel
       await loadMonthlyTrend();
 
     } catch (error) {
@@ -146,33 +157,12 @@ export default function ExpenseAnalyticsPage() {
     }
   }
 
-  async function loadProductionData() {
-    try {
-      const params = new URLSearchParams();
-      if (selectedMonth) params.append('month', selectedMonth.toString());
-      if (selectedYear) params.append('year', selectedYear.toString());
-      
-      const response = await fetch(`/api/line-polish-reports?${params.toString()}`);
-      const data = await response.json();
-      
-      // Calculate total sqft from production
-      const totalSqft = Array.isArray(data) 
-        ? data.reduce((sum, report) => sum + (report.total_sqft || 0), 0)
-        : 0;
-      
-      // Calculate cost per sqft
-      const perSqft = totalSqft > 0 ? totalExpenses / totalSqft : 0;
-      setCostPerSqft(perSqft);
-    } catch (error) {
-      console.error("Failed to load production data:", error);
-      setCostPerSqft(0);
-    }
-  }
-
   async function loadMonthlyTrend() {
     try {
       const trends: MonthlyTrend[] = [];
+      const requests = [];
       
+      // Build all requests first
       for (let i = 5; i >= 0; i--) {
         const month = selectedMonth - i;
         const year = selectedYear + Math.floor((month - 1) / 12);
@@ -181,16 +171,26 @@ export default function ExpenseAnalyticsPage() {
         const startDate = new Date(year, adjustedMonth - 1, 1).toISOString().split('T')[0];
         const endDate = new Date(year, adjustedMonth, 0).toISOString().split('T')[0];
         
-        const response = await fetch(`/api/expenses?from=${startDate}&to=${endDate}`);
-        const expenses = await response.json();
+        const monthName = new Date(year, adjustedMonth - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
         
+        requests.push({
+          promise: fetch(`/api/expenses?from=${startDate}&to=${endDate}`),
+          monthName
+        });
+      }
+      
+      // Execute all requests in parallel
+      const responses = await Promise.all(requests.map(r => r.promise));
+      const dataArrays = await Promise.all(responses.map(r => r.json()));
+      
+      // Process results
+      requests.forEach((req, idx) => {
+        const expenses = dataArrays[idx];
         const total = Array.isArray(expenses) 
           ? expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0)
           : 0;
-        
-        const monthName = new Date(year, adjustedMonth - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        trends.push({ month: monthName, total });
-      }
+        trends.push({ month: req.monthName, total });
+      });
       
       setMonthlyTrend(trends);
     } catch (error) {
