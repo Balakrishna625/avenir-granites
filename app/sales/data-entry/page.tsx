@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, X, Save, Edit3, Trash2 } from 'lucide-react'
+import { Plus, X, Save, Edit3, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -73,6 +73,7 @@ interface ItemRow {
   rate_per_ton: string
   is_tonnage_material: boolean
   total_amount: number
+  remarks: string
 }
 
 interface OfficialBillItem {
@@ -118,6 +119,7 @@ export default function SalesDataEntryPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'actual' | 'official'>('actual')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc') // asc = oldest first, desc = newest first
+  const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set())
   const [filterCustomerId, setFilterCustomerId] = useState<string>('all') // Filter by customer
   const [showMaterialModal, setShowMaterialModal] = useState(false)
   const [newMaterialName, setNewMaterialName] = useState('')
@@ -321,7 +323,8 @@ export default function SalesDataEntryPage() {
           tons: '',
           rate_per_ton: '',
           is_tonnage_material: false,
-          total_amount: 0
+          total_amount: 0,
+          remarks: ''
         }
       ]
     }))
@@ -464,7 +467,8 @@ export default function SalesDataEntryPage() {
             tons: parseFloat(item.tons) || 0,
             rate_per_ton: parseFloat(item.rate_per_ton) || 0,
             is_tonnage_material: item.is_tonnage_material,
-            total_amount: item.total_amount
+            total_amount: item.total_amount,
+            remarks: item.remarks || ''
           })),
           tax_amount: parseFloat(formData.tax_amount) || 0,
           mining_amount: parseFloat(formData.mining_amount) || 0,
@@ -549,7 +553,8 @@ export default function SalesDataEntryPage() {
             tons: isTonnage ? (item.tons?.toString() || '') : '',
             rate_per_ton: isTonnage ? (item.rate_per_ton?.toString() || '') : '',
             is_tonnage_material: isTonnage,
-            total_amount: item.total_amount
+            total_amount: item.total_amount,
+            remarks: item.remarks || ''
           }
         }) : [{
           id: crypto.randomUUID(),
@@ -561,7 +566,8 @@ export default function SalesDataEntryPage() {
           tons: '',
           rate_per_ton: '',
           is_tonnage_material: false,
-          total_amount: 0
+          total_amount: 0,
+          remarks: ''
         }],
         tax_amount: saleDetails.tax_amount.toString(),
         mining_amount: saleDetails.mining_amount.toString(),
@@ -800,7 +806,7 @@ export default function SalesDataEntryPage() {
                   onChange={(e) => handleInputChange('onlyBill', e.target.checked)}
                   className="w-4 h-4 text-amber-600 rounded focus:ring-2 focus:ring-amber-500"
                 />
-                <span className="text-sm font-medium text-amber-900">Only Bill (No actual sale - for mining audit only)</span>
+                <span className="text-sm font-medium text-amber-900">Only Bill</span>
               </label>
               {formData.onlyBill && (
                 <p className="text-xs text-amber-700 mt-1 ml-6">When enabled, you only need to fill the Official Bill section below. Customer and sales items are optional.</p>
@@ -878,6 +884,7 @@ export default function SalesDataEntryPage() {
                         : 'Rate/Sq.Ft'}
                     </th>
                     <th className="px-3 py-2 text-right font-medium">Amount</th>
+                    <th className="py-2 pl-24 pr-2 text-left font-medium">Notes</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -959,20 +966,29 @@ export default function SalesDataEntryPage() {
                           />
                         )}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="py-2 pr-2">
                         <Input
                           type="number"
                           step="0.01"
                           value={isTonnage ? row.rate_per_ton : row.rate_per_sqft}
                           onChange={(e) => handleItemRowChange(row.id, isTonnage ? 'rate_per_ton' : 'rate_per_sqft', e.target.value)}
                           onWheel={(e) => e.currentTarget.blur()}
-                          className="w-24"
+                          className="w-20"
                           placeholder={isTonnage ? "Rate/Ton" : "Rate/Sq.Ft"}
                           required
                         />
                       </td>
-                      <td className="px-3 py-2 text-right font-medium">
+                      <td className="px-2 py-2 text-right font-medium">
                         ₹{formatIndianNumber(row.total_amount)}
+                      </td>
+                      <td className="py-2 pl-24 pr-2">
+                        <Input
+                          type="text"
+                          value={row.remarks}
+                          onChange={(e) => handleItemRowChange(row.id, 'remarks', e.target.value)}
+                          className="w-48"
+                          placeholder="Notes..."
+                        />
                       </td>
                       <td className="px-3 py-2 text-center">
                         {formData.itemRows.length > 1 && (
@@ -990,7 +1006,7 @@ export default function SalesDataEntryPage() {
                   })}
                   {/* Summary Row */}
                   <tr className="bg-blue-50 font-medium border-t-2">
-                    <td className="px-3 py-2">Total</td>
+                    <td className="px-3 py-2" colSpan={2}>Total</td>
                     <td className="px-3 py-2">
                       {totalSlabs > 0 && <span>{totalSlabs} slabs</span>}
                       {totalSlabs > 0 && totalTons > 0 && <span> / </span>}
@@ -1001,8 +1017,9 @@ export default function SalesDataEntryPage() {
                       {totalSqft > 0 && totalTons > 0 && <span> / </span>}
                       {totalTons > 0 && <span>{totalTons.toFixed(2)} tons</span>}
                     </td>
-                    <td className="px-3 py-2"></td>
-                    <td className="px-3 py-2 text-right">₹{formatIndianNumber(subtotal)}</td>
+                    <td className="py-2 pr-2"></td>
+                    <td className="px-2 py-2 text-right">₹{formatIndianNumber(subtotal)}</td>
+                    <td className="py-2 pl-24 pr-2"></td>
                     <td className="px-3 py-2"></td>
                   </tr>
                 </tbody>
@@ -1332,6 +1349,7 @@ export default function SalesDataEntryPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium w-12">S.No</th>
+                  <th className="px-3 py-2 text-center font-medium w-10"></th>
                   <th className="px-3 py-2 text-left font-medium">Sale #</th>
                   <th className="px-3 py-2 text-left font-medium">Date</th>
                   <th className="px-3 py-2 text-left font-medium">Customer</th>
@@ -1363,10 +1381,34 @@ export default function SalesDataEntryPage() {
                     return sum + (item.is_tonnage_material ? (Number(item.tons) || 0) : 0);
                   }, 0) || 0;
                   const displayTons = sale.total_tons || calculatedTons;
+                  const isExpanded = expandedSales.has(sale.id);
                   
                   return (
+                    <>
                     <tr key={sale.id} className="border-t hover:bg-gray-50">
                       <td className="px-3 py-2 text-center text-gray-600 font-medium">{index + 1}</td>
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newExpanded = new Set(expandedSales);
+                            if (isExpanded) {
+                              newExpanded.delete(sale.id);
+                            } else {
+                              newExpanded.add(sale.id);
+                            }
+                            setExpandedSales(newExpanded);
+                          }}
+                          className="p-1 hover:bg-gray-200 rounded transition-colors"
+                          title={isExpanded ? "Collapse details" : "Expand details"}
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-gray-600" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-600" />
+                          )}
+                        </button>
+                      </td>
                       <td className="px-3 py-2 font-medium">{sale.sale_number}</td>
                       <td className="px-3 py-2">{new Date(sale.sale_date).toLocaleDateString('en-IN')}</td>
                       <td className="px-3 py-2">{sale.customers?.name}</td>
@@ -1423,6 +1465,117 @@ export default function SalesDataEntryPage() {
                         </div>
                       </td>
                     </tr>
+                    
+                    {/* Expanded Details Row */}
+                    {isExpanded && (
+                      <tr className="border-t bg-blue-50">
+                        <td colSpan={viewMode === 'actual' ? 11 : 11} className="px-3 py-4">
+                          <div className="space-y-4">
+                            {/* Sale Items */}
+                            {sale.sale_items && sale.sale_items.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 mb-2">Sale Items (Actual)</h4>
+                                <div className="bg-white rounded border overflow-hidden">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-gray-100">
+                                      <tr>
+                                        <th className="px-2 py-1.5 text-left font-medium">#</th>
+                                        <th className="px-2 py-1.5 text-left font-medium">Material</th>
+                                        <th className="px-2 py-1.5 text-right font-medium">Slabs</th>
+                                        <th className="px-2 py-1.5 text-right font-medium">Sq.Ft</th>
+                                        {sale.sale_items.some((item: any) => item.is_tonnage_material || (item.tons && item.tons > 0)) && (
+                                          <th className="px-2 py-1.5 text-right font-medium">Tons</th>
+                                        )}
+                                        <th className="px-2 py-1.5 text-right font-medium">Rate</th>
+                                        <th className="px-2 py-1.5 text-right font-medium">Amount</th>
+                                        <th className="px-2 py-1.5 text-left font-medium">Notes</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {sale.sale_items.map((item: any, idx: number) => (
+                                        <tr key={idx} className="border-t">
+                                          <td className="px-2 py-1.5 text-gray-600">{idx + 1}</td>
+                                          <td className="px-2 py-1.5">{item.material_name}</td>
+                                          <td className="px-2 py-1.5 text-right">
+                                            {item.is_tonnage_material ? '—' : (item.slabs_count || 0)}
+                                          </td>
+                                          <td className="px-2 py-1.5 text-right">{(item.square_feet || 0).toFixed(2)}</td>
+                                          {sale.sale_items.some((item: any) => item.is_tonnage_material || (item.tons && item.tons > 0)) && (
+                                            <td className="px-2 py-1.5 text-right">
+                                              {item.is_tonnage_material ? (item.tons || 0).toFixed(2) : '—'}
+                                            </td>
+                                          )}
+                                          <td className="px-2 py-1.5 text-right">
+                                            {item.is_tonnage_material 
+                                              ? `₹${(item.rate_per_ton || 0).toFixed(2)}/ton`
+                                              : `₹${(item.rate_per_sqft || 0).toFixed(2)}/sqft`
+                                            }
+                                          </td>
+                                          <td className="px-2 py-1.5 text-right font-medium">₹{formatIndianNumber(item.total_amount)}</td>
+                                          <td className="px-2 py-1.5 text-gray-600 text-xs">{item.remarks || ''}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Summary */}
+                            <div className="bg-white rounded border p-3">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-xs">
+                                <div>
+                                  <span className="text-gray-600">Subtotal:</span>
+                                  <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.subtotal_amount)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">Tax:</span>
+                                  <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.tax_amount)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">Mining:</span>
+                                  <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.mining_amount)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">Loading:</span>
+                                  <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.loading_amount)}</span>
+                                </div>
+                                <div className="col-span-2 sm:col-span-4 pt-2 border-t mt-1">
+                                  <span className="text-gray-700 font-medium">Gross Total:</span>
+                                  <span className="ml-2 font-bold text-base">₹{formatIndianNumber(sale.gross_total)}</span>
+                                  <span className="ml-4 text-gray-600">RTGS:</span>
+                                  <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.rtgs_expected)}</span>
+                                  <span className="ml-4 text-gray-600">Cash:</span>
+                                  <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.cash_expected)}</span>
+                                </div>
+                                {officialBillItems.length > 0 && (
+                                  <div className="col-span-2 sm:col-span-4 pt-2 border-t mt-1">
+                                    <span className="text-gray-700 font-medium">Official Total:</span>
+                                    <span className="ml-2 font-bold">₹{formatIndianNumber(sale.official_total || 0)}</span>
+                                    {sale.end_customer_name && (
+                                      <>
+                                        <span className="ml-4 text-gray-600">Bill For:</span>
+                                        <span className="ml-2 font-medium">{sale.end_customer_name}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Remarks */}
+                            {sale.remarks && (
+                              <div className="bg-white rounded border p-2">
+                                <span className="text-xs text-gray-600">Remarks:</span>
+                                <span className="ml-2 text-xs text-gray-800">{sale.remarks}</span>
+                              </div>
+                            )}
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </>
                   );
                 })}
               </tbody>

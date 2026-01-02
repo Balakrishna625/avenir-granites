@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
-import { BarChart3, TrendingUp, Package, DollarSign, Users, Layers, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { BarChart3, TrendingUp, Package, DollarSign, Users, Layers, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from 'lucide-react'
 import { AppLayout } from '@/components/AppLayout'
 import { useSessionMonthString } from '@/hooks/useSessionMonth'
 
@@ -20,6 +20,7 @@ interface Sale {
   gross_total: number
   rtgs_expected: number
   cash_expected: number
+  remarks?: string
   official_bill_items?: Array<{
     material_name: string
     square_feet: number
@@ -36,6 +37,9 @@ interface Sale {
     tons?: number
     is_tonnage_material?: boolean
     total_amount: number
+    rate_per_sqft?: number
+    rate_per_ton?: number
+    remarks?: string
   }>
 }
 
@@ -54,6 +58,7 @@ export default function SalesAnalyticsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc') // desc = newest first (default)
   const [filterCustomerId, setFilterCustomerId] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'actual' | 'official'>('actual')
+  const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchSales()
@@ -591,6 +596,7 @@ export default function SalesAnalyticsPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left font-medium w-12">S.No</th>
+                      <th className="px-3 py-2 text-center font-medium w-10"></th>
                       <th className="px-3 py-2 text-left font-medium">Date</th>
                       <th className="px-3 py-2 text-left font-medium">Sale #</th>
                       <th className="px-3 py-2 text-left font-medium">Customer</th>
@@ -619,10 +625,34 @@ export default function SalesAnalyticsPage() {
                       
                       const officialBillItems = sale.official_bill_items || []
                       const officialSqft = officialBillItems.reduce((sum: number, item: any) => sum + (Number(item.square_feet) || 0), 0)
+                      const isExpanded = expandedSales.has(sale.id)
                       
                       return (
+                      <>
                       <tr key={sale.id} className="border-t hover:bg-gray-50">
                         <td className="px-3 py-2 text-center text-gray-600 font-medium">{index + 1}</td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newExpanded = new Set(expandedSales)
+                              if (isExpanded) {
+                                newExpanded.delete(sale.id)
+                              } else {
+                                newExpanded.add(sale.id)
+                              }
+                              setExpandedSales(newExpanded)
+                            }}
+                            className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            title={isExpanded ? "Collapse details" : "Expand details"}
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-gray-600" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-gray-600" />
+                            )}
+                          </button>
+                        </td>
                         <td className="px-3 py-2">{new Date(sale.sale_date).toLocaleDateString('en-IN')}</td>
                         <td className="px-3 py-2 font-medium">{sale.sale_number}</td>
                         <td className="px-3 py-2">{sale.customers?.name}</td>
@@ -665,6 +695,110 @@ export default function SalesAnalyticsPage() {
                           </>
                         )}
                       </tr>
+                      
+                      {/* Expanded Details Row */}
+                      {isExpanded && (
+                        <tr className="border-t bg-blue-50">
+                          <td colSpan={viewMode === 'actual' ? 11 : 8} className="px-3 py-4">
+                            <div className="space-y-4">
+                              {/* Sale Items */}
+                              {sale.sale_items && sale.sale_items.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Sale Items (Actual)</h4>
+                                  <div className="bg-white rounded border overflow-hidden">
+                                    <table className="w-full text-xs">
+                                      <thead className="bg-gray-100">
+                                        <tr>
+                                          <th className="px-2 py-1.5 text-left font-medium">#</th>
+                                          <th className="px-2 py-1.5 text-left font-medium">Material</th>
+                                          <th className="px-2 py-1.5 text-right font-medium">Slabs</th>
+                                          <th className="px-2 py-1.5 text-right font-medium">Sq.Ft</th>
+                                          {sale.sale_items.some((item: any) => item.is_tonnage_material || (item.tons && item.tons > 0)) && (
+                                            <th className="px-2 py-1.5 text-right font-medium">Tons</th>
+                                          )}
+                                          <th className="px-2 py-1.5 text-right font-medium">Rate</th>
+                                          <th className="px-2 py-1.5 text-right font-medium">Amount</th>
+                                          <th className="px-2 py-1.5 text-left font-medium">Notes</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {sale.sale_items.map((item: any, idx: number) => (
+                                          <tr key={idx} className="border-t">
+                                            <td className="px-2 py-1.5 text-gray-600">{idx + 1}</td>
+                                            <td className="px-2 py-1.5">{item.material_name}</td>
+                                            <td className="px-2 py-1.5 text-right">
+                                              {item.is_tonnage_material ? '—' : (item.slabs_count || 0)}
+                                            </td>
+                                            <td className="px-2 py-1.5 text-right">{(item.square_feet || 0).toFixed(2)}</td>
+                                            {sale.sale_items.some((item: any) => item.is_tonnage_material || (item.tons && item.tons > 0)) && (
+                                              <td className="px-2 py-1.5 text-right">
+                                                {item.is_tonnage_material ? (item.tons || 0).toFixed(2) : '—'}
+                                              </td>
+                                            )}
+                                            <td className="px-2 py-1.5 text-right">
+                                              {item.is_tonnage_material 
+                                                ? `₹${(item.rate_per_ton || 0).toFixed(2)}/ton`
+                                                : `₹${(item.rate_per_sqft || 0).toFixed(2)}/sqft`
+                                              }
+                                            </td>
+                                            <td className="px-2 py-1.5 text-right font-medium">₹{formatIndianNumber(item.total_amount)}</td>
+                                            <td className="px-2 py-1.5 text-gray-600 text-xs">{item.remarks || ''}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Summary */}
+                              <div className="bg-white rounded border p-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-600">Subtotal:</span>
+                                    <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.subtotal_amount)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-600">Tax:</span>
+                                    <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.tax_amount)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-600">Mining:</span>
+                                    <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.mining_amount)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-600">Loading:</span>
+                                    <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.loading_amount)}</span>
+                                  </div>
+                                  <div className="col-span-2 sm:col-span-4 pt-2 border-t mt-1">
+                                    <span className="text-gray-700 font-medium">Gross Total:</span>
+                                    <span className="ml-2 font-bold text-base">₹{formatIndianNumber(sale.gross_total)}</span>
+                                    <span className="ml-4 text-gray-600">RTGS:</span>
+                                    <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.rtgs_expected)}</span>
+                                    <span className="ml-4 text-gray-600">Cash:</span>
+                                    <span className="ml-2 font-semibold">₹{formatIndianNumber(sale.cash_expected)}</span>
+                                  </div>
+                                  {officialBillItems.length > 0 && (
+                                    <div className="col-span-2 sm:col-span-4 pt-2 border-t mt-1">
+                                      <span className="text-gray-700 font-medium">Official Total:</span>
+                                      <span className="ml-2 font-bold">₹{formatIndianNumber(sale.official_total || 0)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Remarks */}
+                              {sale.remarks && (
+                                <div className="bg-white rounded border p-2">
+                                  <span className="text-xs text-gray-600">Remarks:</span>
+                                  <span className="ml-2 text-xs text-gray-800">{sale.remarks}</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </>
                     )})}
                   </tbody>
                   <tfoot className="bg-gray-100 border-t-2 font-bold">
