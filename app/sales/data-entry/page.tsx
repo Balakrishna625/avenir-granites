@@ -1571,7 +1571,6 @@ export default function SalesDataEntryPage() {
                                 <span className="ml-2 text-xs text-gray-800">{sale.remarks}</span>
                               </div>
                             )}
-                            )}
                           </div>
                         </td>
                       </tr>
