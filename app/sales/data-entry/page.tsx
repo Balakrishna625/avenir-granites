@@ -141,7 +141,8 @@ export default function SalesDataEntryPage() {
       tons: '',
       rate_per_ton: '',
       is_tonnage_material: false,
-      total_amount: 0
+      total_amount: 0,
+      remarks: ''
     }],
     tax_amount: '',
     mining_amount: '',
