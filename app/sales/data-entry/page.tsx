@@ -51,6 +51,8 @@ interface Sale {
   remarks: string
   only_bill?: boolean
   job_work?: boolean
+  factory_mining_rate?: number
+  factory_mining_amount?: number
   official_bill_items?: Array<{
     material_name: string
     square_feet: number
@@ -96,6 +98,8 @@ interface FormData {
   officialBillItems: OfficialBillItem[]
   official_tax: string
   end_customer_name: string
+  factory_mining_rate: string
+  factory_mining_amount: string
   rtgs_expected: string
   cash_expected: string
   remarks: string
@@ -159,6 +163,8 @@ export default function SalesDataEntryPage() {
     }],
     official_tax: '',
     end_customer_name: '',
+    factory_mining_rate: '7',
+    factory_mining_amount: '0',
     rtgs_expected: '',
     cash_expected: '',
     remarks: '',
@@ -348,9 +354,8 @@ export default function SalesDataEntryPage() {
 
   // Official Bill Item Handlers
   const handleOfficialBillItemChange = (rowId: string, field: keyof OfficialBillItem, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      officialBillItems: prev.officialBillItems.map(row => {
+    setFormData(prev => {
+      const updatedBillItems = prev.officialBillItems.map(row => {
         if (row.id === rowId) {
           const updated = { ...row, [field]: value }
           
@@ -365,7 +370,18 @@ export default function SalesDataEntryPage() {
         }
         return row
       })
-    }))
+      
+      // Recalculate factory mining amount when official bill items change
+      const totalOfficialSqft = updatedBillItems.reduce((sum, item) => sum + (parseFloat(item.square_feet) || 0), 0)
+      const factoryRate = parseFloat(prev.factory_mining_rate) || 0
+      const newFactoryAmount = (totalOfficialSqft * factoryRate).toFixed(2)
+      
+      return {
+        ...prev,
+        officialBillItems: updatedBillItems,
+        factory_mining_amount: newFactoryAmount
+      }
+    })
   }
 
   const addOfficialBillItem = () => {
@@ -420,11 +436,16 @@ export default function SalesDataEntryPage() {
     const officialTax = parseFloat(formData.official_tax) || 0
     const officialTotal = officialSubtotal + officialTax
     
+    // Factory mining amount calculation (for only bill mode)
+    const totalOfficialSqft = formData.officialBillItems.reduce((sum, item) => sum + (parseFloat(item.square_feet) || 0), 0)
+    const factoryMiningRate = parseFloat(formData.factory_mining_rate) || 0
+    const factoryMiningAmount = totalOfficialSqft * factoryMiningRate
+    
     // Auto-calculate payment split
     const rtgs = officialTotal
     const cash = grossTotal - officialTotal
     
-    return { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash }
+    return { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash, totalOfficialSqft, factoryMiningAmount }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -489,6 +510,8 @@ export default function SalesDataEntryPage() {
           })),
           official_tax: parseFloat(formData.official_tax) || 0,
           end_customer_name: formData.end_customer_name || null,
+          factory_mining_rate: isOnlyBill ? (parseFloat(formData.factory_mining_rate) || 7) : null,
+          factory_mining_amount: isOnlyBill ? (parseFloat(formData.factory_mining_amount) || 0) : null,
           rtgs_expected: isJobWork ? 0 : rtgs,
           cash_expected: isJobWork ? 0 : cash,
           remarks: formData.remarks,
@@ -596,10 +619,13 @@ export default function SalesDataEntryPage() {
         }],
         official_tax: saleDetails.official_tax?.toString() || '',
         end_customer_name: saleDetails.end_customer_name || '',
+        factory_mining_rate: saleDetails.factory_mining_rate?.toString() || '7',
+        factory_mining_amount: saleDetails.factory_mining_amount?.toString() || '0',
         rtgs_expected: saleDetails.rtgs_expected.toString(),
         cash_expected: saleDetails.cash_expected.toString(),
         remarks: saleDetails.remarks || '',
-        createConsignment: true // Default to true when editing
+        createConsignment: true, // Default to true when editing
+        entryType: saleDetails.job_work ? 'jobWork' : (saleDetails.only_bill ? 'onlyBill' : 'sales')
       })
       
       setIsEditing(true)
@@ -639,7 +665,7 @@ export default function SalesDataEntryPage() {
     }
   }
 
-  const { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash } = calculateTotals()
+  const { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash, totalOfficialSqft, factoryMiningAmount } = calculateTotals()
 
   // Calculate aggregated statistics from filtered sales
   // CRITICAL: Exclude job_work entries - they are NOT sales, just service tracking
@@ -1254,7 +1280,7 @@ export default function SalesDataEntryPage() {
                 {formData.officialBillItems.map((item, index) => (
                   <div key={item.id} className="bg-white p-3 rounded-lg border border-blue-200">
                     <div className="flex items-start gap-3">
-                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className={`flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 ${formData.entryType === 'onlyBill' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
                         <div>
                           <label className="text-xs text-gray-600 block mb-1">Material</label>
                           <Input
@@ -1295,6 +1321,14 @@ export default function SalesDataEntryPage() {
                             ₹{formatIndianNumber(item.total_amount)}
                           </div>
                         </div>
+                        {formData.entryType === 'onlyBill' && (
+                          <div>
+                            <label className="text-xs text-gray-600 block mb-1">Factory Rate/Sq.Ft</label>
+                            <div className="text-sm font-semibold py-2 px-3 bg-gray-100 rounded">
+                              ₹{formData.factory_mining_rate || '7.00'}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       {formData.officialBillItems.length > 1 && (
                         <Button
@@ -1312,30 +1346,30 @@ export default function SalesDataEntryPage() {
                 ))}
               </div>
 
-              {/* Tax Field */}
-              <div className="mt-3">
-                <label className="text-xs text-gray-700 block mb-1">Tax</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.official_tax}
-                  onChange={(e) => handleInputChange('official_tax', e.target.value)}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  placeholder="0.00"
-                  className="bg-white max-w-xs"
-                />
-              </div>
-
-              {/* End Customer Name */}
-              <div className="mt-3">
-                <label className="text-xs text-gray-700 block mb-1">End Customer Name (Bill Written For)</label>
-                <Input
-                  type="text"
-                  value={formData.end_customer_name}
-                  onChange={(e) => handleInputChange('end_customer_name', e.target.value)}
-                  placeholder="Enter end customer name"
-                  className="bg-white max-w-md"
-                />
+              {/* Tax and End Customer Name in same row */}
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-700 block mb-1">Tax</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.official_tax}
+                    onChange={(e) => handleInputChange('official_tax', e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="0.00"
+                    className="bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-700 block mb-1">End Customer Name (Bill Written For)</label>
+                  <Input
+                    type="text"
+                    value={formData.end_customer_name}
+                    onChange={(e) => handleInputChange('end_customer_name', e.target.value)}
+                    placeholder="Enter end customer name"
+                    className="bg-white"
+                  />
+                </div>
               </div>
 
               {/* Totals */}
@@ -1347,6 +1381,14 @@ export default function SalesDataEntryPage() {
                 <span className="font-semibold">Official Total:</span>
                 <span className="font-bold text-lg">₹{formatIndianNumber(officialTotal)}</span>
               </div>
+
+              {/* Factory Mining Amount - Only for Only Bill mode */}
+              {formData.entryType === 'onlyBill' && (
+              <div className="mt-2 flex items-center justify-between bg-gray-100 p-2 rounded">
+                <span className="text-sm font-medium">Factory Mining Amount:</span>
+                <span className="font-semibold">₹{formatIndianNumber(factoryMiningAmount)}</span>
+              </div>
+              )}
             </div>
             )}
 
