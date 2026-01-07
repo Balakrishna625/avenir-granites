@@ -412,6 +412,8 @@ export default function SalesDataEntryPage() {
   }
 
   const calculateTotals = () => {
+    const isOnlyBill = formData.entryType === 'onlyBill'
+    
     const totalSlabs = formData.itemRows.reduce(
       (sum, row) => sum + (row.is_tonnage_material ? 0 : parseInt(row.slabs_count) || 0), 
       0
@@ -438,12 +440,13 @@ export default function SalesDataEntryPage() {
     
     // Factory mining amount calculation (for only bill mode)
     const totalOfficialSqft = formData.officialBillItems.reduce((sum, item) => sum + (parseFloat(item.square_feet) || 0), 0)
-    const factoryMiningRate = parseFloat(formData.factory_mining_rate) || 0
+    const factoryMiningRate = parseFloat(formData.factory_mining_rate) || 7  // Default to 7 if not set
     const factoryMiningAmount = totalOfficialSqft * factoryMiningRate
     
     // Auto-calculate payment split
+    // For Only Bill mode: RTGS = Official Total, Cash = 0 (no actual sale)
     const rtgs = officialTotal
-    const cash = grossTotal - officialTotal
+    const cash = isOnlyBill ? 0 : (grossTotal - officialTotal)
     
     return { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash, totalOfficialSqft, factoryMiningAmount }
   }
