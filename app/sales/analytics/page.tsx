@@ -21,6 +21,8 @@ interface Sale {
   rtgs_expected: number
   cash_expected: number
   remarks?: string
+  only_bill?: boolean
+  job_work?: boolean
   official_bill_items?: Array<{
     material_name: string
     square_feet: number
@@ -93,6 +95,7 @@ export default function SalesAnalyticsPage() {
   }
 
   // Filter and sort sales by selected month, customer, and view mode
+  // IMPORTANT: Exclude job_work entries - they are NOT sales, just service tracking
   const filteredSales = sales
     .filter(sale => {
       const saleMonth = sale.sale_date.substring(0, 7)
@@ -109,7 +112,10 @@ export default function SalesAnalyticsPage() {
         matchesViewMode = officialSqft > 0
       }
       
-      return matchesMonth && matchesCustomer && matchesViewMode
+      // CRITICAL: Exclude job work - it's service tracking, NOT a sale
+      const isNotJobWork = !sale.job_work
+      
+      return matchesMonth && matchesCustomer && matchesViewMode && isNotJobWork
     })
     .sort((a, b) => {
       const dateA = new Date(a.sale_date).getTime()

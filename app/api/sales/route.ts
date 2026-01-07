@@ -88,15 +88,24 @@ export async function POST(request: Request) {
       cash_expected = 0,
       remarks = '',
       createConsignment = true, // Default to true for backward compatibility
-      onlyBill = false // Only bill mode - no actual sale
+      onlyBill = false, // Only bill mode - no actual sale
+      jobWork = false // Job work mode - polishing service
     } = body;
 
-    // Validation - different rules for onlyBill mode
+    // Validation - different rules for onlyBill and jobWork modes
     if (onlyBill) {
       // Only bill mode: only require date and official bill items
       if (!sale_date || !official_bill_items || official_bill_items.length === 0) {
         return NextResponse.json(
           { error: 'Missing required fields: sale_date and official_bill_items are required for bill-only sales' },
+          { status: 400 }
+        );
+      }
+    } else if (jobWork) {
+      // Job work mode: require customer, date, and at least one item
+      if (!customer_id || !sale_date || !items || items.length === 0) {
+        return NextResponse.json(
+          { error: 'Missing required fields: customer_id, sale_date, and items are required for job work' },
           { status: 400 }
         );
       }
@@ -124,7 +133,10 @@ export async function POST(request: Request) {
           // Tonnage materials can also have square feet now
           total_sqft += Number(item.square_feet) || 0;
         } else {
-          total_slabs += Number(item.slabs_count) || 0;
+          // For job work, we don't count slabs, only sqft
+          if (!jobWork) {
+            total_slabs += Number(item.slabs_count) || 0;
+          }
           total_sqft += Number(item.square_feet) || 0;
         }
         subtotal_amount += Number(item.total_amount) || 0;
@@ -137,8 +149,9 @@ export async function POST(request: Request) {
     const official_subtotal = official_bill_items.reduce((sum: number, item: any) => sum + (Number(item.total_amount) || 0), 0);
     const official_total = official_subtotal + Number(official_tax);
 
-    // Validate payment split only if not onlyBill mode
-    if (!onlyBill) {
+    // Validate payment split only if not onlyBill or jobWork mode
+    // Job work amounts are added to customer payable, not paid immediately
+    if (!onlyBill && !jobWork) {
       const payment_total = Number(rtgs_expected) + Number(cash_expected);
       if (Math.abs(payment_total - gross_total) > 0.01) {
         return NextResponse.json(
@@ -181,7 +194,8 @@ export async function POST(request: Request) {
         rtgs_expected: Number(rtgs_expected),
         cash_expected: Number(cash_expected),
         remarks,
-        only_bill: onlyBill
+        only_bill: onlyBill,
+        job_work: jobWork
       })
       .select()
       .single();
@@ -219,8 +233,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Conditionally create consignment - never create for onlyBill mode
-    if (!onlyBill && createConsignment) {
+    // Conditionally create consignment - never create for onlyBill mode, always create for jobWork
+    if (!onlyBill && (createConsignment || jobWork)) {
       const consignmentRemarks = `Auto-created from ${sale_number}${remarks ? ' - ' + remarks : ''}`;
       
       const { data: consignmentData, error: consignmentError } = await supabase

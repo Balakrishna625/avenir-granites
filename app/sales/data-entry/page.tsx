@@ -49,6 +49,8 @@ interface Sale {
   rtgs_expected: number
   cash_expected: number
   remarks: string
+  only_bill?: boolean
+  job_work?: boolean
   official_bill_items?: Array<{
     material_name: string
     square_feet: number
@@ -99,6 +101,7 @@ interface FormData {
   remarks: string
   createConsignment: boolean
   onlyBill: boolean
+  entryType: 'sales' | 'onlyBill' | 'jobWork'
 }
 
 function formatIndianNumber(num: number): string {
@@ -160,7 +163,8 @@ export default function SalesDataEntryPage() {
     cash_expected: '',
     remarks: '',
     createConsignment: true,
-    onlyBill: false
+    onlyBill: false,
+    entryType: 'sales'
   }), [])
 
   const [formData, setFormData] = useState<FormData>(initialFormData)
@@ -426,14 +430,17 @@ export default function SalesDataEntryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    const isJobWork = formData.entryType === 'jobWork'
+    const isOnlyBill = formData.entryType === 'onlyBill'
+    
     // Only Bill mode: customer is optional, only official bill is required
-    if (formData.onlyBill) {
+    if (isOnlyBill) {
       if (formData.officialBillItems.length === 0 || !formData.officialBillItems[0].square_feet) {
         showToast('error', 'Please add at least one official bill item')
         return
       }
     } else {
-      // Normal mode: customer and items are required
+      // Normal mode and Job Work: customer and items are required
       if (!formData.customer_id) {
         showToast('error', 'Please select a customer')
         return
@@ -457,9 +464,9 @@ export default function SalesDataEntryPage() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer_id: formData.onlyBill ? null : formData.customer_id,
+          customer_id: isOnlyBill ? null : formData.customer_id,
           sale_date: formData.date,
-          items: formData.onlyBill ? [] : formData.itemRows.map(item => ({
+          items: isOnlyBill ? [] : formData.itemRows.map(item => ({
             material_type_id: item.material_type_id || null,
             material_name: item.material_name,
             slabs_count: parseInt(item.slabs_count) || 0,
@@ -482,11 +489,12 @@ export default function SalesDataEntryPage() {
           })),
           official_tax: parseFloat(formData.official_tax) || 0,
           end_customer_name: formData.end_customer_name || null,
-          rtgs_expected: rtgs,
-          cash_expected: cash,
+          rtgs_expected: isJobWork ? 0 : rtgs,
+          cash_expected: isJobWork ? 0 : cash,
           remarks: formData.remarks,
-          createConsignment: formData.onlyBill ? false : formData.createConsignment,
-          onlyBill: formData.onlyBill
+          createConsignment: isOnlyBill ? false : (isJobWork ? true : formData.createConsignment),
+          onlyBill: isOnlyBill,
+          jobWork: isJobWork
         })
       })
 
@@ -634,9 +642,12 @@ export default function SalesDataEntryPage() {
   const { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash } = calculateTotals()
 
   // Calculate aggregated statistics from filtered sales
+  // CRITICAL: Exclude job_work entries - they are NOT sales, just service tracking
   const salesStats = useMemo(() => {
     const salesToCalculate = filterCustomerId === 'all' ? sales : sales.filter(s => s.customer_id === filterCustomerId)
-    return salesToCalculate.reduce((acc, sale) => ({
+    // Filter out job_work entries - they should NOT be counted in sales statistics
+    const actualSales = salesToCalculate.filter(s => !s.job_work)
+    return actualSales.reduce((acc, sale) => ({
       totalSlabs: acc.totalSlabs + sale.total_slabs,
       totalSqft: acc.totalSqft + sale.total_sqft,
       totalAmount: acc.totalAmount + sale.gross_total,
@@ -742,7 +753,7 @@ export default function SalesDataEntryPage() {
           <Card className="p-3 sm:p-4">
             <div className="text-xs text-gray-600 mb-1">TOTAL SALES</div>
             <div className="text-lg sm:text-xl font-bold text-gray-900">
-              {sales.length}
+              {sales.filter(s => !s.job_work).length}
             </div>
           </Card>
 
@@ -798,43 +809,77 @@ export default function SalesDataEntryPage() {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Only Bill Checkbox */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.onlyBill}
-                  onChange={(e) => handleInputChange('onlyBill', e.target.checked)}
-                  className="w-4 h-4 text-amber-600 rounded focus:ring-2 focus:ring-amber-500"
-                />
-                <span className="text-sm font-medium text-amber-900">Only Bill</span>
-              </label>
-              {formData.onlyBill && (
-                <p className="text-xs text-amber-700 mt-1 ml-6">When enabled, you only need to fill the Official Bill section below. Customer and sales items are optional.</p>
-              )}
-            </div>
+            {/* Entry Type, Date, and Customer in one row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Entry Type *</label>
+                <select
+                  value={formData.entryType}
+                  onChange={(e) => {
+                    const type = e.target.value as 'sales' | 'onlyBill' | 'jobWork'
+                    setFormData(prev => ({
+                      ...prev,
+                      entryType: type,
+                      onlyBill: type === 'onlyBill',
+                      // Reset fields based on entry type
+                      customer_id: type === 'onlyBill' ? '' : prev.customer_id,
+                      itemRows: type === 'jobWork' ? [{
+                        id: crypto.randomUUID(),
+                        material_type_id: '',
+                        material_name: '',
+                        slabs_count: '',
+                        square_feet: '',
+                        rate_per_sqft: '',
+                        tons: '',
+                        rate_per_ton: '',
+                        is_tonnage_material: false,
+                        total_amount: 0,
+                        remarks: ''
+                      }] : prev.itemRows,
+                      tax_amount: type === 'jobWork' ? '0' : prev.tax_amount,
+                      mining_amount: type === 'jobWork' ? '0' : prev.mining_amount,
+                      rtgs_expected: type === 'jobWork' ? '0' : prev.rtgs_expected,
+                      cash_expected: type === 'jobWork' ? '0' : prev.cash_expected
+                    }))
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="sales">Sales Entry (Default)</option>
+                  <option value="onlyBill">Only Bill (Mining Audit)</option>
+                  <option value="jobWork">Job Work (Polishing Service)</option>
+                </select>
+                {formData.entryType === 'onlyBill' && (
+                  <p className="text-xs text-amber-600 mt-1">Mining audit only - Customer optional</p>
+                )}
+                {formData.entryType === 'jobWork' && (
+                  <p className="text-xs text-purple-600 mt-1">Service tracking - NOT a sale</p>
+                )}
+              </div>
 
-            {/* Date and Customer Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Date *</label>
+                <Input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => handleInputChange('date', e.target.value)}
+                  required
+                />
+              </div>
+
+            {/* Customer */}
             <div>
-              <label className="block text-sm font-medium mb-1">Date *</label>
-              <Input
-                type="date"
-                value={formData.date}
-                onChange={(e) => handleInputChange('date', e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Customer {!formData.onlyBill && '*'}</label>
+              <label className="block text-sm font-medium mb-1">
+                Customer {formData.entryType !== 'onlyBill' && '*'}
+              </label>
               <select
                 value={formData.customer_id}
                 onChange={(e) => handleInputChange('customer_id', e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
-                required={!formData.onlyBill}
-                disabled={formData.onlyBill}
+                required={formData.entryType !== 'onlyBill'}
+                disabled={formData.entryType === 'onlyBill'}
               >
-                <option value="">{formData.onlyBill ? 'N/A (Only Bill Mode)' : 'Select customer...'}</option>
+                <option value="">{formData.entryType === 'onlyBill' ? 'N/A (Only Bill Mode)' : 'Select customer...'}</option>
                 {customers.map(customer => (
                   <option key={customer.id} value={customer.id}>
                     {customer.name}
@@ -844,17 +889,104 @@ export default function SalesDataEntryPage() {
             </div>
           </div>
 
-          {/* Items Table */}
+          {/* Items Table - Hide for Only Bill mode */}
+          {formData.entryType !== 'onlyBill' && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">Sales Items *</label>
-              <Button type="button" onClick={addItemRow} size="sm" variant="outline">
-                <Plus className="w-4 h-4 mr-1" />
-                Add Item
-              </Button>
+              <label className="text-sm font-medium">
+                {formData.entryType === 'jobWork' ? 'Job Work Details *' : 'Sales Items *'}
+              </label>
+              {formData.entryType !== 'jobWork' && (
+                <Button type="button" onClick={addItemRow} size="sm" variant="outline">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Item
+                </Button>
+              )}
             </div>
 
             <div className="border rounded-lg overflow-x-auto">
+              {formData.entryType === 'jobWork' ? (
+                // Simplified Job Work Table
+                <table className="w-full text-sm">
+                  <thead className="bg-purple-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Material Type *</th>
+                      <th className="px-3 py-2 text-left font-medium">No. of Slabs *</th>
+                      <th className="px-3 py-2 text-left font-medium">Square Feet *</th>
+                      <th className="px-3 py-2 text-left font-medium">Rate per Sq.Ft *</th>
+                      <th className="px-3 py-2 text-right font-medium">Job Work Amount</th>
+                      <th className="px-3 py-2 text-left font-medium">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="px-3 py-3">
+                        <select
+                          value={formData.itemRows[0]?.material_type_id || ''}
+                          onChange={(e) => handleItemRowChange(formData.itemRows[0].id, 'material_type_id', e.target.value)}
+                          className="w-full border rounded px-2 py-1.5 text-sm"
+                          required
+                        >
+                          <option value="">Select material...</option>
+                          {materialTypes.map(material => (
+                            <option key={material.id} value={material.id}>
+                              {material.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-3">
+                        <Input
+                          type="number"
+                          value={formData.itemRows[0]?.slabs_count || ''}
+                          onChange={(e) => handleItemRowChange(formData.itemRows[0].id, 'slabs_count', e.target.value)}
+                          onWheel={(e) => e.currentTarget.blur()}
+                          className="w-24"
+                          placeholder="Slabs"
+                          required
+                        />
+                      </td>
+                      <td className="px-3 py-3">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.itemRows[0]?.square_feet || ''}
+                          onChange={(e) => handleItemRowChange(formData.itemRows[0].id, 'square_feet', e.target.value)}
+                          onWheel={(e) => e.currentTarget.blur()}
+                          className="w-32"
+                          placeholder="Sq.Ft"
+                          required
+                        />
+                      </td>
+                      <td className="px-3 py-3">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.itemRows[0]?.rate_per_sqft || ''}
+                          onChange={(e) => handleItemRowChange(formData.itemRows[0].id, 'rate_per_sqft', e.target.value)}
+                          onWheel={(e) => e.currentTarget.blur()}
+                          className="w-32"
+                          placeholder="Rate"
+                          required
+                        />
+                      </td>
+                      <td className="px-3 py-3 text-right font-semibold text-purple-700">
+                        ₹{formatIndianNumber(formData.itemRows[0]?.total_amount || 0)}
+                      </td>
+                      <td className="px-3 py-3">
+                        <Input
+                          type="text"
+                          value={formData.itemRows[0]?.remarks || ''}
+                          onChange={(e) => handleItemRowChange(formData.itemRows[0].id, 'remarks', e.target.value)}
+                          className="w-full"
+                          placeholder="Job work details..."
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                // Regular Sales Table
               <table className="w-full text-sm min-w-[800px]">
                 <thead className="bg-gray-50">
                   <tr>
@@ -1025,15 +1157,20 @@ export default function SalesDataEntryPage() {
                   </tr>
                 </tbody>
               </table>
+              )}
             </div>
           </div>
+          )}
 
           {/* Additional Charges & Payment Split */}
           <div className="space-y-4">
             {/* Additional Charges in one line */}
             <div>
-              <label className="block text-sm font-medium mb-2">Additional Charges</label>
+              <label className="block text-sm font-medium mb-2">
+                {formData.entryType === 'jobWork' ? 'Job Work Charges' : 'Additional Charges'}
+              </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {formData.entryType !== 'jobWork' && (
                 <div>
                   <label className="text-xs text-gray-600 block mb-1">Tax</label>
                   <Input
@@ -1050,6 +1187,8 @@ export default function SalesDataEntryPage() {
                     placeholder="0.00"
                   />
                 </div>
+                )}
+                {formData.entryType !== 'jobWork' && (
                 <div>
                   <label className="text-xs text-gray-600 block mb-1">Mining</label>
                   <Input
@@ -1061,8 +1200,11 @@ export default function SalesDataEntryPage() {
                     placeholder="0.00"
                   />
                 </div>
+                )}
                 <div>
-                  <label className="text-xs text-gray-600 block mb-1">Loading</label>
+                  <label className="text-xs text-gray-600 block mb-1">
+                    {formData.entryType === 'jobWork' ? 'Loading/Unloading Charges' : 'Loading'}
+                  </label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1076,14 +1218,22 @@ export default function SalesDataEntryPage() {
             </div>
 
             {/* Gross Total Display */}
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div className={`p-4 rounded-lg border ${formData.entryType === 'jobWork' ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200'}`}>
               <div className="flex items-center justify-between">
-                <span className="font-semibold">Gross Total:</span>
-                <span className="font-bold text-xl text-green-700">₹{formatIndianNumber(grossTotal)}</span>
+                <span className="font-semibold">
+                  {formData.entryType === 'jobWork' ? 'Total Job Work Charges:' : 'Gross Total:'}
+                </span>
+                <span className={`font-bold text-xl ${formData.entryType === 'jobWork' ? 'text-purple-700' : 'text-green-700'}`}>
+                  ₹{formatIndianNumber(grossTotal)}
+                </span>
               </div>
+              {formData.entryType === 'jobWork' && (
+                <p className="text-xs text-purple-600 mt-2">This amount will be added to customer payable balance</p>
+              )}
             </div>
 
-            {/* Official Bill Section */}
+            {/* Official Bill Section - Hide for Job Work */}
+            {formData.entryType !== 'jobWork' && (
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
               <div className="flex items-center justify-between mb-3">
                 <label className="text-sm font-semibold text-blue-900">Official Bill (On Paper)</label>
@@ -1198,8 +1348,10 @@ export default function SalesDataEntryPage() {
                 <span className="font-bold text-lg">₹{formatIndianNumber(officialTotal)}</span>
               </div>
             </div>
+            )}
 
-            {/* Payment Split - Auto-filled */}
+            {/* Payment Split - Auto-filled - Hide for Job Work */}
+            {formData.entryType !== 'jobWork' && (
             <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
               <label className="block text-sm font-semibold mb-3 text-yellow-900">Payment Split (Auto-calculated)</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1230,6 +1382,7 @@ export default function SalesDataEntryPage() {
                 <p>💡 RTGS = Official Total | Cash = Gross Total - Official Total</p>
               </div>
             </div>
+            )}
           </div>
 
           {/* Remarks */}
@@ -1244,7 +1397,8 @@ export default function SalesDataEntryPage() {
             />
           </div>
 
-          {/* Consignment Creation Option */}
+          {/* Consignment Creation Option - Hide for Job Work (always creates for job work) */}
+          {formData.entryType !== 'jobWork' && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
@@ -1261,12 +1415,13 @@ export default function SalesDataEntryPage() {
               </div>
             </label>
           </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3">
             <Button
               type="submit"
-              disabled={loading || !formData.customer_id}
+              disabled={loading || (formData.entryType !== 'onlyBill' && !formData.customer_id)}
               className="flex-1"
             >
               <Save className="w-4 h-4 mr-2" />
@@ -1274,9 +1429,11 @@ export default function SalesDataEntryPage() {
                 ? (isEditing ? 'Updating...' : 'Saving...') 
                 : (isEditing 
                     ? 'Update Sale' 
-                    : (formData.createConsignment 
-                        ? 'Save Sale & Create Consignment' 
-                        : 'Save Sale Only'))
+                    : (formData.entryType === 'jobWork'
+                        ? 'Save Job Work & Add to Customer Payable'
+                        : formData.createConsignment 
+                          ? 'Save Sale & Create Consignment' 
+                          : 'Save Sale Only'))
               }
             </Button>
             <Button
@@ -1386,7 +1543,7 @@ export default function SalesDataEntryPage() {
                   
                   return (
                     <>
-                    <tr key={sale.id} className="border-t hover:bg-gray-50">
+                    <tr key={sale.id} className={`border-t hover:bg-gray-50 ${sale.job_work ? 'bg-purple-50/40' : ''}`}>
                       <td className="px-3 py-2 text-center text-gray-600 font-medium">{index + 1}</td>
                       <td className="px-3 py-2 text-center">
                         <button
@@ -1410,7 +1567,16 @@ export default function SalesDataEntryPage() {
                           )}
                         </button>
                       </td>
-                      <td className="px-3 py-2 font-medium">{sale.sale_number}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{sale.sale_number}</span>
+                          {sale.job_work && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded">
+                              Job Work
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-3 py-2">{new Date(sale.sale_date).toLocaleDateString('en-IN')}</td>
                       <td className="px-3 py-2">{sale.customers?.name}</td>
                       {viewMode === 'actual' ? (
@@ -1440,7 +1606,13 @@ export default function SalesDataEntryPage() {
                         </>
                       )}
                       <td className="px-3 py-2 text-right">₹{formatIndianNumber(sale.rtgs_expected)}</td>
-                      <td className="px-3 py-2 text-right">₹{formatIndianNumber(sale.cash_expected)}</td>
+                      <td className="px-3 py-2 text-right">
+                        {sale.job_work ? (
+                          <span className="font-medium text-purple-700">₹{formatIndianNumber(sale.gross_total)}</span>
+                        ) : (
+                          `₹${formatIndianNumber(sale.cash_expected)}`
+                        )}
+                      </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-center gap-2">
                           <Button
