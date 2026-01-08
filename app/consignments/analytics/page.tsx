@@ -14,6 +14,7 @@ interface BlockProduction {
     slabs: number
     sqft: number
     materialType: string
+    date?: string
   }>
   totalSlabs: number
   totalSqft: number

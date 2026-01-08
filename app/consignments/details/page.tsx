@@ -316,6 +316,7 @@ export default function ConsignmentDetailsPage() {
       quarry_name: '',
       net_measurement: '',
       number_of_blocks: '',
+      transport_cost: '',
       loading_cost: '',
       quarry_commission: '',
       other_charges: ''
@@ -335,6 +336,7 @@ export default function ConsignmentDetailsPage() {
       quarry_name: consignment.quarry_name || '',
       net_measurement: consignment.net_measurement?.toString() || '',
       number_of_blocks: consignment.total_blocks_count?.toString() || '',
+      transport_cost: consignment.transport_cost?.toString() || '',
       loading_cost: consignment.loading_cost?.toString() || '',
       quarry_commission: consignment.quarry_commission?.toString() || '',
       other_charges: consignment.other_charges?.toString() || ''

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Save, ArrowLeft, Package, CheckCircle2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ interface Block {
   consignment_id: string
 }
 
-export default function EditBlockPage() {
+function EditBlockContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const consignmentId = searchParams.get('consignment_id')
@@ -220,5 +220,19 @@ export default function EditBlockPage() {
         )}
       </div>
     </AppLayout>
+  )
+}
+
+export default function EditBlockPage() {
+  return (
+    <Suspense fallback={
+      <AppLayout>
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="text-gray-500">Loading...</div>
+        </div>
+      </AppLayout>
+    }>
+      <EditBlockContent />
+    </Suspense>
   )
 }
