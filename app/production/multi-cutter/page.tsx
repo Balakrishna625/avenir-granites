@@ -338,12 +338,15 @@ export default function MultiCutterPage() {
       // Check for "No Running" scenario first
       const hasNoRunning = lines.some(line => line.match(/no\s+running/i));
       
-      // Extract date
-      const dateMatch = lines[0].match(/(\d{1,2})\/(\d{1,2})\/(\d{2})/);
+      // Extract date - handle both 2-digit year (26) and 4-digit year (2026)
+      const dateMatch = lines[0].match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
       let parsedDate = new Date().toISOString().split('T')[0];
       if (dateMatch) {
         const [_, day, month, year] = dateMatch;
-        parsedDate = `20${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        // If year is 2 digits (e.g., 26), prepend '20' to make 2026
+        // If year is 4 digits (e.g., 2026), use as is
+        const fullYear = year.length === 2 ? `20${year}` : year;
+        parsedDate = `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       } else {
         warnings.push('Date not found in expected format, using today\'s date');
       }

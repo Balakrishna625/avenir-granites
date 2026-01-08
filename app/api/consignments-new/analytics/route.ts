@@ -2,8 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 // Helper function to extract base block name (AVG-1A -> AVG-1)
+// Special case: if block already ends with A or B, keep it as-is (exact matching)
 function extractBaseBlockName(blockName: string): string {
+  // Check if the block name ends with 'A' or 'B' (these are pre-split blocks from quarry)
+  if (/[AB]$/i.test(blockName)) {
+    return blockName // Keep as-is for exact matching
+  }
+  // For other blocks, strip the trailing letter for grouping
   return blockName.replace(/[A-Z]$/i, '')
+}
+
+// Helper function to check if a production part matches a consignment block
+function matchesBlock(productionPartName: string, consignmentBlockName: string): boolean {
+  // If consignment block ends with A or B, require exact match
+  if (/[AB]$/i.test(consignmentBlockName)) {
+    return productionPartName === consignmentBlockName
+  }
+  // Otherwise, match by base name (strip trailing letter from production part)
+  const baseProductionName = productionPartName.replace(/[A-Z]$/i, '')
+  return baseProductionName === consignmentBlockName
 }
 
 export async function GET(request: NextRequest) {
@@ -117,14 +134,15 @@ export async function GET(request: NextRequest) {
         const fullBlockName = blockData.block_name
         if (!fullBlockName) return
 
-        // Extract base block name (AVG-1A -> AVG-1)
-        const baseBlockName = extractBaseBlockName(fullBlockName)
+        // Find which consignment block this production part belongs to
+        const matchingBlockName = blockNames.find(blockName => 
+          matchesBlock(fullBlockName, blockName)
+        )
 
-        // Check if this block belongs to our consignment
-        if (blockNames.includes(baseBlockName)) {
-          if (!productionByBlock[baseBlockName]) {
-            productionByBlock[baseBlockName] = {
-              baseBlockName,
+        if (matchingBlockName) {
+          if (!productionByBlock[matchingBlockName]) {
+            productionByBlock[matchingBlockName] = {
+              baseBlockName: matchingBlockName,
               parts: [],
               totalSlabs: 0,
               totalSqft: 0,
@@ -135,15 +153,16 @@ export async function GET(request: NextRequest) {
           const slabs = parseInt(blockData.slabs) || 0
           const sqft = parseFloat(blockData.sqft) || 0
 
-          productionByBlock[baseBlockName].parts.push({
+          productionByBlock[matchingBlockName].parts.push({
             partName: fullBlockName,
             slabs,
             sqft,
-            materialType: blockData.material_type || 'Unknown'
+            materialType: blockData.material_type || 'Unknown',
+            date: report.date
           })
 
-          productionByBlock[baseBlockName].totalSlabs += slabs
-          productionByBlock[baseBlockName].totalSqft += sqft
+          productionByBlock[matchingBlockName].totalSlabs += slabs
+          productionByBlock[matchingBlockName].totalSqft += sqft
         }
       })
     })
@@ -155,8 +174,34 @@ export async function GET(request: NextRequest) {
     const totalExpenditure = consignment.total_expenditure || 0
     const costPerSqft = totalSqft > 0 ? totalExpenditure / totalSqft : 0
 
-    // Sort blocks by name
-    blockDetails.sort((a, b) => a.baseBlockName.localeCompare(b.baseBlockName))
+    // Sort blocks intelligently (natural sort: AVG-SL-1, AVG-SL-2, ... AVG-SL-10)
+    blockDetails.sort((a, b) => {
+      const parseBlockName = (name: string) => {
+        const match = name.match(/^([A-Z]+-[A-Z]+)-(\d+)([A-Z])?$/i)
+        if (match) {
+          return {
+            prefix: match[1],
+            number: parseInt(match[2]),
+            suffix: match[3] || ''
+          }
+        }
+        return { prefix: name, number: 0, suffix: '' }
+      }
+      
+      const aParsed = parseBlockName(a.baseBlockName)
+      const bParsed = parseBlockName(b.baseBlockName)
+      
+      // Compare prefix first
+      if (aParsed.prefix !== bParsed.prefix) {
+        return aParsed.prefix.localeCompare(bParsed.prefix)
+      }
+      // Then compare number numerically
+      if (aParsed.number !== bParsed.number) {
+        return aParsed.number - bParsed.number
+      }
+      // Finally compare suffix
+      return aParsed.suffix.localeCompare(bParsed.suffix)
+    })
 
     return NextResponse.json({
       consignment: {

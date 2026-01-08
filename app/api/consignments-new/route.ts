@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
           id,
           block_no,
           gross_measurement,
-          net_measurement
+          net_measurement,
+          status,
+          arrival_status
         )
       `)
       .order('purchase_date', { ascending: true });

@@ -27,6 +27,31 @@ WHERE net_measurement IS NULL OR net_measurement = 0;
 -- Don't drop the column to avoid data loss, just mark it as deprecated
 COMMENT ON COLUMN granite_blocks.net_measurement IS 'DEPRECATED: Net measurement is now tracked at consignment level. This column kept for backward compatibility only.';
 
+-- Step 3.1: Make gross_measurement nullable to support placeholder blocks
+ALTER TABLE granite_blocks ALTER COLUMN gross_measurement DROP NOT NULL;
+COMMENT ON COLUMN granite_blocks.gross_measurement IS 'Gross measurement in cubic meters. Can be null for placeholder blocks awaiting arrival.';
+
+-- Step 3.2: Make block_no nullable to support placeholder blocks
+ALTER TABLE granite_blocks ALTER COLUMN block_no DROP NOT NULL;
+COMMENT ON COLUMN granite_blocks.block_no IS 'Block number/identifier. Can be null for placeholder blocks awaiting arrival.';
+
+-- Step 3.3: Add arrival_status field to track block arrival (separate from processing status)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'granite_blocks' AND column_name = 'arrival_status'
+    ) THEN
+        ALTER TABLE granite_blocks ADD COLUMN arrival_status TEXT DEFAULT 'received' CHECK (arrival_status IN ('pending', 'received'));
+        COMMENT ON COLUMN granite_blocks.arrival_status IS 'Block arrival status: pending (awaiting arrival) or received (arrived at factory). Separate from processing status (RAW/CUTTING/CUT).';
+    END IF;
+END $$;
+
+-- Step 3.4: Update existing blocks to 'received' arrival_status (they already have data)
+UPDATE granite_blocks
+SET arrival_status = 'received'
+WHERE block_no IS NOT NULL AND gross_measurement IS NOT NULL;
+
 -- Step 4: Add purchase cost rate column to granite_consignments
 DO $$ 
 BEGIN

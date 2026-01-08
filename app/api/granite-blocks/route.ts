@@ -42,11 +42,12 @@ export async function POST(req: Request) {
       const blocksToInsert = body.blocks.map((block: any) => {
         const insertData: any = {
           consignment_id: block.consignment_id,
-          block_no: block.block_no.toUpperCase(),
-          gross_measurement: parseFloat(block.gross_measurement) || 0,
+          block_no: block.block_no ? block.block_no.toUpperCase() : null, // Allow null for placeholders
+          gross_measurement: block.gross_measurement ? parseFloat(block.gross_measurement) : null, // Allow null for placeholders
           net_measurement: parseFloat(block.net_measurement) || 0,
           grade: block.grade || 'S/G',
-          status: block.status || 'RAW' // Valid status: RAW, CUTTING, CUT, SOLD
+          status: block.status || 'RAW', // Processing status (RAW/CUTTING/CUT/SOLD)
+          arrival_status: block.arrival_status || 'pending' // Arrival status: 'pending' or 'received'
         };
         
         // Only add marker_measurement if it exists and has a value
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
       const { data, error } = await supabaseAdmin
         .from("granite_blocks")
         .insert(blocksToInsert)
-        .select('id, consignment_id, block_no, grade, gross_measurement, net_measurement, status, created_at');
+        .select('id, consignment_id, block_no, grade, gross_measurement, net_measurement, status, arrival_status, created_at');
 
       if (error) {
         console.error('Database error creating blocks:', error);
@@ -76,9 +77,10 @@ export async function POST(req: Request) {
     // Single block insert
     const { consignment_id, block_no, gross_measurement, net_measurement, elavance, grade, marker_measurement, status } = body;
 
-    if (!consignment_id || !block_no || gross_measurement === undefined || net_measurement === undefined) {
-      console.log('Missing required fields:', { consignment_id, block_no, gross_measurement, net_measurement });
-      return NextResponse.json({ error: "Required fields missing" }, { status: 400 });
+    // Only consignment_id is required for placeholder blocks
+    if (!consignment_id) {
+      console.log('Missing required field: consignment_id');
+      return NextResponse.json({ error: "Consignment ID is required" }, { status: 400 });
     }
 
     console.log('Preparing to insert block:', { consignment_id, block_no, gross_measurement, net_measurement, grade, status });
@@ -88,11 +90,12 @@ export async function POST(req: Request) {
       .from("granite_blocks")
       .insert([{
         consignment_id: consignment_id,
-        block_no: block_no.toUpperCase(),
+        block_no: block_no ? block_no.toUpperCase() : null, // Allow null for placeholders
         grade: grade || 'S/G',
-        gross_measurement: parseFloat(gross_measurement),
-        net_measurement: parseFloat(net_measurement),
-        status: status || 'RAW',
+        gross_measurement: gross_measurement ? parseFloat(gross_measurement) : null, // Allow null for placeholders
+        net_measurement: parseFloat(net_measurement) || 0,
+        status: status || 'RAW', // Processing status (RAW/CUTTING/CUT/SOLD)
+        arrival_status: 'pending', // Default to 'pending' for placeholder blocks
         total_sqft: 0,
         total_slabs: 0,
         raw_material_rate_per_sqft: 0,
@@ -100,7 +103,7 @@ export async function POST(req: Request) {
         total_cost_per_sqft: 0,
         total_sqft_produced: 0
       }])
-      .select('id, consignment_id, block_no, grade, gross_measurement, net_measurement, status, created_at')
+      .select('id, consignment_id, block_no, grade, gross_measurement, net_measurement, status, arrival_status, created_at')
       .single();
 
     if (error) {
@@ -142,21 +145,30 @@ export async function DELETE(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, block_no, gross_measurement, net_measurement, elavance, grade } = body;
+    const { id, block_no, gross_measurement, net_measurement, elavance, grade, status } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Block ID required" }, { status: 400 });
     }
 
+    // Build update object
+    const updateData: any = {};
+    
+    if (block_no !== undefined) updateData.block_no = block_no ? block_no.toUpperCase() : null;
+    if (gross_measurement !== undefined) updateData.gross_measurement = gross_measurement ? parseFloat(gross_measurement) : null;
+    if (net_measurement !== undefined) updateData.net_measurement = parseFloat(net_measurement) || 0;
+    if (elavance !== undefined) updateData.elavance = elavance;
+    if (grade !== undefined) updateData.grade = grade;
+    if (status !== undefined) updateData.status = status;
+    
+    // Auto-update arrival_status to 'received' if both block_no and gross_measurement are provided
+    if (block_no && gross_measurement) {
+      updateData.arrival_status = 'received';
+    }
+
     const { data, error } = await supabaseAdmin
       .from("granite_blocks")
-      .update({
-        block_no: block_no.toUpperCase(), // Always save block numbers in uppercase
-        gross_measurement,
-        net_measurement,
-        elavance,
-        grade
-      })
+      .update(updateData)
       .eq("id", id)
       .select()
       .single();

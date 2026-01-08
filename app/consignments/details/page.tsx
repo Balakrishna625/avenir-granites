@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X, Save, Package, DollarSign, TrendingUp, Blocks, Edit2, Trash2, BarChart3 } from 'lucide-react'
+import { Plus, X, Save, Package, DollarSign, TrendingUp, Blocks, Edit2, Trash2, BarChart3, PackagePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -33,8 +33,9 @@ interface Consignment {
   total_expenditure: number
   granite_blocks?: Array<{
     id: string
-    block_no: string
-    gross_measurement: number
+    block_no: string | null
+    gross_measurement: number | null
+    arrival_status: 'pending' | 'received'
   }>
 }
 
@@ -61,6 +62,17 @@ function formatIndianNumber(num: number): string {
   }).format(num)
 }
 
+function getQuarryColor(quarryName: string): string {
+  const colors: Record<string, string> = {
+    'Gokanakonda': 'text-purple-700 bg-purple-100',
+    'Sai lakshmi': 'text-blue-700 bg-blue-100',
+    'Sambrajyam': 'text-emerald-700 bg-emerald-100',
+    'Burgandy': 'text-rose-700 bg-rose-100',
+    'Ummadivaram': 'text-orange-700 bg-orange-100'
+  }
+  return colors[quarryName] || 'text-gray-700 bg-gray-100'
+}
+
 export default function ConsignmentDetailsPage() {
   const router = useRouter()
   const [showAddForm, setShowAddForm] = useState(false)
@@ -82,6 +94,8 @@ export default function ConsignmentDetailsPage() {
     purchase_date: new Date().toISOString().split('T')[0],
     quarry_name: '',
     net_measurement: '',
+    number_of_blocks: '', // Number of blocks to create as placeholders
+    transport_cost: '',
     loading_cost: '',
     quarry_commission: '',
     other_charges: ''
@@ -167,7 +181,7 @@ export default function ConsignmentDetailsPage() {
   // Calculate transport cost per block based on quarry
   const getTransportCostPerBlock = () => {
     if (formData.quarry_name === 'Gokanakonda') return 10000
-    if (formData.quarry_name === 'Sai Lakshmi' || formData.quarry_name === 'Sambrajyam') return 4500
+    if (formData.quarry_name === 'Sai lakshmi' || formData.quarry_name === 'Sambrajyam') return 4500
     return 0
   }
 
@@ -204,59 +218,89 @@ export default function ConsignmentDetailsPage() {
       return
     }
 
+    if (!formData.number_of_blocks || parseInt(formData.number_of_blocks) < 1) {
+      toast.error('Please enter number of blocks')
+      return
+    }
+
+    // Check if user has entered block details manually
     const validBlocks = blockRows.filter(
       row => row.block_name.trim() !== 'AVG-' && 
              row.block_name.trim() !== ''
     )
 
-    if (validBlocks.length === 0) {
-      toast.error('Please add at least one block')
-      return
-    }
+    const useManualBlocks = validBlocks.length > 0
+    const numberOfBlocks = useManualBlocks ? validBlocks.length : parseInt(formData.number_of_blocks)
 
     setSaving(true)
     try {
-      const { totalBlocks, totalGross } = calculateTotals()
-
       // Calculate purchase_cost_rate based on quarry
       const purchase_cost_rate = formData.quarry_name === 'Gokanakonda' ? 21000 : 18000
 
-      const payload = {
+      // Step 1: Create/Update consignment
+      const consignmentPayload = {
         ...(editingConsignment && { id: formData.id }),
         purchase_date: formData.purchase_date,
         quarry_name: formData.quarry_name,
-        total_blocks_count: totalBlocks,
+        total_blocks_count: numberOfBlocks,
         net_measurement: parseFloat(formData.net_measurement),
         purchase_cost_rate: purchase_cost_rate,
-        total_gross_measurement: totalGross,
-        transport_cost: calculateTransportCost(),
+        total_gross_measurement: useManualBlocks ? blockRows.reduce((sum, row) => sum + (parseFloat(row.gross_measurement) || 0), 0) : 0,
+        transport_cost: parseFloat(formData.transport_cost) || 0,
         loading_cost: parseFloat(formData.loading_cost) || 0,
         quarry_commission: parseFloat(formData.quarry_commission) || 0,
         other_charges: parseFloat(formData.other_charges) || 0,
-        blocks: validBlocks.map(block => ({
+        blocks: useManualBlocks ? validBlocks.map(block => ({
           block_name: block.block_name,
-          gross_measurement: parseFloat(block.gross_measurement) || 0
-        }))
+          gross_measurement: parseFloat(block.gross_measurement) || 0,
+          arrival_status: 'received' // Manual blocks are already received
+        })) : [] // Empty array - we'll create placeholders separately
       }
 
-      const response = await fetch('/api/consignments-new', {
+      const consignmentResponse = await fetch('/api/consignments-new', {
         method: editingConsignment ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(consignmentPayload)
       })
 
-      const result = await response.json()
+      const consignmentResult = await consignmentResponse.json()
 
-      if (response.ok) {
-        toast.success(`Consignment ${editingConsignment ? 'updated' : 'saved'} successfully!`)
-        setShowAddForm(false)
-        setEditingConsignment(null)
-        resetForm()
-        fetchConsignments()
-        fetchStats()
-      } else {
-        toast.error(`Error: ${result.error}`)
+      if (!consignmentResponse.ok) {
+        toast.error(`Error: ${consignmentResult.error}`)
+        setSaving(false)
+        return
       }
+
+      // Step 2: Create placeholder blocks if no manual blocks entered
+      if (!useManualBlocks && !editingConsignment) {
+        const consignmentId = consignmentResult.consignment.id
+        const placeholderResponse = await fetch('/api/granite-blocks/create-placeholders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            consignment_id: consignmentId,
+            number_of_blocks: parseInt(formData.number_of_blocks)
+          })
+        })
+
+        const placeholderResult = await placeholderResponse.json()
+
+        if (!placeholderResponse.ok) {
+          toast.error(`Error creating placeholder blocks: ${placeholderResult.error}`)
+          setSaving(false)
+          return
+        }
+
+        toast.success(`Consignment saved with ${placeholderResult.count} placeholder blocks!`)
+      } else {
+        toast.success(`Consignment ${editingConsignment ? 'updated' : 'saved'} successfully!`)
+      }
+
+      setShowAddForm(false)
+      setEditingConsignment(null)
+      resetForm()
+      fetchConsignments()
+      fetchStats()
     } catch (error) {
       console.error('Error saving consignment:', error)
       toast.error('Failed to save consignment')
@@ -271,6 +315,7 @@ export default function ConsignmentDetailsPage() {
       purchase_date: new Date().toISOString().split('T')[0],
       quarry_name: '',
       net_measurement: '',
+      number_of_blocks: '',
       loading_cost: '',
       quarry_commission: '',
       other_charges: ''
@@ -289,6 +334,7 @@ export default function ConsignmentDetailsPage() {
       purchase_date: consignment.purchase_date || new Date().toISOString().split('T')[0],
       quarry_name: consignment.quarry_name || '',
       net_measurement: consignment.net_measurement?.toString() || '',
+      number_of_blocks: consignment.total_blocks_count?.toString() || '',
       loading_cost: consignment.loading_cost?.toString() || '',
       quarry_commission: consignment.quarry_commission?.toString() || '',
       other_charges: consignment.other_charges?.toString() || ''
@@ -420,15 +466,15 @@ export default function ConsignmentDetailsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Quarry</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1 uppercase tracking-wide">Quarry</label>
               <select
                 value={selectedQuarry}
                 onChange={(e) => setSelectedQuarry(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md font-semibold text-emerald-700"
               >
-                <option value="all">All Quarries</option>
+                <option value="all" className="font-semibold text-gray-700">All Quarries</option>
                 {QUARRIES.map(quarry => (
-                  <option key={quarry} value={quarry}>{quarry}</option>
+                  <option key={quarry} value={quarry} className="font-semibold text-emerald-700">{quarry}</option>
                 ))}
               </select>
             </div>
@@ -492,13 +538,18 @@ export default function ConsignmentDetailsPage() {
                 </div>
               </div>
 
-              {/* Section 2: Block Details */}
+              {/* Section 2: Block Details - OPTIONAL */}
               <div className="border-b pb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                    <Blocks className="w-5 h-5 text-purple-600" />
-                    Block Details
-                  </h3>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                      <Blocks className="w-5 h-5 text-purple-600" />
+                      Block Details (Optional)
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Leave empty to create placeholder blocks. Fill details when blocks arrive at factory.
+                    </p>
+                  </div>
                   <Button
                     onClick={handleAddBlockRow}
                     variant="outline"
@@ -609,6 +660,20 @@ export default function ConsignmentDetailsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of Blocks <span className="text-red-500">*</span>
+                      <span className="ml-2 text-xs text-gray-500">(Placeholders will be created)</span>
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={formData.number_of_blocks}
+                      onChange={(e) => setFormData({ ...formData, number_of_blocks: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="7"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Purchase Cost Rate
                       <span className="ml-2 text-xs text-gray-500">
                         ({formData.quarry_name === 'Gokanakonda' ? '₹21,000' : '₹18,000'}/m)
@@ -641,19 +706,17 @@ export default function ConsignmentDetailsPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Transport Cost (Auto-calculated)
-                      <span className="ml-2 text-xs text-gray-500">
-                        ({formData.quarry_name === 'Gokanakonda' ? '₹10,000' : formData.quarry_name === 'Sai Lakshmi' || formData.quarry_name === 'Sambrajyam' ? '₹4,500' : '₹0'}/block)
-                      </span>
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Transport Cost</label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 text-gray-500">₹</span>
                       <Input
-                        type="text"
-                        value={formatIndianNumber(calculateTransportCost())}
-                        disabled
-                        className="pl-7 bg-gray-100 font-semibold"
+                        type="number"
+                        step="0.01"
+                        value={formData.transport_cost}
+                        onChange={(e) => setFormData({ ...formData, transport_cost: e.target.value })}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        placeholder="0"
+                        className="pl-7"
                       />
                     </div>
                   </div>
@@ -752,37 +815,71 @@ export default function ConsignmentDetailsPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">CSG No.</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Quarry</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Blocks</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Net (m)</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Gross (m)</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Blocks</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Arrival</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Net (m)</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Gross (m)</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total Cost</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {consignments.map((consignment) => (
-                    <tr key={consignment.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        {consignment.consignment_number}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {new Date(consignment.purchase_date).toLocaleDateString('en-GB')}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{consignment.quarry_name}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700">
-                        {consignment.total_blocks_count}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700">
-                        {formatIndianNumber(consignment.net_measurement || consignment.total_net_measurement || 0)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-700">
-                        {formatIndianNumber(consignment.total_gross_measurement)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold text-green-700">
-                        ₹{formatIndianNumber(consignment.total_expenditure)}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex items-center justify-center gap-2">
+                  {consignments.map((consignment) => {
+                    const receivedBlocks = consignment.granite_blocks?.filter(b => b.arrival_status === 'received').length || 0
+                    const totalBlocks = consignment.total_blocks_count || 0
+                    const arrivalProgress = totalBlocks > 0 ? Math.round((receivedBlocks / totalBlocks) * 100) : 0
+                    const allReceived = receivedBlocks === totalBlocks && totalBlocks > 0
+                    
+                    return (
+                      <tr key={consignment.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {consignment.consignment_number}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {new Date(consignment.purchase_date).toLocaleDateString('en-GB')}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-block font-bold px-3 py-1.5 rounded-full text-sm shadow-sm ${getQuarryColor(consignment.quarry_name)}`}>
+                            {consignment.quarry_name}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-700">
+                          {consignment.total_blocks_count}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                              allReceived 
+                                ? 'bg-green-100 text-green-700' 
+                                : receivedBlocks > 0 
+                                  ? 'bg-yellow-100 text-yellow-700' 
+                                  : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {receivedBlocks}/{totalBlocks}
+                            </span>
+                            <span className="text-xs text-gray-500">{arrivalProgress}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-700">
+                          {formatIndianNumber(consignment.net_measurement || consignment.total_net_measurement || 0)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-center text-gray-700">
+                          {formatIndianNumber(consignment.total_gross_measurement)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold text-green-700">
+                          ₹{formatIndianNumber(consignment.total_expenditure)}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center justify-center gap-2">
+                          <Button
+                            onClick={() => router.push(`/consignments/edit-blocks?consignment_id=${consignment.id}`)}
+                            variant="outline"
+                            size="sm"
+                            className="text-green-600 hover:text-green-800"
+                            title="Manage Blocks"
+                          >
+                            <PackagePlus className="w-4 h-4" />
+                          </Button>
                           <Button
                             onClick={() => router.push(`/consignments/analytics?id=${consignment.id}`)}
                             variant="outline"
@@ -813,7 +910,7 @@ export default function ConsignmentDetailsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

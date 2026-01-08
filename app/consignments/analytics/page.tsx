@@ -53,7 +53,16 @@ const formatIndianNumber = (num: number): string => {
     minimumFractionDigits: 2
   }).format(num)
 }
-
+function getQuarryColor(quarryName: string): string {
+  const colors: Record<string, string> = {
+    'Gokanakonda': 'text-purple-700 bg-purple-100',
+    'Sai lakshmi': 'text-blue-700 bg-blue-100',
+    'Sambrajyam': 'text-emerald-700 bg-emerald-100',
+    'Burgandy': 'text-rose-700 bg-rose-100',
+    'Ummadivaram': 'text-orange-700 bg-orange-100'
+  }
+  return colors[quarryName] || 'text-gray-700 bg-gray-100'
+}
 function ConsignmentAnalyticsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -142,8 +151,12 @@ function ConsignmentAnalyticsContent() {
               </Button>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Consignment Analytics</h1>
             </div>
-            <p className="text-base sm:text-lg text-gray-600">
-              {consignment.consignmentNumber} • {consignment.quarryName}
+            <p className="text-base sm:text-lg">
+              <span className="text-gray-600">{consignment.consignmentNumber}</span>
+              <span className="text-gray-400 mx-2">•</span>
+              <span className={`font-bold px-4 py-1.5 rounded-full shadow-sm ${getQuarryColor(consignment.quarryName)}`}>
+                {consignment.quarryName}
+              </span>
             </p>
           </div>
         </div>
@@ -243,16 +256,16 @@ function ConsignmentAnalyticsContent() {
             </div>
           </Card>
 
-          {/* Production Cost (Gokanakonda) */}
+          {/* Production Cost */}
           <Card className="p-5">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Production Cost</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {consignment.quarryName === 'Gokanakonda' ? '₹32' : 'N/A'}
+                  {consignment.quarryName === 'Gokanakonda' ? '₹32' : consignment.quarryName === 'Sai lakshmi' ? '₹25' : 'N/A'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {consignment.quarryName === 'Gokanakonda' ? 'per sqft (Gokanakonda)' : 'Only for Gokanakonda'}
+                  {consignment.quarryName === 'Gokanakonda' ? 'per sqft (Gokanakonda)' : consignment.quarryName === 'Sai lakshmi' ? 'per sqft (Sai lakshmi)' : 'Only for Gokanakonda & Sai lakshmi'}
                 </p>
               </div>
               <BarChart3 className="w-8 h-8 text-cyan-500" />
@@ -268,11 +281,13 @@ function ConsignmentAnalyticsContent() {
                   {hasProduction ? (
                     consignment.quarryName === 'Gokanakonda' 
                       ? `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95) + 32).toFixed(2)))}`
-                      : `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2)))}`
+                      : consignment.quarryName === 'Sai lakshmi'
+                        ? `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95) + 25).toFixed(2)))}`
+                        : `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2)))}`
                   ) : 'N/A'}
                 </p>
                 <p className="text-xs text-emerald-600 mt-1 font-medium">
-                  {consignment.quarryName === 'Gokanakonda' ? 'Cost + Production' : 'Same as Cost/Sqft'}
+                  {consignment.quarryName === 'Gokanakonda' || consignment.quarryName === 'Sai lakshmi' ? 'Cost + Production' : 'Same as Cost/Sqft'}
                 </p>
               </div>
               <DollarSign className="w-8 h-8 text-emerald-600" />
@@ -385,23 +400,57 @@ function ConsignmentAnalyticsContent() {
                       <div className="space-y-2">
                         <p className="text-xs font-medium text-gray-600 uppercase">Parts Processed:</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {block.parts.map((part, idx) => (
-                            <div key={idx} className="bg-white p-3 rounded border">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-mono font-semibold text-gray-900">
-                                  {part.partName}
-                                </span>
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                                  {part.materialType}
-                                </span>
+                          {block.parts.map((part, idx) => {
+                            // Check for duplicate entries (same name, same slabs, same sqft)
+                            const isDuplicate = block.parts.some((otherPart, otherIdx) => 
+                              otherIdx !== idx && 
+                              otherPart.partName === part.partName && 
+                              otherPart.slabs === part.slabs && 
+                              otherPart.sqft === part.sqft
+                            )
+                            
+                            return (
+                              <div 
+                                key={idx} 
+                                className={`p-3 rounded border ${
+                                  isDuplicate 
+                                    ? 'bg-red-50 border-red-300 ring-2 ring-red-200' 
+                                    : 'bg-white border-gray-200'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className={`font-mono font-semibold ${
+                                    isDuplicate ? 'text-red-900' : 'text-gray-900'
+                                  }`}>
+                                    {part.partName}
+                                  </span>
+                                  <span className={`text-xs px-2 py-1 rounded ${
+                                    isDuplicate 
+                                      ? 'bg-red-100 text-red-700' 
+                                      : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {part.materialType}
+                                  </span>
+                                </div>
+                                <div className={`text-sm ${isDuplicate ? 'text-red-700' : 'text-gray-600'}`}>
+                                  <span className="font-semibold">{formatIndianNumber(part.sqft)}</span> sqft
+                                  <span className={isDuplicate ? 'text-red-400 mx-1' : 'text-gray-400 mx-1'}>•</span>
+                                  <span>{part.slabs} slabs</span>
+                                </div>
+                                {part.date && (
+                                  <div className="text-xs text-orange-600 font-medium mt-1">
+                                    {new Date(part.date).toLocaleDateString('en-GB')}
+                                  </div>
+                                )}
+                                {isDuplicate && (
+                                  <div className="mt-2 text-xs text-red-600 font-semibold flex items-center gap-1">
+                                    <span>⚠️</span>
+                                    <span>Probable Duplication</span>
+                                  </div>
+                                )}
                               </div>
-                              <div className="text-sm text-gray-600">
-                                <span className="font-semibold">{formatIndianNumber(part.sqft)}</span> sqft
-                                <span className="text-gray-400 mx-1">•</span>
-                                <span>{part.slabs} slabs</span>
-                              </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </div>
                     )}
