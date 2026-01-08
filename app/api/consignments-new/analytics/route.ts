@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
         slabs: number
         sqft: number
         materialType: string
+        date?: string
       }>
       totalSlabs: number
       totalSqft: number
