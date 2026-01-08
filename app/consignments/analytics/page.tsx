@@ -233,7 +233,7 @@ function ConsignmentAnalyticsContent() {
               <div className="flex-1">
                 <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Cost per Sqft</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {hasProduction ? `₹${formatIndianNumber((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2))}` : 'N/A'}
+                  {hasProduction ? `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2)))}` : 'N/A'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Efficiency: {hasProduction ? `${production.processingEfficiency.toFixed(1)}%` : 'N/A'}
@@ -267,8 +267,8 @@ function ConsignmentAnalyticsContent() {
                 <p className="text-xl font-bold text-emerald-900">
                   {hasProduction ? (
                     consignment.quarryName === 'Gokanakonda' 
-                      ? `₹${formatIndianNumber((consignment.totalExpenditure / (production.totalSqft * 0.95) + 32).toFixed(2))}`
-                      : `₹${formatIndianNumber((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2))}`
+                      ? `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95) + 32).toFixed(2)))}`
+                      : `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2)))}`
                   ) : 'N/A'}
                 </p>
                 <p className="text-xs text-emerald-600 mt-1 font-medium">
