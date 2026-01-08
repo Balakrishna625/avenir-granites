@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     const totalConsignments = consignments?.length || 0;
     const totalMoneySpent = consignments?.reduce((sum, c) => sum + (c.total_expenditure || 0), 0) || 0;
     const totalBlocks = consignments?.reduce((sum, c) => sum + (c.total_blocks_count || 0), 0) || 0;
-    const totalNetMeasurement = consignments?.reduce((sum, c) => sum + (c.total_net_measurement || 0), 0) || 0;
+    const totalNetMeasurement = consignments?.reduce((sum, c) => sum + (c.net_measurement || c.total_net_measurement || 0), 0) || 0;
     const totalGrossMeasurement = consignments?.reduce((sum, c) => sum + (c.total_gross_measurement || 0), 0) || 0;
 
     // Breakdown by quarry
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       acc[quarry].count++;
       acc[quarry].totalSpent += c.total_expenditure || 0;
       acc[quarry].totalBlocks += c.total_blocks_count || 0;
-      acc[quarry].netMeasurement += c.total_net_measurement || 0;
+      acc[quarry].netMeasurement += c.net_measurement || c.total_net_measurement || 0;
       acc[quarry].grossMeasurement += c.total_gross_measurement || 0;
       return acc;
     }, {});

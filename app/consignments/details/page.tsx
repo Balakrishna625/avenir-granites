@@ -12,7 +12,6 @@ import { toast, Toaster } from 'sonner'
 interface BlockRow {
   id: string
   block_name: string
-  net_measurement: string
   gross_measurement: string
 }
 
@@ -22,6 +21,8 @@ interface Consignment {
   quarry_name: string
   purchase_date: string
   total_blocks_count: number
+  net_measurement: number
+  purchase_cost_rate: number
   total_net_measurement: number
   total_gross_measurement: number
   purchase_cost: number
@@ -33,7 +34,6 @@ interface Consignment {
   granite_blocks?: Array<{
     id: string
     block_no: string
-    net_measurement: number
     gross_measurement: number
   }>
 }
@@ -72,8 +72,8 @@ export default function ConsignmentDetailsPage() {
 
   // Filters
   const currentDate = new Date()
-  const [selectedMonth, setSelectedMonth] = useState(String(currentDate.getMonth() + 1))
-  const [selectedYear, setSelectedYear] = useState(String(currentDate.getFullYear()))
+  const [selectedMonth, setSelectedMonth] = useState('all')
+  const [selectedYear, setSelectedYear] = useState('all')
   const [selectedQuarry, setSelectedQuarry] = useState('all')
 
   // Form data
@@ -81,17 +81,14 @@ export default function ConsignmentDetailsPage() {
     id: '',
     purchase_date: new Date().toISOString().split('T')[0],
     quarry_name: '',
-    total_net_measurement: '',
-    total_gross_measurement: '',
-    purchase_cost: '',
-    transport_cost: '',
+    net_measurement: '',
     loading_cost: '',
     quarry_commission: '',
     other_charges: ''
   })
 
   const [blockRows, setBlockRows] = useState<BlockRow[]>([
-    { id: '1', block_name: 'AVG-', net_measurement: '', gross_measurement: '' }
+    { id: '1', block_name: 'AVG-', gross_measurement: '' }
   ])
 
   // Fetch consignments
@@ -103,10 +100,11 @@ export default function ConsignmentDetailsPage() {
   const fetchConsignments = async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({
-        month: selectedMonth,
-        year: selectedYear
-      })
+      const params = new URLSearchParams()
+      if (selectedMonth !== 'all' && selectedYear !== 'all') {
+        params.append('month', selectedMonth)
+        params.append('year', selectedYear)
+      }
       if (selectedQuarry !== 'all') {
         params.append('quarry', selectedQuarry)
       }
@@ -123,10 +121,11 @@ export default function ConsignmentDetailsPage() {
 
   const fetchStats = async () => {
     try {
-      const params = new URLSearchParams({
-        month: selectedMonth,
-        year: selectedYear
-      })
+      const params = new URLSearchParams()
+      if (selectedMonth !== 'all' && selectedYear !== 'all') {
+        params.append('month', selectedMonth)
+        params.append('year', selectedYear)
+      }
 
       const response = await fetch(`/api/consignments-new/stats?${params}`)
       const data = await response.json()
@@ -142,7 +141,6 @@ export default function ConsignmentDetailsPage() {
       {
         id: Date.now().toString(),
         block_name: 'AVG-',
-        net_measurement: '',
         gross_measurement: ''
       }
     ])
@@ -162,9 +160,36 @@ export default function ConsignmentDetailsPage() {
 
   const calculateTotals = () => {
     const totalBlocks = blockRows.filter(row => row.block_name.trim() !== 'AVG-' && row.block_name.trim() !== '').length
-    const totalNet = blockRows.reduce((sum, row) => sum + (parseFloat(row.net_measurement) || 0), 0)
     const totalGross = blockRows.reduce((sum, row) => sum + (parseFloat(row.gross_measurement) || 0), 0)
-    return { totalBlocks, totalNet, totalGross }
+    return { totalBlocks, totalGross }
+  }
+
+  // Calculate transport cost per block based on quarry
+  const getTransportCostPerBlock = () => {
+    if (formData.quarry_name === 'Gokanakonda') return 10000
+    if (formData.quarry_name === 'Sai Lakshmi' || formData.quarry_name === 'Sambrajyam') return 4500
+    return 0
+  }
+
+  const calculateTransportCost = () => {
+    const { totalBlocks } = calculateTotals()
+    const ratePerBlock = getTransportCostPerBlock()
+    return totalBlocks * ratePerBlock
+  }
+
+  const calculatePurchaseCost = () => {
+    if (!formData.net_measurement || !formData.quarry_name) return 0
+    const rate = formData.quarry_name === 'Gokanakonda' ? 21000 : 18000
+    return (parseFloat(formData.net_measurement) || 0) * rate
+  }
+
+  const calculateTotalExpenditure = () => {
+    const purchaseCost = calculatePurchaseCost()
+    const transportCost = calculateTransportCost()
+    const loadingCost = parseFloat(formData.loading_cost) || 0
+    const quarryCommission = parseFloat(formData.quarry_commission) || 0
+    const otherCharges = parseFloat(formData.other_charges) || 0
+    return purchaseCost + transportCost + loadingCost + quarryCommission + otherCharges
   }
 
   const handleSaveConsignment = async () => {
@@ -174,35 +199,44 @@ export default function ConsignmentDetailsPage() {
       return
     }
 
+    if (!formData.net_measurement || parseFloat(formData.net_measurement) <= 0) {
+      toast.error('Please enter net measurement')
+      return
+    }
+
     const validBlocks = blockRows.filter(
       row => row.block_name.trim() !== 'AVG-' && 
-             row.block_name.trim() !== '' &&
-             row.net_measurement !== '' &&
-             row.gross_measurement !== ''
+             row.block_name.trim() !== ''
     )
 
     if (validBlocks.length === 0) {
-      toast.error('Please add at least one block with measurements')
+      toast.error('Please add at least one block')
       return
     }
 
     setSaving(true)
     try {
-      const { totalBlocks, totalNet, totalGross } = calculateTotals()
+      const { totalBlocks, totalGross } = calculateTotals()
+
+      // Calculate purchase_cost_rate based on quarry
+      const purchase_cost_rate = formData.quarry_name === 'Gokanakonda' ? 21000 : 18000
 
       const payload = {
         ...(editingConsignment && { id: formData.id }),
         purchase_date: formData.purchase_date,
         quarry_name: formData.quarry_name,
         total_blocks_count: totalBlocks,
-        total_net_measurement: totalNet,
+        net_measurement: parseFloat(formData.net_measurement),
+        purchase_cost_rate: purchase_cost_rate,
         total_gross_measurement: totalGross,
-        purchase_cost: parseFloat(formData.purchase_cost) || 0,
-        transport_cost: parseFloat(formData.transport_cost) || 0,
+        transport_cost: calculateTransportCost(),
         loading_cost: parseFloat(formData.loading_cost) || 0,
         quarry_commission: parseFloat(formData.quarry_commission) || 0,
         other_charges: parseFloat(formData.other_charges) || 0,
-        blocks: validBlocks
+        blocks: validBlocks.map(block => ({
+          block_name: block.block_name,
+          gross_measurement: parseFloat(block.gross_measurement) || 0
+        }))
       }
 
       const response = await fetch('/api/consignments-new', {
@@ -236,16 +270,13 @@ export default function ConsignmentDetailsPage() {
       id: '',
       purchase_date: new Date().toISOString().split('T')[0],
       quarry_name: '',
-      total_net_measurement: '',
-      total_gross_measurement: '',
-      purchase_cost: '',
-      transport_cost: '',
+      net_measurement: '',
       loading_cost: '',
       quarry_commission: '',
       other_charges: ''
     })
     setBlockRows([
-      { id: '1', block_name: 'AVG-', net_measurement: '', gross_measurement: '' }
+      { id: '1', block_name: 'AVG-', gross_measurement: '' }
     ])
     setShowAddForm(false)
     setEditingConsignment(null)
@@ -257,10 +288,7 @@ export default function ConsignmentDetailsPage() {
       id: consignment.id,
       purchase_date: consignment.purchase_date || new Date().toISOString().split('T')[0],
       quarry_name: consignment.quarry_name || '',
-      total_net_measurement: consignment.total_net_measurement?.toString() || '',
-      total_gross_measurement: consignment.total_gross_measurement?.toString() || '',
-      purchase_cost: consignment.purchase_cost?.toString() || '',
-      transport_cost: consignment.transport_cost?.toString() || '',
+      net_measurement: consignment.net_measurement?.toString() || '',
       loading_cost: consignment.loading_cost?.toString() || '',
       quarry_commission: consignment.quarry_commission?.toString() || '',
       other_charges: consignment.other_charges?.toString() || ''
@@ -269,9 +297,8 @@ export default function ConsignmentDetailsPage() {
       consignment.granite_blocks?.map((block, index) => ({
         id: String(index + 1),
         block_name: block.block_no,
-        net_measurement: block.net_measurement?.toString() || '',
         gross_measurement: block.gross_measurement?.toString() || ''
-      })) || [{ id: '1', block_name: 'AVG-', net_measurement: '', gross_measurement: '' }]
+      })) || [{ id: '1', block_name: 'AVG-', gross_measurement: '' }]
     )
     setShowAddForm(true)
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
@@ -302,7 +329,7 @@ export default function ConsignmentDetailsPage() {
     }
   }
 
-  const { totalBlocks, totalNet, totalGross } = calculateTotals()
+  const { totalBlocks, totalGross } = calculateTotals()
 
   return (
     <AppLayout>
@@ -369,6 +396,7 @@ export default function ConsignmentDetailsPage() {
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               >
+                <option value="all">All Months</option>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
                   <option key={month} value={month}>
                     {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
@@ -384,6 +412,7 @@ export default function ConsignmentDetailsPage() {
                 onChange={(e) => setSelectedYear(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
               >
+                <option value="all">All Years</option>
                 {Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - i).map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
@@ -484,9 +513,8 @@ export default function ConsignmentDetailsPage() {
                 <div className="space-y-3">
                   {/* Mobile: Stack labels with inputs, Desktop: Grid layout */}
                   <div className="hidden sm:grid sm:grid-cols-12 gap-3 text-xs font-medium text-gray-600 px-2">
-                    <div className="col-span-5">Block Name</div>
-                    <div className="col-span-3 text-right">Net (m)</div>
-                    <div className="col-span-3 text-right">Gross (m)</div>
+                    <div className="col-span-7">Block Name</div>
+                    <div className="col-span-4 text-right">Gross (m)</div>
                     <div className="col-span-1"></div>
                   </div>
 
@@ -494,7 +522,7 @@ export default function ConsignmentDetailsPage() {
                     <div key={row.id} className="bg-gray-50 p-3 rounded-lg">
                       {/* Mobile: Vertical Stack, Desktop: Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                        <div className="sm:col-span-5">
+                        <div className="sm:col-span-7">
                           <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Block Name</label>
                           <Input
                             value={row.block_name}
@@ -503,24 +531,14 @@ export default function ConsignmentDetailsPage() {
                             className="font-mono w-full"
                           />
                         </div>
-                        <div className="sm:col-span-3">
-                          <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Net Measurement (m)</label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={row.net_measurement}
-                            onChange={(e) => handleBlockRowChange(row.id, 'net_measurement', e.target.value)}
-                            placeholder="0.00"
-                            className="text-right w-full"
-                          />
-                        </div>
-                        <div className="sm:col-span-3">
+                        <div className="sm:col-span-4">
                           <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Gross Measurement (m)</label>
                           <Input
                             type="number"
                             step="0.01"
                             value={row.gross_measurement}
                             onChange={(e) => handleBlockRowChange(row.id, 'gross_measurement', e.target.value)}
+                            onWheel={(e) => e.currentTarget.blur()}
                             placeholder="0.00"
                             className="text-right w-full"
                           />
@@ -545,22 +563,12 @@ export default function ConsignmentDetailsPage() {
                 {/* Auto-calculated Totals */}
                 <div className="mt-4 bg-blue-50 p-4 rounded-lg">
                   <p className="text-xs font-medium text-gray-600 mb-3">Summary (Auto-calculated)</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">Total Blocks</label>
                       <Input
                         type="number"
                         value={totalBlocks}
-                        disabled
-                        className="bg-white font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">Total Net (m)</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={totalNet.toFixed(2)}
                         disabled
                         className="bg-white font-semibold"
                       />
@@ -587,30 +595,65 @@ export default function ConsignmentDetailsPage() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Purchase Cost</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Net Measurement (m) <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.net_measurement}
+                      onChange={(e) => setFormData({ ...formData, net_measurement: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Purchase Cost Rate
+                      <span className="ml-2 text-xs text-gray-500">
+                        ({formData.quarry_name === 'Gokanakonda' ? '₹21,000' : '₹18,000'}/m)
+                      </span>
+                    </label>
+                    <Input
+                      type="text"
+                      value={formData.quarry_name === 'Gokanakonda' ? '21,000' : '18,000'}
+                      disabled
+                      className="bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Purchase Cost (Auto-calculated)
+                    </label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 text-gray-500">₹</span>
                       <Input
-                        type="number"
-                        step="0.01"
-                        value={formData.purchase_cost}
-                        onChange={(e) => setFormData({ ...formData, purchase_cost: e.target.value })}
-                        placeholder="0.00"
-                        className="pl-7"
+                        type="text"
+                        value={
+                          formData.net_measurement && formData.quarry_name
+                            ? formatIndianNumber((parseFloat(formData.net_measurement) || 0) * 
+                               (formData.quarry_name === 'Gokanakonda' ? 21000 : 18000))
+                            : '0'
+                        }
+                        disabled
+                        className="pl-7 bg-gray-100 font-semibold"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Transport Cost</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Transport Cost (Auto-calculated)
+                      <span className="ml-2 text-xs text-gray-500">
+                        ({formData.quarry_name === 'Gokanakonda' ? '₹10,000' : formData.quarry_name === 'Sai Lakshmi' || formData.quarry_name === 'Sambrajyam' ? '₹4,500' : '₹0'}/block)
+                      </span>
+                    </label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 text-gray-500">₹</span>
                       <Input
-                        type="number"
-                        step="0.01"
-                        value={formData.transport_cost}
-                        onChange={(e) => setFormData({ ...formData, transport_cost: e.target.value })}
-                        placeholder="0.00"
-                        className="pl-7"
+                        type="text"
+                        value={formatIndianNumber(calculateTransportCost())}
+                        disabled
+                        className="pl-7 bg-gray-100 font-semibold"
                       />
                     </div>
                   </div>
@@ -623,7 +666,8 @@ export default function ConsignmentDetailsPage() {
                         step="0.01"
                         value={formData.loading_cost}
                         onChange={(e) => setFormData({ ...formData, loading_cost: e.target.value })}
-                        placeholder="0.00"
+                        onWheel={(e) => e.currentTarget.blur()}
+                        placeholder="0"
                         className="pl-7"
                       />
                     </div>
@@ -637,7 +681,8 @@ export default function ConsignmentDetailsPage() {
                         step="0.01"
                         value={formData.quarry_commission}
                         onChange={(e) => setFormData({ ...formData, quarry_commission: e.target.value })}
-                        placeholder="0.00"
+                        onWheel={(e) => e.currentTarget.blur()}
+                        placeholder="0"
                         className="pl-7"
                       />
                     </div>
@@ -651,7 +696,8 @@ export default function ConsignmentDetailsPage() {
                         step="0.01"
                         value={formData.other_charges}
                         onChange={(e) => setFormData({ ...formData, other_charges: e.target.value })}
-                        placeholder="0.00"
+                        onWheel={(e) => e.currentTarget.blur()}
+                        placeholder="0"
                         className="pl-7"
                       />
                     </div>
@@ -659,13 +705,7 @@ export default function ConsignmentDetailsPage() {
                   <div>
                     <label className="block text-sm font-semibold text-gray-900 mb-2">Total Expenditure</label>
                     <div className="px-4 py-2.5 bg-green-50 border-2 border-green-300 rounded-md font-bold text-green-700 text-lg">
-                      ₹{formatIndianNumber(
-                        (parseFloat(formData.purchase_cost) || 0) +
-                        (parseFloat(formData.transport_cost) || 0) +
-                        (parseFloat(formData.loading_cost) || 0) +
-                        (parseFloat(formData.quarry_commission) || 0) +
-                        (parseFloat(formData.other_charges) || 0)
-                      )}
+                      ₹{formatIndianNumber(calculateTotalExpenditure())}
                     </div>
                   </div>
                 </div>
@@ -733,7 +773,7 @@ export default function ConsignmentDetailsPage() {
                         {consignment.total_blocks_count}
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-700">
-                        {formatIndianNumber(consignment.total_net_measurement)}
+                        {formatIndianNumber(consignment.net_measurement || consignment.total_net_measurement || 0)}
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-gray-700">
                         {formatIndianNumber(consignment.total_gross_measurement)}

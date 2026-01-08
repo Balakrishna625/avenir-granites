@@ -63,15 +63,6 @@ function ConsignmentAnalyticsContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (consignmentId) {
-      fetchAnalytics()
-    } else {
-      setError('No consignment ID provided')
-      setLoading(false)
-    }
-  }, [consignmentId])
-
   const fetchAnalytics = async () => {
     try {
       setLoading(true)
@@ -90,6 +81,16 @@ function ConsignmentAnalyticsContent() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (consignmentId) {
+      fetchAnalytics()
+    } else {
+      setError('No consignment ID provided')
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consignmentId])
 
   if (loading) {
     return (
@@ -147,62 +148,134 @@ function ConsignmentAnalyticsContent() {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Summary Cards - Row 1 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Investment */}
-          <Card className="p-6">
+          <Card className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Investment</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Total Investment</p>
+                <p className="text-xl font-bold text-gray-900">
                   ₹{formatIndianNumber(consignment.totalExpenditure)}
                 </p>
               </div>
-              <DollarSign className="w-10 h-10 text-green-500" />
+              <DollarSign className="w-8 h-8 text-green-500" />
             </div>
           </Card>
 
           {/* Total Blocks */}
-          <Card className="p-6">
+          <Card className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Blocks</p>
-                <p className="text-2xl font-bold text-gray-900">{consignment.totalBlocks}</p>
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Total Blocks</p>
+                <p className="text-xl font-bold text-gray-900">{consignment.totalBlocks}</p>
                 <p className="text-xs text-gray-500 mt-1">
+                  {formatIndianNumber(consignment.totalGrossMeasurement)} m (Gross)
+                </p>
+                <p className="text-xs text-gray-500">
                   {formatIndianNumber(consignment.totalNetMeasurement)} m (Net)
                 </p>
               </div>
-              <Package className="w-10 h-10 text-blue-500" />
+              <Package className="w-8 h-8 text-blue-500" />
             </div>
           </Card>
 
           {/* Total Production */}
-          <Card className="p-6">
+          <Card className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Production</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Total Production</p>
+                <p className="text-xl font-bold text-gray-900">
                   {formatIndianNumber(production.totalSqft)} sqft
                 </p>
                 <p className="text-xs text-gray-500 mt-1">{production.totalSlabs} slabs</p>
               </div>
-              <Layers className="w-10 h-10 text-purple-500" />
+              <Layers className="w-8 h-8 text-purple-500" />
+            </div>
+          </Card>
+
+          {/* 5% Normalised Production */}
+          <Card className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">5% Normalised</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {formatIndianNumber(production.totalSqft * 0.95)} sqft
+                </p>
+                <p className="text-xs text-gray-500 mt-1">After wastage adjustment</p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-indigo-500" />
+            </div>
+          </Card>
+        </div>
+
+        {/* Summary Cards - Row 2 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Yield */}
+          <Card className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Total Yield</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {hasProduction && consignment.totalGrossMeasurement > 0
+                    ? formatIndianNumber((production.totalSqft * 0.95) / consignment.totalGrossMeasurement)
+                    : 'N/A'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">sqft per meter (5% normalised)</p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-green-500" />
             </div>
           </Card>
 
           {/* Cost per Sqft */}
-          <Card className="p-6">
+          <Card className="p-5">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Cost per Sqft</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {hasProduction ? `₹${formatIndianNumber(production.costPerSqft)}` : 'N/A'}
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Cost per Sqft</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {hasProduction ? `₹${formatIndianNumber((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2))}` : 'N/A'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Efficiency: {hasProduction ? `${production.processingEfficiency.toFixed(1)}%` : 'N/A'}
                 </p>
               </div>
-              <Target className="w-10 h-10 text-orange-500" />
+              <Target className="w-8 h-8 text-orange-500" />
+            </div>
+          </Card>
+
+          {/* Production Cost (Gokanakonda) */}
+          <Card className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Production Cost</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {consignment.quarryName === 'Gokanakonda' ? '₹32' : 'N/A'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {consignment.quarryName === 'Gokanakonda' ? 'per sqft (Gokanakonda)' : 'Only for Gokanakonda'}
+                </p>
+              </div>
+              <BarChart3 className="w-8 h-8 text-cyan-500" />
+            </div>
+          </Card>
+
+          {/* Effective per Sqft Price */}
+          <Card className="p-5 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs text-emerald-700 font-semibold mb-1.5 uppercase tracking-wide">Effective per Sqft</p>
+                <p className="text-xl font-bold text-emerald-900">
+                  {hasProduction ? (
+                    consignment.quarryName === 'Gokanakonda' 
+                      ? `₹${formatIndianNumber((consignment.totalExpenditure / (production.totalSqft * 0.95) + 32).toFixed(2))}`
+                      : `₹${formatIndianNumber((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2))}`
+                  ) : 'N/A'}
+                </p>
+                <p className="text-xs text-emerald-600 mt-1 font-medium">
+                  {consignment.quarryName === 'Gokanakonda' ? 'Cost + Production' : 'Same as Cost/Sqft'}
+                </p>
+              </div>
+              <DollarSign className="w-8 h-8 text-emerald-600" />
             </div>
           </Card>
         </div>
@@ -273,8 +346,8 @@ function ConsignmentAnalyticsContent() {
             <div className="space-y-6">
               {production.blockDetails.map((block) => {
                 const hasData = block.parts.length > 0
-                const yieldPercentage = block.originalMeasurement > 0
-                  ? (block.totalSqft / (block.originalMeasurement * 10.764)) * 100
+                const blockYield = block.originalMeasurement > 0
+                  ? block.totalSqft / block.originalMeasurement
                   : 0
 
                 return (
@@ -283,7 +356,7 @@ function ConsignmentAnalyticsContent() {
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">{block.baseBlockName}</h3>
                         <p className="text-sm text-gray-600">
-                          Original: {formatIndianNumber(block.originalMeasurement)} m (Net)
+                          Original: {formatIndianNumber(block.originalMeasurement)} m (Gross)
                         </p>
                       </div>
                       <div className="text-right">
@@ -293,9 +366,12 @@ function ConsignmentAnalyticsContent() {
                               {formatIndianNumber(block.totalSqft)} sqft
                             </p>
                             <p className="text-sm text-gray-600">{block.totalSlabs} slabs</p>
-                            {yieldPercentage > 0 && (
+                            <p className="text-xs text-gray-500">
+                              Gross: {formatIndianNumber(block.originalMeasurement)} m
+                            </p>
+                            {blockYield > 0 && (
                               <p className="text-xs text-green-600 font-medium mt-1">
-                                Yield: {yieldPercentage.toFixed(1)}%
+                                Yield: {formatIndianNumber(blockYield)} sqft/m
                               </p>
                             )}
                           </>

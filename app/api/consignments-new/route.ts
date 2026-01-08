@@ -61,9 +61,9 @@ export async function POST(request: NextRequest) {
       purchase_date,
       quarry_name,
       total_blocks_count,
-      total_net_measurement,
+      net_measurement,
+      purchase_cost_rate,
       total_gross_measurement,
-      purchase_cost,
       transport_cost,
       loading_cost,
       quarry_commission,
@@ -72,9 +72,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!purchase_date || !quarry_name || !blocks || blocks.length === 0) {
+    if (!purchase_date || !quarry_name || !blocks || blocks.length === 0 || !net_measurement) {
       return NextResponse.json(
-        { error: 'Missing required fields: purchase_date, quarry_name, and blocks' },
+        { error: 'Missing required fields: purchase_date, quarry_name, net_measurement, and blocks' },
         { status: 400 }
       );
     }
@@ -113,13 +113,16 @@ export async function POST(request: NextRequest) {
         purchase_date,
         arrival_date: purchase_date, // Keep for backward compatibility
         total_blocks_count: total_blocks_count || blocks.length,
-        total_net_measurement: total_net_measurement || 0,
+        net_measurement: net_measurement || 0,
+        purchase_cost_rate: purchase_cost_rate || 0,
         total_gross_measurement: total_gross_measurement || 0,
-        purchase_cost: purchase_cost || 0,
         transport_cost: transport_cost || 0,
         loading_cost: loading_cost || 0,
         quarry_commission: quarry_commission || 0,
-        other_charges: other_charges || 0
+        other_charges: other_charges || 0,
+        // Keep old fields for backward compatibility
+        total_net_measurement: net_measurement || 0,
+        purchase_cost: 0
       })
       .select()
       .single();
@@ -129,12 +132,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: consignmentError.message }, { status: 500 });
     }
 
-    // Create blocks
+    // Create blocks - net_measurement is deprecated at block level but keep for backward compatibility
     const blocksToInsert = blocks.map((block: any) => ({
       consignment_id: consignment.id,
       block_no: block.block_name.toUpperCase(),
       gross_measurement: parseFloat(block.gross_measurement) || 0,
-      net_measurement: parseFloat(block.net_measurement) || 0,
+      net_measurement: 0, // Deprecated field
       grade: block.grade || 'A',
       status: 'RAW'
     }));
@@ -162,7 +165,7 @@ export async function PUT(request: NextRequest) {
   try {
     const supabase = supabaseAdmin;
     const body = await request.json();
-    const { id, ...updateData } = body;
+    const { id, blocks, ...updateData } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Consignment ID is required' }, { status: 400 });
@@ -183,6 +186,11 @@ export async function PUT(request: NextRequest) {
       updateData.supplier_id = supplier.id;
     }
 
+    // If net_measurement is provided, keep total_net_measurement in sync for backward compatibility
+    if (updateData.net_measurement !== undefined) {
+      updateData.total_net_measurement = updateData.net_measurement;
+    }
+
     const { data, error } = await supabase
       .from('granite_consignments')
       .update(updateData)
@@ -193,6 +201,34 @@ export async function PUT(request: NextRequest) {
     if (error) {
       console.error('Error updating consignment:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Update blocks if provided
+    if (blocks && blocks.length > 0) {
+      // Delete existing blocks
+      await supabase
+        .from('granite_blocks')
+        .delete()
+        .eq('consignment_id', id);
+
+      // Insert new blocks
+      const blocksToInsert = blocks.map((block: any) => ({
+        consignment_id: id,
+        block_no: block.block_name.toUpperCase(),
+        gross_measurement: parseFloat(block.gross_measurement) || 0,
+        net_measurement: 0, // Deprecated field
+        grade: block.grade || 'A',
+        status: 'RAW'
+      }));
+
+      const { error: blocksError } = await supabase
+        .from('granite_blocks')
+        .insert(blocksToInsert);
+
+      if (blocksError) {
+        console.error('Error updating blocks:', blocksError);
+        return NextResponse.json({ error: blocksError.message }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ success: true, consignment: data });

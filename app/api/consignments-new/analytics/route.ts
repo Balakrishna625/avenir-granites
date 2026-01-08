@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         quarry_name,
         purchase_date,
         total_blocks_count,
+        net_measurement,
         total_net_measurement,
         total_gross_measurement,
         purchase_cost,
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
         parts: [],
         totalSlabs: 0,
         totalSqft: 0,
-        originalMeasurement: block.net_measurement || 0
+        originalMeasurement: block.gross_measurement || 0
       }
     })
 
@@ -164,7 +165,7 @@ export async function GET(request: NextRequest) {
         quarryName: consignment.quarry_name,
         purchaseDate: consignment.purchase_date,
         totalBlocks: consignment.total_blocks_count,
-        totalNetMeasurement: consignment.total_net_measurement,
+        totalNetMeasurement: consignment.net_measurement || consignment.total_net_measurement,
         totalGrossMeasurement: consignment.total_gross_measurement,
         totalExpenditure: consignment.total_expenditure,
         costBreakdown: {
@@ -180,8 +181,8 @@ export async function GET(request: NextRequest) {
         totalSqft,
         blockDetails,
         costPerSqft,
-        processingEfficiency: consignment.total_net_measurement > 0 
-          ? (totalSqft / (consignment.total_net_measurement * 10.764)) * 100 // Convert m to sqft
+        processingEfficiency: (consignment.net_measurement || consignment.total_net_measurement) > 0 
+          ? (totalSqft / ((consignment.net_measurement || consignment.total_net_measurement) * 10.764)) * 100 // Convert m to sqft
           : 0
       }
     })
