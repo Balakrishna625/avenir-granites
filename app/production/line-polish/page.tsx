@@ -465,12 +465,15 @@ export default function LinePolishPage() {
           
           // Expected format: [Block Name, Material, Process, Qty, SFT, Notes (optional)]
           if (parts.length >= 5) {
-            const blockName = parts[0];
+            let blockName = parts[0];
             const material = parts[1];
             const process = parts[2];
             const qty = parts[3];
             const sft = parts[4];
             const notes = parts.length >= 6 ? parts[5] : '';
+            
+            // Normalize block name: Remove hyphen before final letter (AVG-SG-40-B → AVG-SG-40B)
+            blockName = blockName.replace(/-([A-Z])$/, '$1');
 
             // Skip "NO RUNNING" rows or rows with dash material/process
             if (blockName.toUpperCase().includes('NO RUNNING') || 

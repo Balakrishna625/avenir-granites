@@ -425,25 +425,30 @@ export default function SalesAnalyticsPage() {
                       <tr>
                         <th className="px-3 py-2 text-left font-medium">#</th>
                         <th className="px-3 py-2 text-left font-medium">Material</th>
-                        <th className="px-3 py-2 text-right font-medium">Avg Price</th>
+                        <th className="px-3 py-2 text-right font-medium">Avg Price Without Bill</th>
+                        <th className="px-3 py-2 text-right font-medium">Avg Price With Bill</th>
                         <th className="px-3 py-2 text-right font-medium">Sq.Ft Sold</th>
                         <th className="px-3 py-2 text-right font-medium">Total</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {materialsByAvgPrice.map((item, index) => (
-                        <tr key={item.material} className="border-t hover:bg-gray-50">
-                          <td className="px-3 py-2">
-                            <div className="bg-green-100 text-green-700 font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs">
-                              {index + 1}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 font-medium">{item.material}</td>
-                          <td className="px-3 py-2 text-right font-bold text-green-700">₹{item.avgPrice.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right text-gray-600">{item.sqft.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right">₹{formatIndianNumber(item.revenue)}</td>
-                        </tr>
-                      ))}
+                      {materialsByAvgPrice.map((item, index) => {
+                        const priceWithoutBill = item.avgPrice - 7;
+                        return (
+                          <tr key={item.material} className="border-t hover:bg-gray-50">
+                            <td className="px-3 py-2">
+                              <div className="bg-green-100 text-green-700 font-bold w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                                {index + 1}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 font-medium">{item.material}</td>
+                            <td className="px-3 py-2 text-right font-bold text-blue-700">₹{priceWithoutBill.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right font-bold text-green-700">₹{item.avgPrice.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right text-gray-600">{item.sqft.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right">₹{formatIndianNumber(item.revenue)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
