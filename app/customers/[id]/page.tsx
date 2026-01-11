@@ -396,25 +396,6 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
             </div>
           </Card>
         </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Old Due Amount</p>
-                <p className="text-2xl font-bold text-gray-900">{fmt(customer.old_due_amount)}</p>
-              </div>
-              <TrendingDown className="w-8 h-8 text-red-500" />
-            </div>
-          </Card>
-          
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Receivables</p>
-                <p className="text-2xl font-bold text-red-600">{fmt(totalReceivables)}</p>
-              </div>
-              <DollarSign className="w-8 h-8 text-purple-500" />
-            </div>
-          </Card>
-        </div>
 
         {/* Tabs */}
         <div className="border-b border-gray-200">

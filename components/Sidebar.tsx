@@ -22,7 +22,8 @@ import {
   Zap,
   TrendingUp,
   ShoppingBag,
-  Star
+  Star,
+  Wallet
 } from 'lucide-react';
 
 interface MenuItem {
@@ -140,6 +141,16 @@ const menuItems: MenuItem[] = [
       {
         title: 'Expense Analytics',
         href: '/expenses/analytics',
+        icon: <TrendingUp className="w-4 h-4" />
+      },
+      {
+        title: 'Bank Accounts',
+        href: '/bank-accounts',
+        icon: <Wallet className="w-4 h-4" />
+      },
+      {
+        title: 'Bank Transfers',
+        href: '/bank-transfers-management',
         icon: <TrendingUp className="w-4 h-4" />
       }
     ]
