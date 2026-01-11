@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar, PlusCircle, Edit, Trash2, Save, X, Check, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Calendar, PlusCircle, Edit, Trash2, Save, X, Check, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
 import { formatDisplayDate } from "@/lib/date-utils";
 import { useMasking } from "@/contexts/MaskingContext";
+import * as xlsx from "xlsx-js-style";
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
@@ -36,6 +37,8 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rtgsSortOrder, setRtgsSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
   const [cashSortOrder, setCashSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
+  const [cashFromDate, setCashFromDate] = useState<string>('');
+  const [cashToDate, setCashToDate] = useState<string>('');
   const formRef = useRef<HTMLFormElement>(null);
   const [amountInput, setAmountInput] = useState<string>(''); // For formatted display
   const amountInputRef = useRef<HTMLInputElement>(null); // Hidden input for form submission
@@ -72,6 +75,97 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
       if (idbiRtgsAccount) {
         setSelectedAccountId(idbiRtgsAccount.id);
       }
+    }
+  };
+
+  // Export transactions to Excel
+  const handleExportToExcel = (mode: 'RTGS' | 'CASH') => {
+    try {
+      const transactionsToExport = mode === 'RTGS' ? rtgsTransactions : cashTransactions;
+      
+      if (transactionsToExport.length === 0) {
+        alert(`No ${mode} transactions to export`);
+        return;
+      }
+
+      // Prepare data for Excel with all fields
+      const excelData = transactionsToExport.map((t) => {
+        const customer = customers.find(c => c.id === t.customer_id);
+        const account = accounts.find(a => a.id === t.account_id);
+        
+        return {
+          'Date': formatDisplayDate(t.date),
+          'Customer': customer?.name || 'Unknown',
+          'Account': account?.name || 'Unknown',
+          'Amount (₹)': t.amount || 0,
+          'Note': t.note || '',
+          'Transaction ID': t.id
+        };
+      });
+
+      // Calculate totals
+      const totalAmount = transactionsToExport.reduce((sum, t) => sum + (t.amount || 0), 0);
+      
+      // Add summary row
+      excelData.push({
+        'Date': '',
+        'Customer': '',
+        'Account': 'TOTAL',
+        'Amount (₹)': totalAmount,
+        'Note': `${transactionsToExport.length} transactions`,
+        'Transaction ID': ''
+      });
+
+      // Create workbook and worksheet
+      const ws = xlsx.utils.json_to_sheet(excelData);
+      const wb = xlsx.utils.book_new();
+      
+      // Set column widths for better readability
+      ws['!cols'] = [
+        { wch: 12 },  // Date
+        { wch: 25 },  // Customer
+        { wch: 20 },  // Account
+        { wch: 15 },  // Amount
+        { wch: 30 },  // Note
+        { wch: 40 }   // Transaction ID
+      ];
+
+      // Style the header row
+      const range = xlsx.utils.decode_range(ws['!ref'] || 'A1');
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = xlsx.utils.encode_cell({ r: 0, c: col });
+        if (!ws[cellAddress]) continue;
+        ws[cellAddress].s = {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: mode === 'RTGS' ? "2563EB" : "16A34A" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      }
+
+      // Style the total row (last row)
+      const lastRow = range.e.r;
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = xlsx.utils.encode_cell({ r: lastRow, c: col });
+        if (!ws[cellAddress]) continue;
+        ws[cellAddress].s = {
+          font: { bold: true },
+          fill: { fgColor: { rgb: "F3F4F6" } }
+        };
+      }
+
+      xlsx.utils.book_append_sheet(wb, ws, `${mode} Transactions`);
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().split('T')[0];
+      const fileName = `${mode}-Transactions-${timestamp}.xlsx`;
+      
+      // Write file
+      xlsx.writeFile(wb, fileName);
+      
+      alert(`✅ Successfully exported ${transactionsToExport.length} ${mode} transactions to ${fileName}`);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert(`❌ Failed to export transactions. Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -154,7 +248,15 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
     .sort((a, b) => sortByDate(a, b, rtgsSortOrder));
   
   const cashTransactions = transactions
-    .filter(t => t.mode === 'CASH')
+    .filter(t => {
+      if (t.mode !== 'CASH') return false;
+      
+      // Apply date filters if set
+      if (cashFromDate && t.date < cashFromDate) return false;
+      if (cashToDate && t.date > cashToDate) return false;
+      
+      return true;
+    })
     .sort((a, b) => sortByDate(a, b, cashSortOrder));
 
   return (
@@ -268,20 +370,30 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                     ({rtgsTransactions.length} transactions)
                   </p>
                 </div>
-                <button
-                  onClick={() => setRtgsSortOrder(rtgsSortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="flex items-center gap-2 px-3 py-2 bg-white border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors"
-                  title={rtgsSortOrder === 'asc' ? 'Sort by newest first' : 'Sort by oldest first'}
-                >
-                  {rtgsSortOrder === 'asc' ? (
-                    <ArrowUp className="w-4 h-4 text-blue-600" />
-                  ) : (
-                    <ArrowDown className="w-4 h-4 text-blue-600" />
-                  )}
-                  <span className="text-sm font-medium text-blue-800">
-                    {rtgsSortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
-                  </span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleExportToExcel('RTGS')}
+                    className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Export RTGS transactions to Excel"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="text-sm font-medium">Export</span>
+                  </button>
+                  <button
+                    onClick={() => setRtgsSortOrder(rtgsSortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="flex items-center gap-2 px-3 py-2 bg-white border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors"
+                    title={rtgsSortOrder === 'asc' ? 'Sort by newest first' : 'Sort by oldest first'}
+                  >
+                    {rtgsSortOrder === 'asc' ? (
+                      <ArrowUp className="w-4 h-4 text-blue-600" />
+                    ) : (
+                      <ArrowDown className="w-4 h-4 text-blue-600" />
+                    )}
+                    <span className="text-sm font-medium text-blue-800">
+                      {rtgsSortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
             <div className="overflow-x-auto max-h-96 overflow-y-auto">
@@ -409,28 +521,77 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
           {/* Cash Transactions */}
           <div>
             <div className="p-4 bg-green-50 border-b">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-green-800">Cash Transactions</h3>
-                  <p className="text-sm text-green-600">
-                    Total: {fmt(cashTransactions.reduce((sum, t) => sum + (t.amount || 0), 0))} 
-                    ({cashTransactions.length} transactions)
-                  </p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-green-800">Cash Transactions</h3>
+                    <p className="text-sm text-green-600">
+                      Total: {fmt(cashTransactions.reduce((sum, t) => sum + (t.amount || 0), 0))} 
+                      ({cashTransactions.length} transactions)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleExportToExcel('CASH')}
+                      className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      title="Export cash transactions to Excel"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span className="text-sm font-medium">Export Excel</span>
+                    </button>
+                    <button
+                      onClick={() => setCashSortOrder(cashSortOrder === 'asc' ? 'desc' : 'asc')}
+                      className="flex items-center gap-2 px-3 py-2 bg-white border border-green-300 rounded-lg hover:bg-green-100 transition-colors"
+                      title={cashSortOrder === 'asc' ? 'Sort by newest first' : 'Sort by oldest first'}
+                    >
+                      {cashSortOrder === 'asc' ? (
+                        <ArrowUp className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <ArrowDown className="w-4 h-4 text-green-600" />
+                      )}
+                      <span className="text-sm font-medium text-green-800">
+                        {cashSortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setCashSortOrder(cashSortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="flex items-center gap-2 px-3 py-2 bg-white border border-green-300 rounded-lg hover:bg-green-100 transition-colors"
-                  title={cashSortOrder === 'asc' ? 'Sort by newest first' : 'Sort by oldest first'}
-                >
-                  {cashSortOrder === 'asc' ? (
-                    <ArrowUp className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <ArrowDown className="w-4 h-4 text-green-600" />
+                
+                {/* Date Filters */}
+                <div className="flex items-center gap-3 pt-2 border-t border-green-200">
+                  <span className="text-sm font-medium text-green-800">Filter by Date:</span>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-green-700">From:</label>
+                    <Input
+                      type="date"
+                      value={cashFromDate}
+                      onChange={(e) => setCashFromDate(e.target.value)}
+                      className="w-36 h-8 text-sm border-green-300 focus:ring-green-500"
+                      placeholder="From date"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-green-700">To:</label>
+                    <Input
+                      type="date"
+                      value={cashToDate}
+                      onChange={(e) => setCashToDate(e.target.value)}
+                      className="w-36 h-8 text-sm border-green-300 focus:ring-green-500"
+                      placeholder="To date"
+                    />
+                  </div>
+                  {(cashFromDate || cashToDate) && (
+                    <button
+                      onClick={() => {
+                        setCashFromDate('');
+                        setCashToDate('');
+                      }}
+                      className="text-xs px-3 py-1 bg-white border border-green-300 rounded hover:bg-green-100 text-green-700 transition-colors"
+                      title="Clear date filters"
+                    >
+                      Clear Filters
+                    </button>
                   )}
-                  <span className="text-sm font-medium text-green-800">
-                    {cashSortOrder === 'asc' ? 'Oldest First' : 'Newest First'}
-                  </span>
-                </button>
+                </div>
               </div>
             </div>
             <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
