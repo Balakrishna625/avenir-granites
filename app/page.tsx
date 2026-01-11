@@ -41,6 +41,26 @@ const fmt = (n: number) => INR.format(n || 0);
 
 function __safeName(s: string) { return (s || "all").replace(/[^a-z0-9]+/gi, "_").toLowerCase(); }
 
+// Helper function to detect "Galaxy" with fuzzy matching for typos
+function isGalaxyRelated(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const normalized = text.toLowerCase().trim();
+  
+  // Exact and common variations
+  const patterns = [
+    'galaxy',
+    'galxy',     // missing 'a'
+    'galacy',    // switched letters
+    'galexy',    // 'e' instead of 'a'
+    'galaxi',    // missing 'y'
+    'glaxy',     // missing 'a'
+    'galaxys',   // plural
+    'galxay',    // switched letters
+  ];
+  
+  return patterns.some(pattern => normalized.includes(pattern));
+}
+
 export default function Page() {
   const { maskName, isUnlocked, attemptUnlock, lock } = useMasking();
   const [customers, setCustomers] = useState<any[]>([]);
@@ -65,6 +85,7 @@ export default function Page() {
   const [waivedNotesInput, setWaivedNotesInput] = useState("");
   const [showSettlementModal, setShowSettlementModal] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [excludeGalaxy, setExcludeGalaxy] = useState(false);
   const { showToast } = useToast();
 
   const handleUnlockToggle = () => {
@@ -136,12 +157,25 @@ export default function Page() {
     }
   }, [customerId, dateFrom, dateTo, showAllHistory, selectedYear, selectedMonth]);
 
+  // Check if current customer has any Galaxy-related consignments
+  const hasGalaxyConsignments = useMemo(() => {
+    if (customerId === "all") return false;
+    return consignments.some(c => isGalaxyRelated(c.remarks));
+  }, [consignments, customerId]);
+
+  // Filter consignments based on Galaxy exclusion
+  const filteredConsignments = useMemo(() => {
+    if (!excludeGalaxy || customerId === "all") return consignments;
+    return consignments.filter(c => !isGalaxyRelated(c.remarks));
+  }, [consignments, excludeGalaxy, customerId]);
+
   const kpi = useMemo(() => {
-    const expectedTotal = consignments.reduce((s, r) => s + (r.total || 0), 0);
-    const expectedRTGS = consignments.reduce((s, r) => s + (r.rtgs_expected || 0), 0);
-    const expectedCASH = consignments.reduce((s, r) => s + (r.cash_expected || 0), 0);
+    const expectedTotal = filteredConsignments.reduce((s, r) => s + (r.total || 0), 0);
+    const expectedRTGS = filteredConsignments.reduce((s, r) => s + (r.rtgs_expected || 0), 0);
+    const expectedCASH = filteredConsignments.reduce((s, r) => s + (r.cash_expected || 0), 0);
     const receivedRTGS = txns.filter((t) => t.mode === "RTGS").reduce((s, t) => s + (t.amount || 0), 0);
     const receivedCASH = txns.filter((t) => t.mode === "CASH").reduce((s, t) => s + (t.amount || 0), 0);
+    const receivedTotal = receivedRTGS + receivedCASH;
     
     // Calculate old due amount and waived amount for the selected customer
     let oldDueAmount = 0;
@@ -157,18 +191,33 @@ export default function Page() {
       waivedAmount = 0; // Can't calculate for "all" without loading all transactions
     }
     
+    // Calculate effective Galaxy payments when Galaxy is excluded
+    let effectiveGalaxyPayments = 0;
+    let adjustedTotalReceivables = expectedTotal + oldDueAmount - receivedTotal - waivedAmount;
+    
+    if (excludeGalaxy && customerId !== "all") {
+      // When Galaxy is excluded, check if payments exceed non-Galaxy expected amount
+      const excessPayment = receivedTotal - expectedTotal;
+      if (excessPayment > 0) {
+        effectiveGalaxyPayments = excessPayment;
+        // Adjust receivables to not go negative
+        adjustedTotalReceivables = 0;
+      }
+    }
+    
     return { 
       expectedTotal, 
       expectedRTGS, 
       expectedCASH, 
       receivedRTGS, 
       receivedCASH, 
-      receivedTotal: receivedRTGS + receivedCASH,
+      receivedTotal,
       oldDueAmount,
       waivedAmount,
-      totalReceivables: expectedTotal + oldDueAmount - (receivedRTGS + receivedCASH) - waivedAmount
+      totalReceivables: adjustedTotalReceivables,
+      effectiveGalaxyPayments
     };
-  }, [consignments, txns, customers, customerId, waivedTransactions]);
+  }, [filteredConsignments, txns, customers, customerId, waivedTransactions, excludeGalaxy]);
 
   // Calculate account-wise totals
   const accountSummary = useMemo(() => {
@@ -833,6 +882,15 @@ export default function Page() {
             <div className="text-xs text-red-500 mt-1">Including Previous Due</div>
           </div>
         )}
+        
+        {/* Galaxy Payments Tile - Only show when Galaxy excluded and there's excess payment */}
+        {excludeGalaxy && kpi.effectiveGalaxyPayments > 0 && (
+          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 border-2 border-purple-200 shadow-sm">
+            <div className="text-xs text-purple-600 uppercase tracking-wide font-semibold">Galaxy Payments</div>
+            <div className="text-2xl font-bold text-purple-600">{fmt(kpi.effectiveGalaxyPayments)}</div>
+            <div className="text-xs text-purple-500 mt-1">Effective Amount Received</div>
+          </div>
+        )}
       </div>
 
       {/* Previous Due Section - Compact and subtle for individual customers */}
@@ -1005,9 +1063,27 @@ export default function Page() {
         <CustomerAnalytics dateFrom={dateFrom} dateTo={dateTo} />
       ) : (
         <>
+          {/* Galaxy Filter - Show only when customer is selected and has galaxy consignments */}
+          {customerId !== "all" && hasGalaxyConsignments && (
+            <div className="mb-4 flex justify-end">
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="excludeGalaxy"
+                  checked={excludeGalaxy}
+                  onChange={(e) => setExcludeGalaxy(e.target.checked)}
+                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                />
+                <label htmlFor="excludeGalaxy" className="text-sm font-medium text-green-800 cursor-pointer">
+                  Exclude Galaxy
+                </label>
+              </div>
+            </div>
+          )}
+          
           {/* Consignments Table */}
           <ConsignmentsTable 
-            consignments={consignments}
+            consignments={filteredConsignments}
             onAddConsignment={customerId !== "all" ? handleAddConsignment : undefined}
             onEditConsignment={editConsignment}
             onDeleteConsignment={deleteConsignment}

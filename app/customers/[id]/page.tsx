@@ -23,6 +23,26 @@ import Link from 'next/link';
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const fmt = (n: number) => INR.format(n || 0);
 
+// Helper function to detect "Galaxy" with fuzzy matching for typos
+function isGalaxyRelated(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const normalized = text.toLowerCase().trim();
+  
+  // Exact and common variations
+  const patterns = [
+    'galaxy',
+    'galxy',     // missing 'a'
+    'galacy',    // switched letters
+    'galexy',    // 'e' instead of 'a'
+    'galaxi',    // missing 'y'
+    'glaxy',     // missing 'a'
+    'galaxys',   // plural
+    'galxay',    // switched letters
+  ];
+  
+  return patterns.some(pattern => normalized.includes(pattern));
+}
+
 interface CustomerDetails {
   id: string;
   name: string;
@@ -61,6 +81,9 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   // Month selector state
   const [selectedYear, setSelectedYear] = useState<number | "all">("all");
   const [selectedMonth, setSelectedMonth] = useState<number | "all">("all");
+  
+  // Galaxy filter state
+  const [excludeGalaxy, setExcludeGalaxy] = useState(false);
 
   useEffect(() => {
     loadCustomerData();
@@ -143,6 +166,46 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     if (!customer || !currentPeriodSummary) return 0;
     return (currentPeriodSummary.total_pending || 0) + customer.old_due_amount - customer.waived_amount;
   }, [customer, currentPeriodSummary]);
+
+  // Check if customer has any Galaxy-related consignments
+  const hasGalaxyConsignments = useMemo(() => {
+    return consignments.some(c => isGalaxyRelated(c.remarks));
+  }, [consignments]);
+
+  // Filter consignments based on Galaxy exclusion
+  const filteredConsignments = useMemo(() => {
+    if (!excludeGalaxy) return consignments;
+    return consignments.filter(c => !isGalaxyRelated(c.remarks));
+  }, [consignments, excludeGalaxy]);
+
+  // Recalculate summary based on filtered consignments
+  const filteredSummary = useMemo(() => {
+    if (!excludeGalaxy || !currentPeriodSummary) return currentPeriodSummary;
+    
+    const filteredTotal = filteredConsignments.reduce((sum, c) => sum + (c.total || 0), 0);
+    const filteredRtgs = filteredConsignments.reduce((sum, c) => sum + (c.rtgs_expected || 0), 0);
+    const filteredCash = filteredConsignments.reduce((sum, c) => sum + (c.cash_expected || 0), 0);
+    
+    return {
+      ...currentPeriodSummary,
+      total_invoiced: filteredTotal,
+      consignment_count: filteredConsignments.length,
+      // Keep total_received and total_pending from original as transactions are not filtered
+    };
+  }, [excludeGalaxy, currentPeriodSummary, filteredConsignments]);
+
+  // Recalculate total receivables with filtered data
+  const filteredTotalReceivables = useMemo(() => {
+    if (!customer || !filteredSummary) return totalReceivables;
+    if (!excludeGalaxy) return totalReceivables;
+    
+    // When galaxy is excluded, recalculate based on filtered invoiced amount
+    const originalInvoiced = currentPeriodSummary?.total_invoiced || 0;
+    const filteredInvoiced = filteredSummary.total_invoiced;
+    const difference = originalInvoiced - filteredInvoiced;
+    
+    return totalReceivables - difference;
+  }, [customer, filteredSummary, excludeGalaxy, totalReceivables, currentPeriodSummary]);
 
   if (loading || !customer) {
     return (
@@ -237,6 +300,22 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                     : `Showing all of ${selectedYear}`}
                 </span>
               )}
+              
+              {/* Galaxy Filter - Only show if customer has galaxy consignments */}
+              {hasGalaxyConsignments && (
+                <div className="ml-auto flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="excludeGalaxy"
+                    checked={excludeGalaxy}
+                    onChange={(e) => setExcludeGalaxy(e.target.checked)}
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <label htmlFor="excludeGalaxy" className="text-sm font-medium text-green-800 cursor-pointer">
+                    Exclude Galaxy
+                  </label>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -271,7 +350,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Invoiced</p>
-                <p className="text-2xl font-bold text-gray-900">{fmt(currentPeriodSummary?.total_invoiced || 0)}</p>
+                <p className="text-2xl font-bold text-gray-900">{fmt(filteredSummary?.total_invoiced || 0)}</p>
               </div>
               <FileText className="w-8 h-8 text-blue-500" />
             </div>
@@ -281,7 +360,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Received</p>
-                <p className="text-2xl font-bold text-gray-900">{fmt(currentPeriodSummary?.total_received || 0)}</p>
+                <p className="text-2xl font-bold text-gray-900">{fmt(filteredSummary?.total_received || 0)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
             </div>
@@ -291,13 +370,32 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Current Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{fmt(currentPeriodSummary?.total_pending || 0)}</p>
+                <p className="text-2xl font-bold text-gray-900">{fmt(filteredSummary?.total_pending || 0)}</p>
               </div>
               <AlertCircle className="w-8 h-8 text-orange-500" />
             </div>
           </Card>
 
           <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Old Due Amount</p>
+                <p className="text-2xl font-bold text-gray-900">{fmt(customer.old_due_amount)}</p>
+              </div>
+              <TrendingDown className="w-8 h-8 text-red-500" />
+            </div>
+          </Card>
+          
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Receivables</p>
+                <p className="text-2xl font-bold text-red-600">{fmt(filteredTotalReceivables)}</p>
+              </div>
+              <DollarSign className="w-8 h-8 text-purple-500" />
+            </div>
+          </Card>
+        </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Old Due Amount</p>
@@ -358,21 +456,24 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
               <Card className="p-4">
                 <div className="text-center">
                   <p className="text-sm text-gray-600 mb-1">Consignments</p>
-                  <p className="text-3xl font-bold text-blue-600">{currentPeriodSummary?.consignment_count || 0}</p>
+                  <p className="text-3xl font-bold text-blue-600">{filteredSummary?.consignment_count || 0}</p>
+                  {excludeGalaxy && hasGalaxyConsignments && (
+                    <p className="text-xs text-green-600 mt-1">(Galaxy excluded)</p>
+                  )}
                 </div>
               </Card>
               <Card className="p-4">
                 <div className="text-center">
                   <p className="text-sm text-gray-600 mb-1">Transactions</p>
-                  <p className="text-3xl font-bold text-green-600">{currentPeriodSummary?.transaction_count || 0}</p>
+                  <p className="text-3xl font-bold text-green-600">{filteredSummary?.transaction_count || 0}</p>
                 </div>
               </Card>
               <Card className="p-4">
                 <div className="text-center">
                   <p className="text-sm text-gray-600 mb-1">Last Invoice</p>
                   <p className="text-sm font-semibold text-gray-900">
-                    {currentPeriodSummary?.last_invoice_date 
-                      ? formatDisplayDate(currentPeriodSummary.last_invoice_date)
+                    {filteredSummary?.last_invoice_date 
+                      ? formatDisplayDate(filteredSummary.last_invoice_date)
                       : 'N/A'}
                   </p>
                 </div>
@@ -381,8 +482,8 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                 <div className="text-center">
                   <p className="text-sm text-gray-600 mb-1">Last Payment</p>
                   <p className="text-sm font-semibold text-gray-900">
-                    {currentPeriodSummary?.last_payment_date 
-                      ? formatDisplayDate(currentPeriodSummary.last_payment_date)
+                    {filteredSummary?.last_payment_date 
+                      ? formatDisplayDate(filteredSummary.last_payment_date)
                       : 'N/A'}
                   </p>
                 </div>
@@ -395,7 +496,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                 <h3 className="text-lg font-semibold text-gray-900">Consignments</h3>
               </div>
               <CardContent className="p-6">
-                {consignments.length > 0 ? (
+                {filteredConsignments.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="border-b">
@@ -410,7 +511,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {consignments.map((c) => (
+                        {filteredConsignments.map((c) => (
                           <tr key={c.id} className="hover:bg-gray-50">
                             <td className="py-3">{formatDisplayDate(c.date)}</td>
                             <td className="py-3">{c.block_no}</td>
@@ -425,7 +526,11 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                     </table>
                   </div>
                 ) : (
-                  <p className="text-center text-gray-500 py-8">No consignments in current period</p>
+                  <p className="text-center text-gray-500 py-8">
+                    {excludeGalaxy && hasGalaxyConsignments 
+                      ? 'All consignments are Galaxy-related. Uncheck "Exclude Galaxy" to view them.'
+                      : 'No consignments in current period'}
+                  </p>
                 )}
               </CardContent>
             </Card>
