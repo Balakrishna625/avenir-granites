@@ -124,6 +124,32 @@ export default function BankAccountsPage() {
 
   // Calculate account summaries
   const accountSummaries = useMemo(() => {
+    // Define preferred order for bank accounts
+    const preferredOrder = [
+      'IDBI RTGS',
+      'RAMYA',
+      'RAJESWARI',
+      'ANJIBABU',
+      'ARUNA',
+      'PRUDHVI',
+      'DINESH'
+    ];
+    
+    // Helper function to get sort priority
+    const getSortPriority = (accountName: string): number => {
+      if (!accountName) return 999; // Handle undefined/null account names
+      const normalizedName = accountName.toLowerCase();
+      const index = preferredOrder.findIndex(preferred => 
+        normalizedName.includes(preferred.toLowerCase())
+      );
+      console.log(`Account: "${accountName}" -> Normalized: "${normalizedName}" -> Priority: ${index === -1 ? 999 : index}`);
+      return index === -1 ? 999 : index; // Unmatched accounts go to end
+    };
+    
+    if (!bankAccounts || !Array.isArray(transactions) || !Array.isArray(expenses) || !Array.isArray(bankTransfers) || !Array.isArray(settlements)) {
+      return [];
+    }
+    
     return bankAccounts
       .map(account => {
         // Credits: Customer payments to this account
@@ -183,7 +209,15 @@ export default function BankAccountsPage() {
       })
       .filter(summary => summary.hasActivity) // Only show accounts with transactions
       .sort((a, b) => {
-        // Sort by total activity (credits + debits count) descending
+        // Sort by preferred order
+        const aPriority = getSortPriority(a.account.name);
+        const bPriority = getSortPriority(b.account.name);
+        
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
+        }
+        
+        // If same priority (or both unmatched), sort by activity count
         const aActivity = a.credits.length + a.debits.length;
         const bActivity = b.credits.length + b.debits.length;
         return bActivity - aActivity;

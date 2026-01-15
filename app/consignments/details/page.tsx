@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X, Save, Package, DollarSign, TrendingUp, Blocks, Edit2, Trash2, BarChart3, PackagePlus } from 'lucide-react'
+import { Plus, X, Save, Package, DollarSign, TrendingUp, Blocks, Edit2, Trash2, BarChart3, PackagePlus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -890,6 +890,15 @@ export default function ConsignmentDetailsPage() {
                             title="View Analytics"
                           >
                             <BarChart3 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => router.push(`/consignments/polish-analytics?id=${consignment.id}`)}
+                            variant="outline"
+                            size="sm"
+                            className="text-amber-600 hover:text-amber-800"
+                            title="Polish Analytics"
+                          >
+                            <Sparkles className="w-4 h-4" />
                           </Button>
                           <Button
                             onClick={() => handleEdit(consignment)}
