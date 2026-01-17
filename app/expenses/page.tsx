@@ -149,11 +149,13 @@ export default function ExpensesPage() {
     date: string;
     amount: string;
     account_id: string;
+    category_id: string;
     notes: string;
   }>({
     date: '',
     amount: '',
     account_id: '',
+    category_id: '',
     notes: ''
   });
 
@@ -471,6 +473,7 @@ export default function ExpensesPage() {
       date: expense.date,
       amount: expense.amount.toString(),
       account_id: expense.account_id,
+      category_id: expense.category_id,
       notes: expense.notes || ''
     });
   }
@@ -481,24 +484,16 @@ export default function ExpensesPage() {
       date: '',
       amount: '',
       account_id: '',
+      category_id: '',
       notes: ''
     });
   }
 
   async function handleSaveEdit(expenseId: string) {
     try {
-      // Get category_id from the existing expense
-      const categoriesRes = await fetch("/api/expense-categories");
-      const categories = await categoriesRes.json();
-      
-      let categoryId;
-      if (categories && categories.length > 0) {
-        categoryId = categories[0].id;
-      }
-
       const updatedExpense = {
         date: editFormData.date,
-        category_id: categoryId,
+        category_id: editFormData.category_id,
         amount: parseFloat(editFormData.amount),
         tax_amount: 0,
         total_amount: parseFloat(editFormData.amount),
@@ -1142,6 +1137,17 @@ export default function ExpensesPage() {
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
+                            {isEditing ? (
+                              <select
+                                value={editFormData.category_id}
+                                onChange={(e) => setEditFormData({...editFormData, category_id: e.target.value})}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                              >
+                                {expenseCategories.map(cat => (
+                                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                              </select>
+                            ) : (
                             <div className="flex items-center gap-2">
                               {expense.expense_categories?.color && (
                                 <div 
@@ -1153,6 +1159,7 @@ export default function ExpensesPage() {
                                 {expense.expense_categories?.name || 'Uncategorized'}
                               </span>
                             </div>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {isEditing ? (
