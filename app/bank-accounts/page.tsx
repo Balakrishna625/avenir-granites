@@ -13,7 +13,11 @@ import {
   TrendingDown,
   DollarSign,
   ArrowRightLeft,
-  Wallet
+  Wallet,
+  Edit,
+  X,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -69,6 +73,15 @@ interface Settlement {
   };
 }
 
+interface Adjustment {
+  id: string;
+  bank_account_id: string;
+  adjustment_amount: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function BankAccountsPage() {
   const { showToast } = useToast();
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -76,7 +89,14 @@ export default function BankAccountsPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [bankTransfers, setBankTransfers] = useState<BankTransfer[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [selectedAccountForAdjustment, setSelectedAccountForAdjustment] = useState<BankAccount | null>(null);
+  const [adjustmentAmount, setAdjustmentAmount] = useState("");
+  const [adjustmentNotes, setAdjustmentNotes] = useState("");
+  const [hiddenAccounts, setHiddenAccounts] = useState<Set<string>>(new Set());
+  const [showHiddenAccounts, setShowHiddenAccounts] = useState(false);
   
   // Date filters
   const [fromDate, setFromDate] = useState('2025-09-01');
@@ -87,26 +107,33 @@ export default function BankAccountsPage() {
 
   useEffect(() => {
     loadData();
+    // Load hidden accounts from localStorage
+    const stored = localStorage.getItem('hiddenBankAccounts');
+    if (stored) {
+      setHiddenAccounts(new Set(JSON.parse(stored)));
+    }
   }, []);
 
   async function loadData() {
     try {
       setLoading(true);
       
-      const [accountsRes, transactionsRes, expensesRes, transfersRes, settlementsRes] = await Promise.all([
+      const [accountsRes, transactionsRes, expensesRes, transfersRes, settlementsRes, adjustmentsRes] = await Promise.all([
         fetch('/api/bank-accounts'),
         fetch(`/api/transactions?from=${fromDate}&to=${toDate}`),
         fetch(`/api/expenses?from=${fromDate}&to=${toDate}`),
         fetch(`/api/bank-transfers?from=${fromDate}&to=${toDate}`),
-        fetch(`/api/settlements?from=${fromDate}&to=${toDate}`)
+        fetch(`/api/settlements?from=${fromDate}&to=${toDate}`),
+        fetch('/api/bank-accounts/adjustments'),
       ]);
 
-      const [accountsData, transactionsData, expensesData, transfersData, settlementsData] = await Promise.all([
+      const [accountsData, transactionsData, expensesData, transfersData, settlementsData, adjustmentsData] = await Promise.all([
         accountsRes.json(),
         transactionsRes.json(),
         expensesRes.json(),
         transfersRes.json(),
-        settlementsRes.json()
+        settlementsRes.json(),
+        adjustmentsRes.json()
       ]);
 
       setBankAccounts(accountsData);
@@ -114,6 +141,7 @@ export default function BankAccountsPage() {
       setExpenses(expensesData);
       setBankTransfers(transfersData);
       setSettlements(settlementsData);
+      setAdjustments(adjustmentsData);
     } catch (error) {
       console.error('Failed to load data:', error);
       showToast('error', 'Failed to load bank accounts data');
@@ -195,7 +223,10 @@ export default function BankAccountsPage() {
       const totalDebits = expenseDebits.reduce((sum, e) => sum + (e.amount || 0), 0) + 
                           transferDebits.reduce((sum, t) => sum + (t.amount || 0), 0);
 
-        const effectiveBalance = totalCredits - totalDebits;
+        // Apply adjustment if exists for this account
+        const accountAdjustment = adjustments.find(adj => adj.bank_account_id === account.id);
+        const adjustmentAmount = accountAdjustment?.adjustment_amount || 0;
+        const effectiveBalance = totalCredits - totalDebits + adjustmentAmount;
 
         return {
           account,
@@ -204,6 +235,8 @@ export default function BankAccountsPage() {
           totalCredits,
           totalDebits,
           effectiveBalance,
+          adjustmentAmount,
+          hasAdjustment: adjustmentAmount !== 0,
           hasActivity: credits.length > 0 || debits.length > 0
         };
       })
@@ -222,7 +255,60 @@ export default function BankAccountsPage() {
         const bActivity = b.credits.length + b.debits.length;
         return bActivity - aActivity;
       });
-  }, [bankAccounts, transactions, expenses, bankTransfers, settlements]);
+  }, [bankAccounts, transactions, expenses, bankTransfers, settlements, adjustments]);
+
+  const toggleHideAccount = (accountId: string) => {
+    setHiddenAccounts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(accountId)) {
+        newSet.delete(accountId);
+      } else {
+        newSet.add(accountId);
+      }
+      localStorage.setItem('hiddenBankAccounts', JSON.stringify([...newSet]));
+      return newSet;
+    });
+  };
+
+  const openAdjustmentModal = (account: BankAccount) => {
+    setSelectedAccountForAdjustment(account);
+    const currentAdjustment = adjustments.find(adj => adj.bank_account_id === account.id);
+    setAdjustmentAmount(currentAdjustment ? String(currentAdjustment.adjustment_amount) : "0");
+    setAdjustmentNotes(currentAdjustment?.notes || "");
+    setShowAdjustmentModal(true);
+  };
+
+  const closeAdjustmentModal = () => {
+    setShowAdjustmentModal(false);
+    setSelectedAccountForAdjustment(null);
+    setAdjustmentAmount("");
+    setAdjustmentNotes("");
+  };
+
+  const handleSaveAdjustment = async () => {
+    if (!selectedAccountForAdjustment) return;
+
+    try {
+      const response = await fetch('/api/bank-accounts/adjustments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bank_account_id: selectedAccountForAdjustment.id,
+          adjustment_amount: parseFloat(adjustmentAmount) || 0,
+          notes: adjustmentNotes
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to save adjustment');
+
+      showToast('success', 'Adjustment saved successfully');
+      closeAdjustmentModal();
+      await loadData();
+    } catch (error) {
+      console.error('Failed to save adjustment:', error);
+      showToast('error', 'Failed to save adjustment');
+    }
+  };
 
   if (loading) {
     return (
@@ -249,6 +335,16 @@ export default function BankAccountsPage() {
             </h1>
             <p className="text-gray-600 mt-1">Track credits, debits, and balances for each bank account</p>
           </div>
+          {hiddenAccounts.size > 0 && (
+            <Button
+              onClick={() => setShowHiddenAccounts(!showHiddenAccounts)}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              {showHiddenAccounts ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showHiddenAccounts ? 'Hide' : 'Show'} Hidden Accounts ({hiddenAccounts.size})
+            </Button>
+          )}
         </div>
 
         {/* Date Filters */}
@@ -283,7 +379,9 @@ export default function BankAccountsPage() {
 
         {/* Bank Account Cards */}
         <div className="space-y-6">
-          {accountSummaries.map(({ account, credits, debits, totalCredits, totalDebits, effectiveBalance }) => (
+          {accountSummaries
+            .filter(({ account }) => showHiddenAccounts || !hiddenAccounts.has(account.id))
+            .map(({ account, credits, debits, totalCredits, totalDebits, effectiveBalance, adjustmentAmount, hasAdjustment }) => (
             <Card key={account.id} className="overflow-hidden">
               {/* Account Header */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200 p-6">
@@ -298,10 +396,38 @@ export default function BankAccountsPage() {
                     </p>
                   </div>
                   <div className="text-right">
+                    <div className="flex items-center justify-end gap-2 mb-2">
+                      <Button
+                        onClick={() => toggleHideAccount(account.id)}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1"
+                      >
+                        {hiddenAccounts.has(account.id) ? (
+                          <><Eye className="w-3 h-3" />Unhide</>
+                        ) : (
+                          <><EyeOff className="w-3 h-3" />Hide</>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => openAdjustmentModal(account)}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1"
+                      >
+                        <Edit className="w-3 h-3" />
+                        Adjust
+                      </Button>
+                    </div>
                     <p className="text-sm text-gray-600">Effective Balance</p>
                     <p className={`text-3xl font-bold ${effectiveBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {effectiveBalance >= 0 ? '+' : ''}{fmt(effectiveBalance)}
                     </p>
+                    {hasAdjustment && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        (Adjusted: {adjustmentAmount >= 0 ? '+' : ''}{fmt(adjustmentAmount)})
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -434,6 +560,80 @@ export default function BankAccountsPage() {
           </Card>
         )}
       </div>
+
+      {/* Adjustment Modal */}
+      {showAdjustmentModal && selectedAccountForAdjustment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Adjust Balance</h3>
+              <button
+                onClick={closeAdjustmentModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Account
+                </label>
+                <Input
+                  value={selectedAccountForAdjustment.name}
+                  disabled
+                  className="bg-gray-50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Adjustment Amount (₹)
+                </label>
+                <Input
+                  type="number"
+                  value={adjustmentAmount}
+                  onChange={(e) => setAdjustmentAmount(e.target.value)}
+                  placeholder="Enter adjustment amount"
+                  className="text-lg"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Positive to add, negative to subtract from balance
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes (optional)
+                </label>
+                <Input
+                  value={adjustmentNotes}
+                  onChange={(e) => setAdjustmentNotes(e.target.value)}
+                  placeholder="Reason for adjustment"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  onClick={handleSaveAdjustment}
+                  variant="default"
+                  className="flex-1"
+                >
+                  Save Adjustment
+                </Button>
+                <Button
+                  onClick={closeAdjustmentModal}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
