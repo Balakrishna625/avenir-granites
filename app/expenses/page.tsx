@@ -44,6 +44,7 @@ interface Expense {
   id: string;
   date: string;
   account_id: string;
+  category_id: string;
   amount: number;
   notes?: string;
   description?: string;
