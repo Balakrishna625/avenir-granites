@@ -516,51 +516,106 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
               </CardContent>
             </Card>
 
-            {/* Transactions Table */}
-            <Card>
-              <div className="border-b px-6 py-4">
-                <h3 className="text-lg font-semibold text-gray-900">Transactions</h3>
-              </div>
-              <CardContent className="p-6">
-                {transactions.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="border-b">
-                        <tr className="text-left">
-                          <th className="pb-3 font-semibold text-gray-700">Date</th>
-                          <th className="pb-3 font-semibold text-gray-700">Mode</th>
-                          <th className="pb-3 font-semibold text-gray-700">Bank Account</th>
-                          <th className="pb-3 font-semibold text-gray-700 text-right">Amount</th>
-                          <th className="pb-3 font-semibold text-gray-700">Reference</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {transactions.map((t) => {
-                          const account = accounts.find(a => a.id === t.bank_account_id);
-                          return (
-                            <tr key={t.id} className="hover:bg-gray-50">
-                              <td className="py-3">{formatDisplayDate(t.date)}</td>
-                              <td className="py-3">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  t.mode === 'RTGS' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
-                                }`}>
-                                  {t.mode}
-                                </span>
-                              </td>
-                              <td className="py-3">{account?.name || 'Unknown'}</td>
-                              <td className="py-3 text-right font-semibold text-green-600">{fmt(t.amount)}</td>
-                              <td className="py-3 text-gray-600">{t.reference_number || '-'}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+            {/* Transactions - Split into RTGS and Cash sections */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* RTGS Transactions */}
+              <Card className="border-2 border-blue-200">
+                <div className="bg-blue-50 border-b border-blue-200 px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-blue-900">RTGS Transactions</h3>
+                    <div className="text-right">
+                      <p className="text-xs text-blue-600 font-medium">Total: {fmt(
+                        transactions.filter(t => t.mode === 'RTGS').reduce((sum, t) => sum + (t.amount || 0), 0)
+                      )}</p>
+                      <p className="text-xs text-blue-500">({transactions.filter(t => t.mode === 'RTGS').length} transactions)</p>
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-center text-gray-500 py-8">No transactions in current period</p>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+                <CardContent className="p-6">
+                  {transactions.filter(t => t.mode === 'RTGS').length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-blue-100">
+                          <tr className="text-left">
+                            <th className="pb-3 font-semibold text-gray-700">Date</th>
+                            <th className="pb-3 font-semibold text-gray-700">Account</th>
+                            <th className="pb-3 font-semibold text-gray-700 text-right">Amount (₹)</th>
+                            <th className="pb-3 font-semibold text-gray-700">Note</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {transactions
+                            .filter(t => t.mode === 'RTGS')
+                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                            .map((t) => {
+                              const account = accounts.find(a => a.id === t.bank_account_id);
+                              return (
+                                <tr key={t.id} className="hover:bg-blue-50">
+                                  <td className="py-3 text-gray-900">{formatDisplayDate(t.date)}</td>
+                                  <td className="py-3 text-gray-700">{account?.name || 'Unknown'}</td>
+                                  <td className="py-3 text-right font-bold text-blue-600">{fmt(t.amount)}</td>
+                                  <td className="py-3 text-gray-600 text-sm">{t.reference_number || '-'}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-center text-gray-400 py-8">No RTGS transactions</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Cash Transactions */}
+              <Card className="border-2 border-green-200">
+                <div className="bg-green-50 border-b border-green-200 px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-green-900">Cash Transactions</h3>
+                    <div className="text-right">
+                      <p className="text-xs text-green-600 font-medium">Total: {fmt(
+                        transactions.filter(t => t.mode === 'Cash').reduce((sum, t) => sum + (t.amount || 0), 0)
+                      )}</p>
+                      <p className="text-xs text-green-500">({transactions.filter(t => t.mode === 'Cash').length} transactions)</p>
+                    </div>
+                  </div>
+                </div>
+                <CardContent className="p-6">
+                  {transactions.filter(t => t.mode === 'Cash').length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-green-100">
+                          <tr className="text-left">
+                            <th className="pb-3 font-semibold text-gray-700">Date</th>
+                            <th className="pb-3 font-semibold text-gray-700">Account</th>
+                            <th className="pb-3 font-semibold text-gray-700 text-right">Amount (₹)</th>
+                            <th className="pb-3 font-semibold text-gray-700">Note</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {transactions
+                            .filter(t => t.mode === 'Cash')
+                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                            .map((t) => {
+                              const account = accounts.find(a => a.id === t.bank_account_id);
+                              return (
+                                <tr key={t.id} className="hover:bg-green-50">
+                                  <td className="py-3 text-gray-900">{formatDisplayDate(t.date)}</td>
+                                  <td className="py-3 text-gray-700">{account?.name || 'Unknown'}</td>
+                                  <td className="py-3 text-right font-bold text-green-600">{fmt(t.amount)}</td>
+                                  <td className="py-3 text-gray-600 text-sm">{t.reference_number || '-'}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-center text-gray-400 py-8">No cash transactions</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
 
