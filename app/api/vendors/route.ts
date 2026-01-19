@@ -2,14 +2,53 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin
-    .from("vendors")
-    .select("*")
-    .eq("is_active", true)
-    .order("name");
-  
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  try {
+    // Fetch all vendors
+    const { data: vendors, error: vendorsError } = await supabaseAdmin
+      .from("vendors")
+      .select("*")
+      .eq("is_active", true)
+      .order("name");
+
+    if (vendorsError) {
+      return NextResponse.json({ error: vendorsError.message }, { status: 500 });
+    }
+
+    // Fetch all transactions to calculate balances
+    const { data: transactions, error: transactionsError } = await supabaseAdmin
+      .from("vendor_transactions")
+      .select("vendor_id, type, amount");
+
+    if (transactionsError) {
+      return NextResponse.json({ error: transactionsError.message }, { status: 500 });
+    }
+
+    // Calculate balance for each vendor
+    const vendorsWithBalances = vendors?.map(vendor => {
+      const vendorTransactions = transactions?.filter(t => t.vendor_id === vendor.id) || [];
+      
+      const totalPurchases = vendorTransactions
+        .filter(t => t.type === 'purchase')
+        .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
+      
+      const totalPayments = vendorTransactions
+        .filter(t => t.type === 'payment')
+        .reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
+      
+      const balance = totalPurchases - totalPayments;
+
+      return {
+        ...vendor,
+        total_purchases: totalPurchases,
+        total_payments: totalPayments,
+        balance: balance
+      };
+    }) || [];
+
+    return NextResponse.json(vendorsWithBalances);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
