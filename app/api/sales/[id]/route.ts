@@ -84,10 +84,10 @@ export async function PUT(
 
     // Validation - different rules for onlyBill mode
     if (onlyBill) {
-      // Only bill mode: only require date and official bill items
-      if (!sale_date || !official_bill_items || official_bill_items.length === 0) {
+      // Only bill mode: require customer, date and official bill items
+      if (!customer_id || !sale_date || !official_bill_items || official_bill_items.length === 0) {
         return NextResponse.json(
-          { error: 'Missing required fields: sale_date and official_bill_items are required for bill-only sales' },
+          { error: 'Missing required fields: customer_id, sale_date and official_bill_items are required for Only Bill mode' },
           { status: 400 }
         );
       }

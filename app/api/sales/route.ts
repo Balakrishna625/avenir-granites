@@ -179,7 +179,7 @@ export async function POST(request: Request) {
       .from('sales')
       .insert({
         sale_number,
-        customer_id: onlyBill ? null : customer_id,
+        customer_id: customer_id,
         sale_date,
         total_slabs,
         total_sqft,
@@ -237,9 +237,29 @@ export async function POST(request: Request) {
       }
     }
 
-    // Conditionally create consignment - never create for onlyBill mode, always create for jobWork
-    if (!onlyBill && (createConsignment || jobWork)) {
+    // Create consignment for all entry types that have a customer
+    // - Normal sales: creates consignment if createConsignment is true
+    // - Job Work: always creates consignment (service charges are customer liability)
+    // - Only Bill: always creates consignment (official bill amount is customer liability)
+    if (createConsignment || jobWork || onlyBill) {
       const consignmentRemarks = `Auto-created from ${sale_number}${remarks ? ' - ' + remarks : ''}`;
+      
+      // For Only Bill mode, use official_total as the consignment amount
+      // Calculate official_total = official_bill_items subtotal + official_tax
+      let consignmentTotal = gross_total;
+      let consignmentRtgs = Number(rtgs_expected);
+      let consignmentCash = Number(cash_expected);
+      
+      if (onlyBill) {
+        const officialSubtotal = official_bill_items.reduce((sum: number, item: any) => {
+          const sqft = Number(item.square_feet) || 0;
+          const rate = Number(item.rate_per_sqft) || 0;
+          return sum + (sqft * rate);
+        }, 0);
+        consignmentTotal = officialSubtotal + (Number(official_tax) || 0);
+        consignmentRtgs = consignmentTotal;
+        consignmentCash = 0;
+      }
       
       const { data: consignmentData, error: consignmentError } = await supabase
         .from('consignments')
@@ -247,11 +267,11 @@ export async function POST(request: Request) {
           customer_id,
           date: sale_date,
           remarks: consignmentRemarks,
-          total: gross_total,
-          rtgs_expected: Number(rtgs_expected),
-          cash_expected: Number(cash_expected),
+          total: consignmentTotal,
+          rtgs_expected: consignmentRtgs,
+          cash_expected: consignmentCash,
           payment_received: 0,
-          balance: gross_total
+          balance: consignmentTotal
         })
         .select()
         .single();

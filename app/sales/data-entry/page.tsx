@@ -477,19 +477,20 @@ export default function SalesDataEntryPage() {
     const isJobWork = formData.entryType === 'jobWork'
     const isOnlyBill = formData.entryType === 'onlyBill'
     
-    // Only Bill mode: customer is optional, only official bill is required
+    // Customer is always required
+    if (!formData.customer_id) {
+      showToast('error', 'Please select a customer')
+      return
+    }
+    
+    // Only Bill mode: only official bill is required
     if (isOnlyBill) {
       if (formData.officialBillItems.length === 0 || !formData.officialBillItems[0].square_feet) {
         showToast('error', 'Please add at least one official bill item')
         return
       }
     } else {
-      // Normal mode and Job Work: customer and items are required
-      if (!formData.customer_id) {
-        showToast('error', 'Please select a customer')
-        return
-      }
-
+      // Normal mode and Job Work: items are required
       if (formData.itemRows.length === 0 || !formData.itemRows[0].material_name) {
         showToast('error', 'Please add at least one item')
         return
@@ -508,7 +509,7 @@ export default function SalesDataEntryPage() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer_id: isOnlyBill ? null : formData.customer_id,
+          customer_id: formData.customer_id,
           sale_date: formData.date,
           items: isOnlyBill ? [] : formData.itemRows.map(item => ({
             material_type_id: item.material_type_id || null,
@@ -871,7 +872,6 @@ export default function SalesDataEntryPage() {
                       entryType: type,
                       onlyBill: type === 'onlyBill',
                       // Reset fields based on entry type
-                      customer_id: type === 'onlyBill' ? '' : prev.customer_id,
                       itemRows: type === 'jobWork' ? [{
                         id: crypto.randomUUID(),
                         material_type_id: '',
@@ -898,7 +898,7 @@ export default function SalesDataEntryPage() {
                   <option value="jobWork">Job Work (Polishing Service)</option>
                 </select>
                 {formData.entryType === 'onlyBill' && (
-                  <p className="text-xs text-amber-600 mt-1">Mining audit only - Customer optional</p>
+                  <p className="text-xs text-amber-600 mt-1">Official bill entry - Creates customer liability</p>
                 )}
                 {formData.entryType === 'jobWork' && (
                   <p className="text-xs text-purple-600 mt-1">Service tracking - NOT a sale</p>
@@ -919,16 +919,15 @@ export default function SalesDataEntryPage() {
             {/* Customer */}
             <div>
               <label className="block text-sm font-medium mb-1">
-                Customer {formData.entryType !== 'onlyBill' && '*'}
+                Customer *
               </label>
               <select
                 value={formData.customer_id}
                 onChange={(e) => handleInputChange('customer_id', e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
-                required={formData.entryType !== 'onlyBill'}
-                disabled={formData.entryType === 'onlyBill'}
+                required
               >
-                <option value="">{formData.entryType === 'onlyBill' ? 'N/A (Only Bill Mode)' : 'Select customer...'}</option>
+                <option value="">Select customer...</option>
                 {customers.map(customer => (
                   <option key={customer.id} value={customer.id}>
                     {customer.name}
