@@ -376,10 +376,15 @@ export default function SalesDataEntryPage() {
       const factoryRate = parseFloat(prev.factory_mining_rate) || 0
       const newFactoryAmount = (totalOfficialSqft * factoryRate).toFixed(2)
       
+      // Auto-calculate 18% tax on official bill subtotal
+      const officialSubtotal = updatedBillItems.reduce((sum, item) => sum + item.total_amount, 0)
+      const autoCalculatedTax = (officialSubtotal * 0.18).toFixed(2)
+      
       return {
         ...prev,
         officialBillItems: updatedBillItems,
-        factory_mining_amount: newFactoryAmount
+        factory_mining_amount: newFactoryAmount,
+        official_tax: autoCalculatedTax
       }
     })
   }
@@ -405,10 +410,25 @@ export default function SalesDataEntryPage() {
       showToast('error', 'At least one official bill item is required')
       return
     }
-    setFormData(prev => ({
-      ...prev,
-      officialBillItems: prev.officialBillItems.filter(row => row.id !== rowId)
-    }))
+    setFormData(prev => {
+      const updatedBillItems = prev.officialBillItems.filter(row => row.id !== rowId)
+      
+      // Recalculate tax after removing item
+      const officialSubtotal = updatedBillItems.reduce((sum, item) => sum + item.total_amount, 0)
+      const autoCalculatedTax = (officialSubtotal * 0.18).toFixed(2)
+      
+      // Recalculate factory mining amount
+      const totalOfficialSqft = updatedBillItems.reduce((sum, item) => sum + (parseFloat(item.square_feet) || 0), 0)
+      const factoryRate = parseFloat(prev.factory_mining_rate) || 0
+      const newFactoryAmount = (totalOfficialSqft * factoryRate).toFixed(2)
+      
+      return {
+        ...prev,
+        officialBillItems: updatedBillItems,
+        official_tax: autoCalculatedTax,
+        factory_mining_amount: newFactoryAmount
+      }
+    })
   }
 
   const calculateTotals = () => {
@@ -1352,7 +1372,7 @@ export default function SalesDataEntryPage() {
               {/* Tax and End Customer Name in same row */}
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-700 block mb-1">Tax</label>
+                  <label className="text-xs text-gray-700 block mb-1">Tax (Auto-calculated @ 18%)</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1360,7 +1380,9 @@ export default function SalesDataEntryPage() {
                     onChange={(e) => handleInputChange('official_tax', e.target.value)}
                     onWheel={(e) => e.currentTarget.blur()}
                     placeholder="0.00"
-                    className="bg-white"
+                    className="bg-gray-100"
+                    readOnly
+                  />
                   />
                 </div>
                 <div>

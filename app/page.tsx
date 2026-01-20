@@ -144,8 +144,22 @@ export default function Page() {
       p.set("activeOnly", "true");
     }
     
-    fetch(`/api/consignments?${p.toString()}`).then((r) => r.json()).then(setConsignments);
-    fetch(`/api/transactions?${p.toString()}`).then((r) => r.json()).then(setTxns);
+    fetch(`/api/consignments?${p.toString()}`).then((r) => r.json()).then(setConsignments).catch(() => setConsignments([]));
+    fetch(`/api/transactions?${p.toString()}`)
+      .then((r) => r.json())
+      .then((data) => {
+        // Ensure data is an array
+        if (Array.isArray(data)) {
+          setTxns(data);
+        } else {
+          console.error('Transactions API returned non-array:', data);
+          setTxns([]);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load transactions:', error);
+        setTxns([]);
+      });
     
     // Load waived transactions for the selected customer
     if (customerId && customerId !== "all") {
