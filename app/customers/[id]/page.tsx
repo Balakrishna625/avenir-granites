@@ -43,6 +43,27 @@ function isGalaxyRelated(text: string | null | undefined): boolean {
   return patterns.some(pattern => normalized.includes(pattern));
 }
 
+// Helper function to detect "Yelhanka" with fuzzy matching for typos
+function isYelhankaRelated(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const normalized = text.toLowerCase().trim();
+  
+  // Exact and common variations
+  const patterns = [
+    'yelhanka',    // correct
+    'yellhanka',   // double l
+    'yelanka',     // missing h
+    'yelhanca',    // c instead of k
+    'yalehanka',   // switched a/e
+    'yelahanka',   // switched h/a
+    'yellahanka',  // double l + switched
+    'yelhaka',     // missing n
+    'yelhnka',     // missing a
+  ];
+  
+  return patterns.some(pattern => normalized.includes(pattern));
+}
+
 interface CustomerDetails {
   id: string;
   name: string;
@@ -84,6 +105,9 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   
   // Galaxy filter state
   const [excludeGalaxy, setExcludeGalaxy] = useState(false);
+  
+  // Branch filter state (for SAI KRUPA MARBLES only)
+  const [branchFilter, setBranchFilter] = useState<'all' | 'yelhanka' | 'main'>('all');
 
   useEffect(() => {
     loadCustomerData();
@@ -171,41 +195,90 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   const hasGalaxyConsignments = useMemo(() => {
     return consignments.some(c => isGalaxyRelated(c.remarks));
   }, [consignments]);
+  
+  // Check if customer has any Yelhanka-related data
+  const hasYelhankaData = useMemo(() => {
+    const hasYelhankaConsignments = consignments.some(c => isYelhankaRelated(c.remarks));
+    const hasYelhankaTransactions = transactions.some(t => isYelhankaRelated(t.reference_number));
+    return hasYelhankaConsignments || hasYelhankaTransactions;
+  }, [consignments, transactions]);
 
-  // Filter consignments based on Galaxy exclusion
+  // Filter consignments based on Galaxy exclusion and Branch filter
   const filteredConsignments = useMemo(() => {
-    if (!excludeGalaxy) return consignments;
-    return consignments.filter(c => !isGalaxyRelated(c.remarks));
-  }, [consignments, excludeGalaxy]);
+    let filtered = consignments;
+    
+    // Apply Galaxy filter
+    if (excludeGalaxy) {
+      filtered = filtered.filter(c => !isGalaxyRelated(c.remarks));
+    }
+    
+    // Apply Branch filter (only for SAI KRUPA MARBLES)
+    if (customer?.name === 'SAI KRUPA MARBLES' && branchFilter !== 'all') {
+      if (branchFilter === 'yelhanka') {
+        filtered = filtered.filter(c => isYelhankaRelated(c.remarks));
+      } else if (branchFilter === 'main') {
+        filtered = filtered.filter(c => !isYelhankaRelated(c.remarks));
+      }
+    }
+    
+    return filtered;
+  }, [consignments, excludeGalaxy, branchFilter, customer]);
+  
+  // Filter transactions based on Branch filter
+  const filteredTransactions = useMemo(() => {
+    let filtered = transactions;
+    
+    // Apply Branch filter (only for SAI KRUPA MARBLES)
+    if (customer?.name === 'SAI KRUPA MARBLES' && branchFilter !== 'all') {
+      if (branchFilter === 'yelhanka') {
+        filtered = filtered.filter(t => isYelhankaRelated(t.reference_number));
+      } else if (branchFilter === 'main') {
+        filtered = filtered.filter(t => !isYelhankaRelated(t.reference_number));
+      }
+    }
+    
+    return filtered;
+  }, [transactions, branchFilter, customer]);
 
-  // Recalculate summary based on filtered consignments
+  // Recalculate summary based on filtered consignments and transactions
   const filteredSummary = useMemo(() => {
-    if (!excludeGalaxy || !currentPeriodSummary) return currentPeriodSummary;
+    if (!currentPeriodSummary) return currentPeriodSummary;
+    
+    // Check if any filters are active
+    const hasActiveFilters = excludeGalaxy || (customer?.name === 'SAI KRUPA MARBLES' && branchFilter !== 'all');
+    if (!hasActiveFilters) return currentPeriodSummary;
     
     const filteredTotal = filteredConsignments.reduce((sum, c) => sum + (c.total || 0), 0);
     const filteredRtgs = filteredConsignments.reduce((sum, c) => sum + (c.rtgs_expected || 0), 0);
     const filteredCash = filteredConsignments.reduce((sum, c) => sum + (c.cash_expected || 0), 0);
     
+    // Calculate total received from filtered transactions
+    const filteredReceived = filteredTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+    
+    // Calculate pending
+    const filteredPending = filteredTotal - filteredReceived;
+    
     return {
       ...currentPeriodSummary,
       total_invoiced: filteredTotal,
+      total_received: filteredReceived,
+      total_pending: filteredPending,
       consignment_count: filteredConsignments.length,
-      // Keep total_received and total_pending from original as transactions are not filtered
+      transaction_count: filteredTransactions.length,
     };
-  }, [excludeGalaxy, currentPeriodSummary, filteredConsignments]);
+  }, [excludeGalaxy, branchFilter, customer, currentPeriodSummary, filteredConsignments, filteredTransactions]);
 
   // Recalculate total receivables with filtered data
   const filteredTotalReceivables = useMemo(() => {
     if (!customer || !filteredSummary) return totalReceivables;
-    if (!excludeGalaxy) return totalReceivables;
     
-    // When galaxy is excluded, recalculate based on filtered invoiced amount
-    const originalInvoiced = currentPeriodSummary?.total_invoiced || 0;
-    const filteredInvoiced = filteredSummary.total_invoiced;
-    const difference = originalInvoiced - filteredInvoiced;
+    // Check if any filters are active
+    const hasActiveFilters = excludeGalaxy || (customer?.name === 'SAI KRUPA MARBLES' && branchFilter !== 'all');
+    if (!hasActiveFilters) return totalReceivables;
     
-    return totalReceivables - difference;
-  }, [customer, filteredSummary, excludeGalaxy, totalReceivables, currentPeriodSummary]);
+    // Recalculate based on filtered data
+    return (filteredSummary.total_pending || 0) + customer.old_due_amount - customer.waived_amount;
+  }, [customer, filteredSummary, excludeGalaxy, branchFilter, totalReceivables]);
 
   if (loading || !customer) {
     return (
@@ -314,6 +387,25 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                   <label htmlFor="excludeGalaxy" className="text-sm font-medium text-green-800 cursor-pointer">
                     Exclude Galaxy
                   </label>
+                </div>
+              )}
+              
+              {/* Branch Filter - Only show for SAI KRUPA MARBLES if has Yelhanka data */}
+              {customer?.name === 'SAI KRUPA MARBLES' && hasYelhankaData && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl">
+                  <label htmlFor="branchFilter" className="text-sm font-medium text-blue-800">
+                    Branch:
+                  </label>
+                  <select
+                    id="branchFilter"
+                    value={branchFilter}
+                    onChange={(e) => setBranchFilter(e.target.value as 'all' | 'yelhanka' | 'main')}
+                    className="border border-blue-300 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-blue-900 font-medium"
+                  >
+                    <option value="all">All Branches</option>
+                    <option value="yelhanka">Yelhanka Only</option>
+                    <option value="main">Main Branch Only</option>
+                  </select>
                 </div>
               )}
             </div>
@@ -525,14 +617,14 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                     <h3 className="text-lg font-bold text-blue-900">RTGS Transactions</h3>
                     <div className="text-right">
                       <p className="text-xs text-blue-600 font-medium">Total: {fmt(
-                        transactions.filter(t => t.mode === 'RTGS').reduce((sum, t) => sum + (t.amount || 0), 0)
+                        filteredTransactions.filter(t => t.mode === 'RTGS').reduce((sum, t) => sum + (t.amount || 0), 0)
                       )}</p>
-                      <p className="text-xs text-blue-500">({transactions.filter(t => t.mode === 'RTGS').length} transactions)</p>
+                      <p className="text-xs text-blue-500">({filteredTransactions.filter(t => t.mode === 'RTGS').length} transactions)</p>
                     </div>
                   </div>
                 </div>
                 <CardContent className="p-6">
-                  {transactions.filter(t => t.mode === 'RTGS').length > 0 ? (
+                  {filteredTransactions.filter(t => t.mode === 'RTGS').length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="border-b border-blue-100">
@@ -544,7 +636,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {transactions
+                          {filteredTransactions
                             .filter(t => t.mode === 'RTGS')
                             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                             .map((t) => {
@@ -574,14 +666,14 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                     <h3 className="text-lg font-bold text-green-900">Cash Transactions</h3>
                     <div className="text-right">
                       <p className="text-xs text-green-600 font-medium">Total: {fmt(
-                        transactions.filter(t => t.mode === 'Cash').reduce((sum, t) => sum + (t.amount || 0), 0)
+                        filteredTransactions.filter(t => t.mode === 'Cash').reduce((sum, t) => sum + (t.amount || 0), 0)
                       )}</p>
-                      <p className="text-xs text-green-500">({transactions.filter(t => t.mode === 'Cash').length} transactions)</p>
+                      <p className="text-xs text-green-500">({filteredTransactions.filter(t => t.mode === 'Cash').length} transactions)</p>
                     </div>
                   </div>
                 </div>
                 <CardContent className="p-6">
-                  {transactions.filter(t => t.mode === 'Cash').length > 0 ? (
+                  {filteredTransactions.filter(t => t.mode === 'Cash').length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="border-b border-green-100">
@@ -593,7 +685,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {transactions
+                          {filteredTransactions
                             .filter(t => t.mode === 'Cash')
                             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                             .map((t) => {
