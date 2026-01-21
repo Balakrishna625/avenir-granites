@@ -599,8 +599,12 @@ export default function SettlementsPage() {
                             <p className="text-lg font-bold text-green-600">{fmt(settlement.total_received || 0)}</p>
                           </div>
                           <div className="bg-white rounded-lg p-3">
-                            <p className="text-xs text-gray-600 mb-1">Pending</p>
-                            <p className="text-lg font-bold text-orange-600">{fmt(settlement.total_pending || 0)}</p>
+                            <p className="text-xs text-gray-600 mb-1">
+                              {(settlement.total_pending || 0) >= 0 ? 'Pending' : 'Advance'}
+                            </p>
+                            <p className={`text-lg font-bold ${(settlement.total_pending || 0) >= 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                              {fmt(Math.abs(settlement.total_pending || 0))}
+                            </p>
                           </div>
                           <div className="bg-white rounded-lg p-3">
                             <p className="text-xs text-gray-600 mb-1">Settlement Paid</p>

@@ -76,6 +76,7 @@ export async function PUT(
       end_customer_name = null,
       factory_mining_rate = null,
       factory_mining_amount = null,
+      factory_gst_amount = null,
       rtgs_expected = 0,
       cash_expected = 0,
       remarks = '',
@@ -159,6 +160,7 @@ export async function PUT(
         official_total,
         factory_mining_rate: factory_mining_rate !== null ? Number(factory_mining_rate) : null,
         factory_mining_amount: factory_mining_amount !== null ? Number(factory_mining_amount) : null,
+        factory_gst_amount: factory_gst_amount !== null ? Number(factory_gst_amount) : null,
         rtgs_expected: Number(rtgs_expected),
         cash_expected: Number(cash_expected),
         remarks,
@@ -322,9 +324,17 @@ export async function DELETE(
       return NextResponse.json({ error: saleError.message }, { status: 500 });
     }
 
-    // Note: You may want to also delete/update the associated consignment
-    // For now, we'll leave consignments as they may contain payment records
-    // Consider adding logic to handle this based on your business rules
+    // Delete associated consignment that was auto-created from this sale
+    // Look for consignment with matching sale number in remarks
+    const { error: consignmentError } = await supabase
+      .from('consignments')
+      .delete()
+      .ilike('remarks', `%Auto-created from ${saleData.sale_number}%`);
+
+    if (consignmentError) {
+      console.warn('Error deleting associated consignment:', consignmentError);
+      // Don't fail the entire operation if consignment deletion fails
+    }
 
     return NextResponse.json({ 
       success: true,

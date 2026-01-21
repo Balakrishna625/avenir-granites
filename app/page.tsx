@@ -882,18 +882,42 @@ export default function Page() {
           <div className="text-2xl font-bold text-green-600">{fmt(kpi.receivedCASH)}</div>
         </div>
         <div className="bg-white rounded-xl p-4 border shadow-sm">
-          <div className="text-xs text-purple-600 uppercase tracking-wide">Total Pending</div>
-          <div className="text-2xl font-bold text-purple-600">{fmt(Math.max(0, kpi.expectedTotal - kpi.receivedTotal - kpi.waivedAmount))}</div>
+          <div className={`text-xs uppercase tracking-wide ${
+            (kpi.expectedTotal - kpi.receivedTotal - kpi.waivedAmount) >= 0 
+              ? 'text-purple-600' 
+              : 'text-green-600'
+          }`}>
+            {(kpi.expectedTotal - kpi.receivedTotal - kpi.waivedAmount) >= 0 ? 'Total Pending' : 'Total Advance'}
+          </div>
+          <div className={`text-2xl font-bold ${
+            (kpi.expectedTotal - kpi.receivedTotal - kpi.waivedAmount) >= 0 
+              ? 'text-purple-600' 
+              : 'text-green-600'
+          }`}>
+            {fmt(Math.abs(kpi.expectedTotal - kpi.receivedTotal - kpi.waivedAmount))}
+          </div>
           {kpi.waivedAmount > 0 && (
             <div className="text-xs text-amber-600 mt-1">After waived amount</div>
           )}
         </div>
-        {/* Only show Total Receivables if there's an old due amount */}
-        {kpi.oldDueAmount > 0 && (
+        {/* Show Total Receivables/Advance based on value */}
+        {(kpi.oldDueAmount > 0 || kpi.totalReceivables < 0) && (
           <div className="bg-white rounded-xl p-4 border shadow-sm">
-            <div className="text-xs text-red-600 uppercase tracking-wide">Total Receivables</div>
-            <div className="text-2xl font-bold text-red-600">{fmt(Math.max(0, kpi.totalReceivables))}</div>
-            <div className="text-xs text-red-500 mt-1">Including Previous Due</div>
+            <div className={`text-xs uppercase tracking-wide ${
+              kpi.totalReceivables >= 0 ? 'text-red-600' : 'text-green-600'
+            }`}>
+              {kpi.totalReceivables >= 0 ? 'Total Receivables' : 'Total Advance'}
+            </div>
+            <div className={`text-2xl font-bold ${
+              kpi.totalReceivables >= 0 ? 'text-red-600' : 'text-green-600'
+            }`}>
+              {fmt(Math.abs(kpi.totalReceivables))}
+            </div>
+            <div className={`text-xs mt-1 ${
+              kpi.totalReceivables >= 0 ? 'text-red-500' : 'text-green-500'
+            }`}>
+              {kpi.totalReceivables >= 0 ? 'Including Previous Due' : 'Overpayment Credit'}
+            </div>
           </div>
         )}
         

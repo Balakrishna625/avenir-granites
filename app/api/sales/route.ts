@@ -86,6 +86,7 @@ export async function POST(request: Request) {
       end_customer_name = null,
       factory_mining_rate = null,
       factory_mining_amount = null,
+      factory_gst_amount = null,
       rtgs_expected = 0,
       cash_expected = 0,
       remarks = '',
@@ -195,6 +196,7 @@ export async function POST(request: Request) {
         official_total,
         factory_mining_rate: factory_mining_rate !== null ? Number(factory_mining_rate) : null,
         factory_mining_amount: factory_mining_amount !== null ? Number(factory_mining_amount) : null,
+        factory_gst_amount: factory_gst_amount !== null ? Number(factory_gst_amount) : null,
         rtgs_expected: Number(rtgs_expected),
         cash_expected: Number(cash_expected),
         remarks,
@@ -251,12 +253,10 @@ export async function POST(request: Request) {
       let consignmentCash = Number(cash_expected);
       
       if (onlyBill) {
-        const officialSubtotal = official_bill_items.reduce((sum: number, item: any) => {
-          const sqft = Number(item.square_feet) || 0;
-          const rate = Number(item.rate_per_sqft) || 0;
-          return sum + (sqft * rate);
-        }, 0);
-        consignmentTotal = officialSubtotal + (Number(official_tax) || 0);
+        // For Only Bill, liability is Total Factory Amount (factory_mining_amount + factory_gst_amount)
+        const factoryMiningAmount = Number(factory_mining_amount) || 0;
+        const factoryGstAmount = Number(factory_gst_amount) || 0;
+        consignmentTotal = factoryMiningAmount + factoryGstAmount;
         consignmentRtgs = consignmentTotal;
         consignmentCash = 0;
       }

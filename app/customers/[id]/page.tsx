@@ -461,10 +461,20 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Current Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{fmt(filteredSummary?.total_pending || 0)}</p>
+                <p className="text-sm text-gray-600">
+                  {(filteredSummary?.total_pending || 0) >= 0 ? 'Current Pending' : 'Advance Credit'}
+                </p>
+                <p className={`text-2xl font-bold ${(filteredSummary?.total_pending || 0) >= 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                  {(filteredSummary?.total_pending || 0) >= 0 
+                    ? fmt(filteredSummary?.total_pending || 0)
+                    : fmt(Math.abs(filteredSummary?.total_pending || 0))
+                  }
+                </p>
               </div>
-              <AlertCircle className="w-8 h-8 text-orange-500" />
+              {(filteredSummary?.total_pending || 0) >= 0 
+                ? <AlertCircle className="w-8 h-8 text-orange-500" />
+                : <TrendingUp className="w-8 h-8 text-green-500" />
+              }
             </div>
           </Card>
 
@@ -481,10 +491,17 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Receivables</p>
-                <p className="text-2xl font-bold text-red-600">{fmt(filteredTotalReceivables)}</p>
+                <p className="text-sm text-gray-600">
+                  {filteredTotalReceivables >= 0 ? 'Total Receivables' : 'Total Advance'}
+                </p>
+                <p className={`text-2xl font-bold ${filteredTotalReceivables >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {filteredTotalReceivables >= 0 
+                    ? fmt(filteredTotalReceivables)
+                    : fmt(Math.abs(filteredTotalReceivables))
+                  }
+                </p>
               </div>
-              <DollarSign className="w-8 h-8 text-purple-500" />
+              <DollarSign className={`w-8 h-8 ${filteredTotalReceivables >= 0 ? 'text-purple-500' : 'text-green-500'}`} />
             </div>
           </Card>
         </div>

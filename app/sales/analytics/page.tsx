@@ -31,6 +31,8 @@ interface Sale {
   }>
   official_tax?: number
   official_total?: number
+  factory_mining_amount?: number
+  factory_gst_amount?: number
   customers?: { name: string }
   sale_items?: Array<{
     material_name: string
@@ -158,6 +160,19 @@ export default function SalesAnalyticsPage() {
   }, 0)
   
   const totalOfficialAmount = filteredSales.reduce((sum, sale) => sum + (sale.official_total || 0), 0)
+  
+  // Calculate Only Bill specific metrics
+  const onlyBillSales = filteredSales.filter(sale => sale.only_bill)
+  const totalOnlyBillSqft = onlyBillSales.reduce((sum, sale) => {
+    const officialItems = sale.official_bill_items || []
+    return sum + officialItems.reduce((itemSum, item) => itemSum + (item.square_feet || 0), 0)
+  }, 0)
+  
+  const totalFactoryAmount = onlyBillSales.reduce((sum, sale) => {
+    const factoryMining = sale.factory_mining_amount || 0
+    const factoryGst = sale.factory_gst_amount || 0
+    return sum + factoryMining + factoryGst
+  }, 0)
   
   // Calculate difference metrics
   const sqftDifference = totalSqft - totalOfficialSqft
@@ -475,23 +490,19 @@ export default function SalesAnalyticsPage() {
             </Card>
 
             <Card className="p-4">
-              <div className="text-xs text-gray-600 mb-1">MATERIAL DIFFERENCE</div>
-              <div className={`text-2xl font-bold ${sqftDifference >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                {sqftDifference >= 0 ? '+' : ''}{sqftDifference.toFixed(2)} <span className="text-sm text-gray-500">sq.ft</span>
+              <div className="text-xs text-gray-600 mb-1">ONLY BILL MATERIAL</div>
+              <div className="text-2xl font-bold text-amber-900">
+                {totalOnlyBillSqft.toFixed(2)} <span className="text-sm text-gray-500">sq.ft</span>
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {((sqftDifference / totalSqft) * 100).toFixed(1)}% {sqftDifference >= 0 ? 'more' : 'less'} than official
-              </div>
+              <div className="text-xs text-gray-500 mt-1">From {onlyBillSales.length} only-bill entries</div>
             </Card>
 
             <Card className="p-4">
-              <div className="text-xs text-gray-600 mb-1">AMOUNT DIFFERENCE</div>
-              <div className={`text-2xl font-bold ${amountDifference >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                ₹{formatIndianNumber(Math.abs(amountDifference))}
+              <div className="text-xs text-gray-600 mb-1">TOTAL FACTORY AMOUNT</div>
+              <div className="text-2xl font-bold text-green-900">
+                ₹{formatIndianNumber(totalFactoryAmount)}
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {((amountDifference / totalRevenue) * 100).toFixed(1)}% {amountDifference >= 0 ? 'more' : 'less'} than official
-              </div>
+              <div className="text-xs text-gray-500 mt-1">Mining + GST for only-bill</div>
             </Card>
           </div>
 

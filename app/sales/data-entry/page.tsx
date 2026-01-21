@@ -53,6 +53,7 @@ interface Sale {
   job_work?: boolean
   factory_mining_rate?: number
   factory_mining_amount?: number
+  factory_gst_amount?: number
   official_bill_items?: Array<{
     material_name: string
     square_feet: number
@@ -100,6 +101,7 @@ interface FormData {
   end_customer_name: string
   factory_mining_rate: string
   factory_mining_amount: string
+  factory_gst_amount: string
   rtgs_expected: string
   cash_expected: string
   remarks: string
@@ -165,6 +167,7 @@ export default function SalesDataEntryPage() {
     end_customer_name: '',
     factory_mining_rate: '7',
     factory_mining_amount: '0',
+    factory_gst_amount: '0',
     rtgs_expected: '',
     cash_expected: '',
     remarks: '',
@@ -380,10 +383,14 @@ export default function SalesDataEntryPage() {
       const officialSubtotal = updatedBillItems.reduce((sum, item) => sum + item.total_amount, 0)
       const autoCalculatedTax = (officialSubtotal * 0.18).toFixed(2)
       
+      // Factory GST Amount is same as official tax (18% of official bill)
+      const factoryGstAmount = autoCalculatedTax
+      
       return {
         ...prev,
         officialBillItems: updatedBillItems,
         factory_mining_amount: newFactoryAmount,
+        factory_gst_amount: factoryGstAmount,
         official_tax: autoCalculatedTax
       }
     })
@@ -422,11 +429,15 @@ export default function SalesDataEntryPage() {
       const factoryRate = parseFloat(prev.factory_mining_rate) || 0
       const newFactoryAmount = (totalOfficialSqft * factoryRate).toFixed(2)
       
+      // Factory GST Amount is same as official tax (18% of official bill)
+      const factoryGstAmount = autoCalculatedTax
+      
       return {
         ...prev,
         officialBillItems: updatedBillItems,
         official_tax: autoCalculatedTax,
-        factory_mining_amount: newFactoryAmount
+        factory_mining_amount: newFactoryAmount,
+        factory_gst_amount: factoryGstAmount
       }
     })
   }
@@ -462,13 +473,15 @@ export default function SalesDataEntryPage() {
     const totalOfficialSqft = formData.officialBillItems.reduce((sum, item) => sum + (parseFloat(item.square_feet) || 0), 0)
     const factoryMiningRate = parseFloat(formData.factory_mining_rate) || 7  // Default to 7 if not set
     const factoryMiningAmount = totalOfficialSqft * factoryMiningRate
+    const factoryGstAmount = officialTax  // Same as official tax (18% of official bill)
+    const totalFactoryAmount = factoryMiningAmount + factoryGstAmount
     
     // Auto-calculate payment split
     // For Only Bill mode: RTGS = Official Total, Cash = 0 (no actual sale)
     const rtgs = officialTotal
     const cash = isOnlyBill ? 0 : (grossTotal - officialTotal)
     
-    return { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash, totalOfficialSqft, factoryMiningAmount }
+    return { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash, totalOfficialSqft, factoryMiningAmount, factoryGstAmount, totalFactoryAmount }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -523,8 +536,8 @@ export default function SalesDataEntryPage() {
             total_amount: item.total_amount,
             remarks: item.remarks || ''
           })),
-          tax_amount: parseFloat(formData.tax_amount) || 0,
-          mining_amount: parseFloat(formData.mining_amount) || 0,
+          tax_amount: isOnlyBill ? (parseFloat(formData.factory_gst_amount) || 0) : (parseFloat(formData.tax_amount) || 0),
+          mining_amount: isOnlyBill ? (parseFloat(formData.factory_mining_amount) || 0) : (parseFloat(formData.mining_amount) || 0),
           loading_amount: parseFloat(formData.loading_amount) || 0,
           official_bill_items: formData.officialBillItems.map(item => ({
             material_name: item.material_name,
@@ -536,6 +549,7 @@ export default function SalesDataEntryPage() {
           end_customer_name: formData.end_customer_name || null,
           factory_mining_rate: isOnlyBill ? (parseFloat(formData.factory_mining_rate) || 7) : null,
           factory_mining_amount: isOnlyBill ? (parseFloat(formData.factory_mining_amount) || 0) : null,
+          factory_gst_amount: isOnlyBill ? (parseFloat(formData.factory_gst_amount) || 0) : null,
           rtgs_expected: isJobWork ? 0 : rtgs,
           cash_expected: isJobWork ? 0 : cash,
           remarks: formData.remarks,
@@ -645,6 +659,7 @@ export default function SalesDataEntryPage() {
         end_customer_name: saleDetails.end_customer_name || '',
         factory_mining_rate: saleDetails.factory_mining_rate?.toString() || '7',
         factory_mining_amount: saleDetails.factory_mining_amount?.toString() || '0',
+        factory_gst_amount: saleDetails.factory_gst_amount?.toString() || '0',
         rtgs_expected: saleDetails.rtgs_expected.toString(),
         cash_expected: saleDetails.cash_expected.toString(),
         remarks: saleDetails.remarks || '',
@@ -689,7 +704,7 @@ export default function SalesDataEntryPage() {
     }
   }
 
-  const { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash, totalOfficialSqft, factoryMiningAmount } = calculateTotals()
+  const { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash, totalOfficialSqft, factoryMiningAmount, factoryGstAmount, totalFactoryAmount } = calculateTotals()
 
   // Calculate aggregated statistics from filtered sales
   // CRITICAL: Exclude job_work entries - they are NOT sales, just service tracking
@@ -1346,9 +1361,36 @@ export default function SalesDataEntryPage() {
                         {formData.entryType === 'onlyBill' && (
                           <div>
                             <label className="text-xs text-gray-600 block mb-1">Factory Rate/Sq.Ft</label>
-                            <div className="text-sm font-semibold py-2 px-3 bg-gray-100 rounded">
-                              ₹{formData.factory_mining_rate || '7.00'}
-                            </div>
+                            <select
+                              value={formData.factory_mining_rate}
+                              onChange={(e) => {
+                                const newRate = e.target.value;
+                                setFormData(prev => {
+                                  // Recalculate factory mining amount with new rate
+                                  const totalOfficialSqft = prev.officialBillItems.reduce(
+                                    (sum, item) => sum + (parseFloat(item.square_feet) || 0), 
+                                    0
+                                  );
+                                  const newFactoryAmount = (totalOfficialSqft * parseFloat(newRate)).toFixed(2);
+                                  const newFactoryGst = (parseFloat(newFactoryAmount) * 0.18).toFixed(2);
+                                  
+                                  return {
+                                    ...prev,
+                                    factory_mining_rate: newRate,
+                                    factory_mining_amount: newFactoryAmount,
+                                    factory_gst_amount: newFactoryGst
+                                  };
+                                });
+                              }}
+                              className="w-full text-sm font-semibold py-2 px-3 bg-white border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="5">₹5.00</option>
+                              <option value="6">₹6.00</option>
+                              <option value="7">₹7.00</option>
+                              <option value="8">₹8.00</option>
+                              <option value="9">₹9.00</option>
+                              <option value="10">₹10.00</option>
+                            </select>
                           </div>
                         )}
                       </div>
@@ -1408,9 +1450,19 @@ export default function SalesDataEntryPage() {
 
               {/* Factory Mining Amount - Only for Only Bill mode */}
               {formData.entryType === 'onlyBill' && (
-              <div className="mt-2 flex items-center justify-between bg-gray-100 p-2 rounded">
-                <span className="text-sm font-medium">Factory Mining Amount:</span>
-                <span className="font-semibold">₹{formatIndianNumber(factoryMiningAmount)}</span>
+              <div className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Factory Mining Amount:</span>
+                  <span className="font-semibold text-gray-900">₹{formatIndianNumber(factoryMiningAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Factory GST Amount (18%):</span>
+                  <span className="font-semibold text-gray-900">₹{formatIndianNumber(factoryGstAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-300">
+                  <span className="font-semibold text-gray-900">Total Factory Amount:</span>
+                  <span className="font-bold text-lg text-green-700">₹{formatIndianNumber(totalFactoryAmount)}</span>
+                </div>
               </div>
               )}
             </div>
@@ -1639,6 +1691,11 @@ export default function SalesDataEntryPage() {
                           {sale.job_work && (
                             <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded">
                               Job Work
+                            </span>
+                          )}
+                          {sale.only_bill && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+                              Only Bill
                             </span>
                           )}
                         </div>

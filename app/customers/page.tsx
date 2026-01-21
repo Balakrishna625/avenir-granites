@@ -314,15 +314,26 @@ export default function CustomersPage() {
                     <p className="font-semibold text-blue-600">{fmt(customer.totalReceived)}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Pending</p>
-                    <p className="font-semibold text-red-600">{fmt(customer.totalPending)}</p>
+                    <p className="text-gray-600">
+                      {customer.totalPending >= 0 ? 'Pending' : 'Advance'}
+                    </p>
+                    <p className={`font-semibold ${customer.totalPending >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {fmt(Math.abs(customer.totalPending))}
+                    </p>
                   </div>
                   <div>
                     <p className="text-gray-600">
-                      {customer.totalReceivables !== undefined ? 'Total Receivables' : 'Total Pending'}
+                      {customer.totalReceivables !== undefined 
+                        ? (customer.totalReceivables >= 0 ? 'Total Receivables' : 'Total Advance')
+                        : (customer.totalPending >= 0 ? 'Total Pending' : 'Advance')
+                      }
                     </p>
-                    <p className="font-semibold text-orange-600">
-                      {fmt(customer.totalReceivables !== undefined ? customer.totalReceivables : customer.totalPending)}
+                    <p className={`font-semibold ${
+                      (customer.totalReceivables !== undefined ? customer.totalReceivables : customer.totalPending) >= 0 
+                        ? 'text-orange-600' 
+                        : 'text-green-600'
+                    }`}>
+                      {fmt(Math.abs(customer.totalReceivables !== undefined ? customer.totalReceivables : customer.totalPending))}
                     </p>
                   </div>
                   <div className="col-span-2">
