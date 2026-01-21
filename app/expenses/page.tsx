@@ -18,6 +18,7 @@ import {
   ArrowUp,
   ArrowDown,
   Edit2,
+  AlertCircle,
   Save,
   X,
   Filter,
@@ -48,6 +49,7 @@ interface Expense {
   amount: number;
   notes?: string;
   description?: string;
+  payment_status?: string;
   bank_accounts?: {
     name: string;
   };
@@ -136,6 +138,7 @@ export default function ExpensesPage() {
   const [formAccount, setFormAccount] = useState("");
   const [formCategory, setFormCategory] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [formPaymentStatus, setFormPaymentStatus] = useState("PAID");
   
   // Month selector - persists in session, resets to current month on new session
   const { selectedMonth, selectedYear, setSelectedMonth, setSelectedYear } = useSessionMonthYear('expenses')
@@ -335,7 +338,7 @@ export default function ExpensesPage() {
         account_id: formAccount, // This is bank_account_id
         description: formNotes || "Expense",
         payment_method: "RTGS", // Valid values: CASH, CHEQUE, RTGS, UPI, CREDIT_CARD
-        payment_status: "PAID", // Use uppercase to match database convention
+        payment_status: formPaymentStatus, // Use selected payment status
         notes: formNotes
       };
 
@@ -360,6 +363,7 @@ export default function ExpensesPage() {
         setFormAccount("");
         setFormCategory("");
         setFormNotes("");
+        setFormPaymentStatus("PAID");
         
         // Reload data (this will show updated collections minus expenses)
         await loadData();
@@ -694,6 +698,8 @@ export default function ExpensesPage() {
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
   const totalExpenses = Array.isArray(expenses) ? expenses.reduce((sum, exp) => sum + exp.amount, 0) : 0;
+  const creditExpenses = Array.isArray(expenses) ? expenses.filter(exp => exp.payment_status === 'PENDING').reduce((sum, exp) => sum + exp.amount, 0) : 0;
+  const paidExpenses = totalExpenses - creditExpenses;
 
   return (
     <AppLayout>
@@ -978,8 +984,8 @@ export default function ExpensesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                  <div className="md:col-span-3">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                  <div className="md:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Notes
                     </label>
@@ -992,6 +998,20 @@ export default function ExpensesPage() {
                     />
                   </div>
 
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      Payment Status
+                    </label>
+                    <select
+                      value={formPaymentStatus}
+                      onChange={(e) => setFormPaymentStatus(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="PAID">Paid Immediately</option>
+                      <option value="PENDING">On Credit (Billed but not paid)</option>
+                    </select>
+                  </div>
+
                   <div className="md:col-span-1">
                     <Button type="submit" className="bg-blue-600 hover:bg-blue-700 w-full">
                       <Plus className="w-4 h-4 mr-2" />
@@ -1002,18 +1022,38 @@ export default function ExpensesPage() {
               </form>
 
             {/* Expenses Summary */}
-            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Expenses - {monthNames[selectedMonth - 1]} {selectedYear}</p>
-                  <p className="text-3xl font-bold text-blue-700 mt-1">{fmt(totalExpenses)}</p>
-                  <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
-                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
-                    {filteredExpenses.length} transaction{filteredExpenses.length !== 1 ? 's' : ''} {filterAccount && '(filtered)'}
-                  </p>
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Total Expenses Card */}
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Expenses - {monthNames[selectedMonth - 1]} {selectedYear}</p>
+                    <p className="text-3xl font-bold text-blue-700 mt-1">{fmt(totalExpenses)}</p>
+                    <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
+                      {filteredExpenses.length} transaction{filteredExpenses.length !== 1 ? 's' : ''} {filterAccount && '(filtered)'}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-full p-3 shadow-sm">
+                    <Calendar className="w-8 h-8 text-blue-600" />
+                  </div>
                 </div>
-                <div className="bg-white rounded-full p-3 shadow-sm">
-                  <Calendar className="w-8 h-8 text-blue-600" />
+              </div>
+
+              {/* Expenses on Credit Card */}
+              <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Expenses on Credit</p>
+                    <p className="text-3xl font-bold text-orange-700 mt-1">{fmt(creditExpenses)}</p>
+                    <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 bg-orange-500 rounded-full"></span>
+                      Billed but not paid this month
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-full p-3 shadow-sm">
+                    <AlertCircle className="w-8 h-8 text-orange-600" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1159,6 +1199,11 @@ export default function ExpensesPage() {
                               <span className="text-sm text-gray-900 font-medium">
                                 {expense.expense_categories?.name || 'Uncategorized'}
                               </span>
+                              {expense.payment_status === 'PENDING' && (
+                                <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 rounded">
+                                  Credit
+                                </span>
+                              )}
                             </div>
                             )}
                           </td>
