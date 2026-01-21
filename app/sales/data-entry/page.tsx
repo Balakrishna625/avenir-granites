@@ -1424,7 +1424,6 @@ export default function SalesDataEntryPage() {
                     className="bg-gray-100"
                     readOnly
                   />
-                  />
                 </div>
                 <div>
                   <label className="text-xs text-gray-700 block mb-1">End Customer Name (Bill Written For)</label>
