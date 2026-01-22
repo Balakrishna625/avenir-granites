@@ -64,6 +64,13 @@ function isYelhankaRelated(text: string | null | undefined): boolean {
   return patterns.some(pattern => normalized.includes(pattern));
 }
 
+// Helper function to detect "Only Bill" in remarks (case-insensitive)
+function isOnlyBillRemark(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const normalized = text.toLowerCase().trim();
+  return normalized.includes('only bill') || normalized.includes('onlybill');
+}
+
 interface CustomerDetails {
   id: string;
   name: string;
@@ -93,6 +100,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   const [currentPeriodSummary, setCurrentPeriodSummary] = useState<CurrentPeriodSummary | null>(null);
   const [consignments, setConsignments] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [onlyBillSales, setOnlyBillSales] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,24 +163,27 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
       const queryString = params.toString();
 
       // Parallel load all data with optimized summary endpoint
-      const [customerRes, summaryRes, consignmentsRes, transactionsRes] = await Promise.all([
+      const [customerRes, summaryRes, consignmentsRes, transactionsRes, onlyBillSalesRes] = await Promise.all([
         fetch(`/api/customers?id=${customerId}`),
         fetch(`/api/customers/summary?customerId=${customerId}${queryString ? '&' + queryString : ''}`),
         fetch(`/api/consignments?customerId=${customerId}${queryString ? '&' + queryString : ''}`),
-        fetch(`/api/transactions?customerId=${customerId}${queryString ? '&' + queryString : ''}`)
+        fetch(`/api/transactions?customerId=${customerId}${queryString ? '&' + queryString : ''}`),
+        fetch(`/api/sales?customer_id=${customerId}&only_bill=true`)
       ]);
 
-      const [customerData, summaryData, consignmentsData, transactionsData] = await Promise.all([
+      const [customerData, summaryData, consignmentsData, transactionsData, onlyBillData] = await Promise.all([
         customerRes.json(),
         summaryRes.json(),
         consignmentsRes.json(),
-        transactionsRes.json()
+        transactionsRes.json(),
+        onlyBillSalesRes.json()
       ]);
 
       setCustomer(customerData[0] || null);
       setCurrentPeriodSummary(summaryData[0] || null);
       setConsignments(consignmentsData);
       setTransactions(transactionsData);
+      setOnlyBillSales(Array.isArray(onlyBillData) ? onlyBillData : []);
     } catch (error) {
       console.error('Failed to load customer data:', error);
     } finally {
@@ -190,6 +201,30 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     if (!customer || !currentPeriodSummary) return 0;
     return (currentPeriodSummary.total_pending || 0) + customer.old_due_amount - customer.waived_amount;
   }, [customer, currentPeriodSummary]);
+
+  // Only Bill calculations
+  const onlyBillMetrics = useMemo(() => {
+    const rtgsTotal = onlyBillSales.reduce((sum, sale) => sum + (Number(sale.official_total) || 0), 0);
+    const factoryTotal = onlyBillSales.reduce((sum, sale) => {
+      const mining = Number(sale.factory_mining_amount) || 0;
+      const gst = Number(sale.factory_gst_amount) || 0;
+      return sum + mining + gst;
+    }, 0);
+    return { rtgsTotal, factoryTotal, hasOnlyBillSales: onlyBillSales.length > 0 };
+  }, [onlyBillSales]);
+
+  // Calculate Only Bill consignments from remarks
+  const onlyBillConsignmentMetrics = useMemo(() => {
+    console.log('Checking consignments for Only Bill:', consignments.map(c => ({ id: c.id, remarks: c.remarks, hasOnlyBill: isOnlyBillRemark(c.remarks) })));
+    const onlyBillConsignments = consignments.filter(c => isOnlyBillRemark(c.remarks));
+    console.log('Found Only Bill consignments:', onlyBillConsignments.length);
+    const rtgsFromOnlyBill = onlyBillConsignments.reduce((sum, c) => sum + (c.rtgs_expected || 0), 0);
+    return { 
+      rtgsFromOnlyBill, 
+      hasOnlyBillConsignments: onlyBillConsignments.length > 0,
+      count: onlyBillConsignments.length
+    };
+  }, [consignments]);
 
   // Check if customer has any Galaxy-related consignments
   const hasGalaxyConsignments = useMemo(() => {
@@ -437,7 +472,12 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
         </Card>
 
         {/* Financial Overview KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {/* DEBUG: Only Bill Check - hasOnlyBillSales: {onlyBillMetrics.hasOnlyBillSales ? 'YES' : 'NO'}, count: {onlyBillSales.length} */}
+        <div className={`grid grid-cols-1 gap-4 ${
+          onlyBillMetrics.hasOnlyBillSales && onlyBillConsignmentMetrics.hasOnlyBillConsignments ? 'md:grid-cols-8' :
+          onlyBillMetrics.hasOnlyBillSales || onlyBillConsignmentMetrics.hasOnlyBillConsignments ? 'md:grid-cols-6' : 
+          'md:grid-cols-5'
+        }`}>
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -504,6 +544,47 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
               <DollarSign className={`w-8 h-8 ${filteredTotalReceivables >= 0 ? 'text-purple-500' : 'text-green-500'}`} />
             </div>
           </Card>
+
+          {/* Only Bill Tiles - Show only if customer has Only Bill sales */}
+          {onlyBillMetrics.hasOnlyBillSales && (
+            <>
+              <Card className="p-4 bg-gradient-to-br from-amber-50 to-yellow-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 font-medium">Only Bill RTGS</p>
+                    <p className="text-xl font-bold text-amber-700">{fmt(onlyBillMetrics.rtgsTotal)}</p>
+                    <p className="text-xs text-gray-500 mt-1">Billed Amount</p>
+                  </div>
+                  <FileText className="w-7 h-7 text-amber-600" />
+                </div>
+              </Card>
+
+              <Card className="p-4 bg-gradient-to-br from-green-50 to-emerald-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 font-medium">Factory Amount</p>
+                    <p className="text-xl font-bold text-green-700">{fmt(onlyBillMetrics.factoryTotal)}</p>
+                    <p className="text-xs text-gray-500 mt-1">Mining + GST</p>
+                  </div>
+                  <DollarSign className="w-7 h-7 text-green-600" />
+                </div>
+              </Card>
+            </>
+          )}
+
+          {/* Only Bill Consignment Tile - Show if customer has consignments with "only bill" in remarks */}
+          {onlyBillConsignmentMetrics.hasOnlyBillConsignments && (
+            <Card className="p-4 bg-gradient-to-br from-cyan-50 to-blue-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600 font-medium">RTGS from Only Bill</p>
+                  <p className="text-xl font-bold text-cyan-700">{fmt(onlyBillConsignmentMetrics.rtgsFromOnlyBill)}</p>
+                  <p className="text-xs text-gray-500 mt-1">{onlyBillConsignmentMetrics.count} Consignment{onlyBillConsignmentMetrics.count !== 1 ? 's' : ''}</p>
+                </div>
+                <FileText className="w-7 h-7 text-cyan-600" />
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* Tabs */}
@@ -592,6 +673,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                       <thead className="border-b">
                         <tr className="text-left">
                           <th className="pb-3 font-semibold text-gray-700">Date</th>
+                          <th className="pb-3 font-semibold text-gray-700">Type</th>
                           <th className="pb-3 font-semibold text-gray-700">Block No</th>
                           <th className="pb-3 font-semibold text-gray-700">Sqft</th>
                           <th className="pb-3 font-semibold text-gray-700">Rate</th>
@@ -604,6 +686,28 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                         {filteredConsignments.map((c) => (
                           <tr key={c.id} className="hover:bg-gray-50">
                             <td className="py-3">{formatDisplayDate(c.date)}</td>
+                            <td className="py-3">
+                              {c.entry_type === 'only_bill' && (
+                                <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+                                  Only Bill
+                                </span>
+                              )}
+                              {c.entry_type === 'job_work' && (
+                                <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded">
+                                  Job Work
+                                </span>
+                              )}
+                              {c.entry_type === 'sales' && (
+                                <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
+                                  Sales
+                                </span>
+                              )}
+                              {!c.entry_type && (
+                                <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">
+                                  Regular
+                                </span>
+                              )}
+                            </td>
                             <td className="py-3">{c.block_no}</td>
                             <td className="py-3">{c.sqft}</td>
                             <td className="py-3">{fmt(c.rate)}</td>

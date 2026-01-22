@@ -41,6 +41,7 @@ interface LinePolishReport {
     activity: ActivityType;
     slabs: number;
     sqft: number;
+    grade?: string; // Optional: Blackline, White line, Fresh, Patch, Variation
   }>; // JSONB array of detailed activities
   no_of_workers: number;
   number_of_slabs: number; // Legacy - for old data
@@ -93,6 +94,7 @@ interface ActivityRow {
   activity: ActivityType;
   number_of_slabs: string;
   total_sqft: string;
+  grade?: string; // Optional: Blackline, White line, Fresh, Patch, Variation
 }
 
 interface ShiftFormData {
@@ -651,7 +653,8 @@ export default function LinePolishPage() {
           block_name: row.block_name || '',
           activity: row.activity,
           slabs: parseInt(row.number_of_slabs) || 0,
-          sqft: parseFloat(row.total_sqft) || 0
+          sqft: parseFloat(row.total_sqft) || 0,
+          ...(row.grade && { grade: row.grade }) // Only include grade if it's selected
         }));
         const morningActivitySummary = formData.morning.activityRows
           .map(row => row.activity)
@@ -679,7 +682,8 @@ export default function LinePolishPage() {
           block_name: row.block_name || '',
           activity: row.activity,
           slabs: parseInt(row.number_of_slabs) || 0,
-          sqft: parseFloat(row.total_sqft) || 0
+          sqft: parseFloat(row.total_sqft) || 0,
+          ...(row.grade && { grade: row.grade }) // Only include grade if it's selected
         }));
         const eveningActivitySummary = formData.evening.activityRows
           .map(row => row.activity)
@@ -1468,6 +1472,7 @@ export default function LinePolishPage() {
                             <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Activity Type</th>
                             <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Slabs</th>
                             <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Sq Ft</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Grade (Optional)</th>
                             <th className="px-2 py-1 text-center text-xs font-medium text-gray-700 w-16">Action</th>
                           </tr>
                         </thead>
@@ -1530,6 +1535,20 @@ export default function LinePolishPage() {
                                   onChange={(e) => handleActivityRowChange('morning', row.id, 'total_sqft', e.target.value)}
                                   className="text-xs h-7"
                                 />
+                              </td>
+                              <td className="px-2 py-1">
+                                <select
+                                  value={row.grade || ''}
+                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'grade', e.target.value)}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                                >
+                                  <option value="">-- Select Grade --</option>
+                                  <option value="Blackline">Blackline</option>
+                                  <option value="White line">White line</option>
+                                  <option value="Fresh">Fresh</option>
+                                  <option value="Patch">Patch</option>
+                                  <option value="Variation">Variation</option>
+                                </select>
                               </td>
                               <td className="px-2 py-1 text-center">
                                 <button
@@ -1645,6 +1664,7 @@ export default function LinePolishPage() {
                             <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Activity Type</th>
                             <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Slabs</th>
                             <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Sq Ft</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-700">Grade (Optional)</th>
                             <th className="px-2 py-1 text-center text-xs font-medium text-gray-700 w-16">Action</th>
                           </tr>
                         </thead>
@@ -1707,6 +1727,20 @@ export default function LinePolishPage() {
                                   onChange={(e) => handleActivityRowChange('evening', row.id, 'total_sqft', e.target.value)}
                                   className="text-xs h-7"
                                 />
+                              </td>
+                              <td className="px-2 py-1">
+                                <select
+                                  value={row.grade || ''}
+                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'grade', e.target.value)}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                >
+                                  <option value="">-- Select Grade --</option>
+                                  <option value="Blackline">Blackline</option>
+                                  <option value="White line">White line</option>
+                                  <option value="Fresh">Fresh</option>
+                                  <option value="Patch">Patch</option>
+                                  <option value="Variation">Variation</option>
+                                </select>
                               </td>
                               <td className="px-2 py-1 text-center">
                                 <button

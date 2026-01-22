@@ -712,20 +712,28 @@ export default function SalesDataEntryPage() {
     const salesToCalculate = filterCustomerId === 'all' ? sales : sales.filter(s => s.customer_id === filterCustomerId)
     // Filter out job_work entries - they should NOT be counted in sales statistics
     const actualSales = salesToCalculate.filter(s => !s.job_work)
+    // Calculate factory money from Only Bill sales (factory mining + factory GST)
+    const onlyBillSales = actualSales.filter(s => s.only_bill)
+    const factoryFromOnlyBill = onlyBillSales.reduce((sum, sale) => {
+      const factoryMining = sale.factory_mining_amount || 0
+      const factoryGst = sale.factory_gst_amount || 0
+      return sum + factoryMining + factoryGst
+    }, 0)
+    
     return actualSales.reduce((acc, sale) => ({
       totalSlabs: acc.totalSlabs + sale.total_slabs,
       totalSqft: acc.totalSqft + sale.total_sqft,
       totalAmount: acc.totalAmount + sale.gross_total,
       totalTax: acc.totalTax + sale.tax_amount,
       totalMining: acc.totalMining + sale.mining_amount,
-      totalLoading: acc.totalLoading + sale.loading_amount
+      factoryFromOnlyBill: factoryFromOnlyBill
     }), {
       totalSlabs: 0,
       totalSqft: 0,
       totalAmount: 0,
       totalTax: 0,
       totalMining: 0,
-      totalLoading: 0
+      factoryFromOnlyBill: factoryFromOnlyBill
     })
   }, [sales, filterCustomerId])
 
@@ -858,9 +866,9 @@ export default function SalesDataEntryPage() {
           </Card>
           
           <Card className="p-3 sm:p-4">
-            <div className="text-xs text-gray-600 mb-1">TOTAL LOADING</div>
-            <div className="text-lg sm:text-xl font-bold text-blue-600">
-              ₹{formatIndianNumber(salesStats.totalLoading)}
+            <div className="text-xs text-gray-600 mb-1">FACTORY MONEY FROM ONLY BILL</div>
+            <div className="text-lg sm:text-xl font-bold text-amber-600">
+              ₹{formatIndianNumber(salesStats.factoryFromOnlyBill)}
             </div>
           </Card>
         </div>

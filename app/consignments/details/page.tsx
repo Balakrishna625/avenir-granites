@@ -199,7 +199,7 @@ export default function ConsignmentDetailsPage() {
 
   const calculateTotalExpenditure = () => {
     const purchaseCost = calculatePurchaseCost()
-    const transportCost = calculateTransportCost()
+    const transportCost = parseFloat(formData.transport_cost) || 0 // Use manual transport cost from form
     const loadingCost = parseFloat(formData.loading_cost) || 0
     const quarryCommission = parseFloat(formData.quarry_commission) || 0
     const otherCharges = parseFloat(formData.other_charges) || 0

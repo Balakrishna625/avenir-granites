@@ -7,8 +7,10 @@ export async function GET(request: Request) {
     const supabase = supabaseAdmin;
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
+    const customer_id = searchParams.get('customer_id');
     const month = searchParams.get('month');
     const year = searchParams.get('year');
+    const only_bill = searchParams.get('only_bill');
 
     let query = supabase
       .from('sales')
@@ -34,8 +36,13 @@ export async function GET(request: Request) {
       `)
       .order('sale_date', { ascending: false });
 
-    if (customerId) {
-      query = query.eq('customer_id', customerId);
+    if (customerId || customer_id) {
+      query = query.eq('customer_id', customerId || customer_id);
+    }
+
+    // Filter by only_bill if requested
+    if (only_bill === 'true') {
+      query = query.eq('only_bill', true);
     }
 
     // Filter by month and year if provided
@@ -253,13 +260,21 @@ export async function POST(request: Request) {
       let consignmentCash = Number(cash_expected);
       
       if (onlyBill) {
-        // For Only Bill, liability is Total Factory Amount (factory_mining_amount + factory_gst_amount)
-        const factoryMiningAmount = Number(factory_mining_amount) || 0;
-        const factoryGstAmount = Number(factory_gst_amount) || 0;
-        consignmentTotal = factoryMiningAmount + factoryGstAmount;
+        // For Only Bill, liability is Official Total (RTGS amount = what customer was billed)
+        const officialSubtotal = official_bill_items.reduce((sum: number, item: any) => {
+          const sqft = Number(item.square_feet) || 0;
+          const rate = Number(item.rate_per_sqft) || 0;
+          return sum + (sqft * rate);
+        }, 0);
+        consignmentTotal = officialSubtotal + (Number(official_tax) || 0);
         consignmentRtgs = consignmentTotal;
         consignmentCash = 0;
       }
+      
+      // Determine entry type for consignment
+      let entryType = 'sales'; // default
+      if (onlyBill) entryType = 'only_bill';
+      if (jobWork) entryType = 'job_work';
       
       const { data: consignmentData, error: consignmentError } = await supabase
         .from('consignments')
@@ -271,7 +286,8 @@ export async function POST(request: Request) {
           rtgs_expected: consignmentRtgs,
           cash_expected: consignmentCash,
           payment_received: 0,
-          balance: consignmentTotal
+          balance: consignmentTotal,
+          entry_type: entryType
         })
         .select()
         .single();
