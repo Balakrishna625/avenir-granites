@@ -97,3 +97,83 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+// PUT - Update vendor transaction
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, date, amount, notes } = body;
+
+    // Validation
+    if (!id) {
+      return NextResponse.json(
+        { error: "transaction id is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!date) {
+      return NextResponse.json(
+        { error: "date is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!amount || amount <= 0) {
+      return NextResponse.json(
+        { error: "amount must be greater than 0" },
+        { status: 400 }
+      );
+    }
+
+    // Update transaction
+    const { data, error } = await supabaseAdmin
+      .from("vendor_transactions")
+      .update({
+        date,
+        amount: parseFloat(amount),
+        notes: notes || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE - Delete vendor transaction (hard delete)
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "transaction id is required" },
+        { status: 400 }
+      );
+    }
+
+    // Hard delete the transaction
+    const { error } = await supabaseAdmin
+      .from("vendor_transactions")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: "Transaction deleted successfully" });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

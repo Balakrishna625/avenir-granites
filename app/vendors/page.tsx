@@ -14,7 +14,9 @@ import {
   TrendingDown,
   DollarSign,
   X,
-  AlertCircle
+  AlertCircle,
+  Edit2,
+  Trash2
 } from "lucide-react";
 
 const INR = new Intl.NumberFormat("en-IN", { 
@@ -45,6 +47,8 @@ export default function VendorsPage() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   
   const [newVendor, setNewVendor] = useState({
     name: '',
@@ -99,6 +103,72 @@ export default function VendorsPage() {
     } catch (error: any) {
       console.error('Failed to add vendor:', error);
       showToast('error', error.message || 'Failed to add vendor');
+    }
+  };
+
+  const handleEditVendor = async () => {
+    if (!editingVendor || !editingVendor.name.trim()) {
+      showToast('error', 'Vendor name is required');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/vendors', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingVendor.id,
+          name: editingVendor.name,
+          contact_person: editingVendor.contact_person,
+          phone: editingVendor.phone,
+          email: editingVendor.email,
+          address: editingVendor.address
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update vendor');
+      }
+
+      showToast('success', 'Vendor updated successfully');
+      setShowEditModal(false);
+      setEditingVendor(null);
+      await loadVendors();
+    } catch (error: any) {
+      console.error('Failed to update vendor:', error);
+      showToast('error', error.message || 'Failed to update vendor');
+    }
+  };
+
+  const handleDeleteVendor = async (vendor: Vendor) => {
+    // Check if vendor has any balance
+    if (vendor.balance !== 0) {
+      showToast('error', `Cannot delete vendor with outstanding balance of ${fmt(vendor.balance)}`);
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete "${vendor.name}"?\n\nThis will mark the vendor as inactive. This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/vendors', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: vendor.id })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete vendor');
+      }
+
+      showToast('success', 'Vendor deleted successfully');
+      await loadVendors();
+    } catch (error: any) {
+      console.error('Failed to delete vendor:', error);
+      showToast('error', error.message || 'Failed to delete vendor');
     }
   };
 
@@ -212,8 +282,7 @@ export default function VendorsPage() {
                   {vendors.map((vendor) => (
                     <tr 
                       key={vendor.id} 
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => router.push(`/vendors/${vendor.id}`)}
+                      className="hover:bg-gray-50"
                     >
                       <td className="px-4 py-3">
                         <div>
@@ -245,16 +314,41 @@ export default function VendorsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/vendors/${vendor.id}`);
-                          }}
-                          variant="outline"
-                          size="sm"
-                        >
-                          View Details
-                        </Button>
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/vendors/${vendor.id}`);
+                            }}
+                            variant="outline"
+                            size="sm"
+                          >
+                            View Details
+                          </Button>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingVendor(vendor);
+                              setShowEditModal(true);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteVendor(vendor);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -353,6 +447,104 @@ export default function VendorsPage() {
                   </Button>
                   <Button
                     onClick={() => setShowAddModal(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Vendor Modal */}
+        {showEditModal && editingVendor && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-900">Edit Vendor</h3>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingVendor(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vendor Name *
+                  </label>
+                  <Input
+                    value={editingVendor.name}
+                    onChange={(e) => setEditingVendor({...editingVendor, name: e.target.value})}
+                    placeholder="Enter vendor name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contact Person
+                  </label>
+                  <Input
+                    value={editingVendor.contact_person || ''}
+                    onChange={(e) => setEditingVendor({...editingVendor, contact_person: e.target.value})}
+                    placeholder="Enter contact person name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone
+                  </label>
+                  <Input
+                    value={editingVendor.phone || ''}
+                    onChange={(e) => setEditingVendor({...editingVendor, phone: e.target.value})}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <Input
+                    type="email"
+                    value={editingVendor.email || ''}
+                    onChange={(e) => setEditingVendor({...editingVendor, email: e.target.value})}
+                    placeholder="Enter email address"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address
+                  </label>
+                  <Input
+                    value={editingVendor.address || ''}
+                    onChange={(e) => setEditingVendor({...editingVendor, address: e.target.value})}
+                    placeholder="Enter address"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    onClick={handleEditVendor}
+                    variant="default"
+                    className="flex-1"
+                  >
+                    Update Vendor
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingVendor(null);
+                    }}
                     variant="outline"
                     className="flex-1"
                   >

@@ -78,3 +78,72 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data);
 }
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, name, contact_person, phone, email, address, gst_number, payment_terms } = body;
+    
+    if (!id) {
+      return NextResponse.json({ error: "Vendor ID is required" }, { status: 400 });
+    }
+    
+    if (!name) {
+      return NextResponse.json({ error: "Vendor name is required" }, { status: 400 });
+    }
+    
+    const { data, error } = await supabaseAdmin
+      .from("vendors")
+      .update({ 
+        name: name.trim(),
+        contact_person: contact_person?.trim() || null,
+        phone: phone?.trim() || null,
+        email: email?.trim() || null,
+        address: address?.trim() || null,
+        gst_number: gst_number?.trim() || null,
+        payment_terms: payment_terms?.trim() || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const body = await req.json();
+    const { id } = body;
+    
+    if (!id) {
+      return NextResponse.json({ error: "Vendor ID is required" }, { status: 400 });
+    }
+    
+    // Mark vendor as inactive instead of hard delete (soft delete)
+    const { data, error } = await supabaseAdmin
+      .from("vendors")
+      .update({ 
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

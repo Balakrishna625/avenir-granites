@@ -7,7 +7,7 @@
 -- Update the comment to document the new grade field
 COMMENT ON COLUMN line_polish_reports.activities IS 
   'JSONB array of activity objects. Each object contains: {block_name: string (optional), activity: string, slabs: number, sqft: number, grade: string (optional)}. 
-   Example: [{"block_name":"AVG-1A","activity":"S/G Polishing","slabs":14,"sqft":1234.5,"grade":"Fresh"},{"block_name":"AVG-2B","activity":"B/P Grinding","slabs":23,"sqft":3456.0,"grade":"Blackline"}]
+   Example: [{"block_name":"AVG-1A","activity":"S/G Polishing","slabs":14,"sqft":1,234.5,"grade":"Fresh"},{"block_name":"AVG-2B","activity":"B/P Grinding","slabs":23,"sqft":3,456.0,"grade":"Blackline"}]
    
    Fields:
    - block_name: The granite block identifier (optional)

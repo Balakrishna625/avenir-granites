@@ -17,7 +17,8 @@ import {
   X,
   ShoppingCart,
   Wallet,
-  Edit2
+  Edit2,
+  Trash2
 } from "lucide-react";
 
 const INR = new Intl.NumberFormat("en-IN", { 
@@ -55,6 +56,8 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
   const [showAddModal, setShowAddModal] = useState(false);
   const [transactionType, setTransactionType] = useState<'purchase' | 'payment'>('purchase');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showEditTransactionModal, setShowEditTransactionModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   
   const [newTransaction, setNewTransaction] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -171,6 +174,65 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
     } catch (error: any) {
       console.error('Failed to update vendor:', error);
       showToast('error', error.message || 'Failed to update vendor');
+    }
+  };
+
+  const handleEditTransaction = async () => {
+    if (!editingTransaction) return;
+    
+    if (!editingTransaction.amount || parseFloat(editingTransaction.amount.toString()) <= 0) {
+      showToast('error', 'Amount must be greater than 0');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/vendor-transactions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingTransaction.id,
+          date: editingTransaction.date,
+          type: editingTransaction.type,
+          amount: parseFloat(editingTransaction.amount.toString()),
+          notes: editingTransaction.notes
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update transaction');
+      }
+
+      showToast('success', 'Transaction updated successfully');
+      setShowEditTransactionModal(false);
+      setEditingTransaction(null);
+      await loadVendorData();
+    } catch (error: any) {
+      console.error('Failed to update transaction:', error);
+      showToast('error', error.message || 'Failed to update transaction');
+    }
+  };
+
+  const handleDeleteTransaction = async (transaction: Transaction) => {
+    if (!confirm(`Are you sure you want to delete this ${transaction.type}?\n\nAmount: ${fmt(transaction.amount)}\nDate: ${formatDisplayDate(transaction.date)}\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/vendor-transactions?id=${transaction.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete transaction');
+      }
+
+      showToast('success', 'Transaction deleted successfully');
+      await loadVendorData();
+    } catch (error: any) {
+      console.error('Failed to delete transaction:', error);
+      showToast('error', error.message || 'Failed to delete transaction');
     }
   };
 
@@ -373,6 +435,7 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Purchase</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Payment</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">Balance</th>
+                      <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -411,6 +474,29 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
                           }`}>
                             {fmt(transaction.runningBalance)}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              onClick={() => {
+                                setEditingTransaction(transaction);
+                                setShowEditTransactionModal(true);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              onClick={() => handleDeleteTransaction(transaction)}
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -460,12 +546,15 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
                     Amount (₹) *
                   </label>
                   <Input
-                    type="number"
-                    value={newTransaction.amount}
-                    onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})}
+                    type="text"
+                    value={newTransaction.amount ? parseFloat(newTransaction.amount.replace(/,/g, '')).toLocaleString('en-IN') : ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/,/g, '');
+                      if (value === '' || !isNaN(parseFloat(value))) {
+                        setNewTransaction({...newTransaction, amount: value});
+                      }
+                    }}
                     placeholder="Enter amount"
-                    min="0"
-                    step="0.01"
                   />
                 </div>
 
@@ -590,6 +679,95 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
                   </Button>
                   <Button
                     onClick={() => setShowEditModal(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Transaction Modal */}
+        {showEditTransactionModal && editingTransaction && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-900">
+                  Edit {editingTransaction.type === 'purchase' ? 'Purchase' : 'Payment'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowEditTransactionModal(false);
+                    setEditingTransaction(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date *
+                  </label>
+                  <Input
+                    type="date"
+                    value={editingTransaction.date}
+                    onChange={(e) => setEditingTransaction({...editingTransaction, date: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Amount (₹) *
+                  </label>
+                  <Input
+                    type="text"
+                    value={editingTransaction.amount ? editingTransaction.amount.toLocaleString('en-IN') : ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/,/g, '');
+                      if (value === '' || !isNaN(parseFloat(value))) {
+                        setEditingTransaction({...editingTransaction, amount: parseFloat(value) || 0});
+                      }
+                    }}
+                    placeholder="Enter amount"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    value={editingTransaction.notes || ''}
+                    onChange={(e) => setEditingTransaction({...editingTransaction, notes: e.target.value})}
+                    placeholder={editingTransaction.type === 'purchase' ? 'e.g., Purchased 50 granite slabs' : 'e.g., RTGS payment reference'}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    onClick={handleEditTransaction}
+                    variant="default"
+                    className={`flex-1 ${
+                      editingTransaction.type === 'purchase' 
+                        ? 'bg-orange-600 hover:bg-orange-700' 
+                        : 'bg-green-600 hover:bg-green-700'
+                    }`}
+                  >
+                    Update {editingTransaction.type === 'purchase' ? 'Purchase' : 'Payment'}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowEditTransactionModal(false);
+                      setEditingTransaction(null);
+                    }}
                     variant="outline"
                     className="flex-1"
                   >
