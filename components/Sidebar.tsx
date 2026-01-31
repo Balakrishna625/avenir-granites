@@ -90,6 +90,11 @@ const menuItems: MenuItem[] = [
         title: 'Sales Analytics',
         href: '/sales/analytics',
         icon: <BarChart3 className="w-4 h-4" />
+      },
+      {
+        title: 'Unpolish Purchases',
+        href: '/sales/unpolish-purchases',
+        icon: <ShoppingCart className="w-4 h-4" />
       }
     ]
   },
