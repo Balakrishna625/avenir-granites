@@ -101,8 +101,7 @@ export async function PUT(req: Request) {
         email: email?.trim() || null,
         address: address?.trim() || null,
         gst_number: gst_number?.trim() || null,
-        payment_terms: payment_terms?.trim() || null,
-        updated_at: new Date().toISOString()
+        payment_terms: payment_terms?.trim() || null
       })
       .eq('id', id)
       .select()
@@ -131,8 +130,7 @@ export async function DELETE(req: Request) {
     const { data, error } = await supabaseAdmin
       .from("vendors")
       .update({ 
-        is_active: false,
-        updated_at: new Date().toISOString()
+        is_active: false
       })
       .eq('id', id)
       .select()
