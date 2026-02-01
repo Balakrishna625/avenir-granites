@@ -114,6 +114,9 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   // Galaxy filter state
   const [excludeGalaxy, setExcludeGalaxy] = useState(false);
   
+  // Only Bill filter state
+  const [excludeOnlyBill, setExcludeOnlyBill] = useState(false);
+  
   // Branch filter state (for SAI KRUPA MARBLES only)
   const [branchFilter, setBranchFilter] = useState<'all' | 'yelhanka' | 'main'>('all');
 
@@ -231,6 +234,11 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     return consignments.some(c => isGalaxyRelated(c.remarks));
   }, [consignments]);
   
+  // Check if customer has any only bill consignments
+  const hasOnlyBillEntries = useMemo(() => {
+    return consignments.some(c => c.entry_type === 'only_bill');
+  }, [consignments]);
+  
   // Check if customer has any Yelhanka-related data
   const hasYelhankaData = useMemo(() => {
     const hasYelhankaConsignments = consignments.some(c => isYelhankaRelated(c.remarks));
@@ -238,13 +246,18 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     return hasYelhankaConsignments || hasYelhankaTransactions;
   }, [consignments, transactions]);
 
-  // Filter consignments based on Galaxy exclusion and Branch filter
+  // Filter consignments based on Galaxy exclusion, Only Bill exclusion, and Branch filter
   const filteredConsignments = useMemo(() => {
     let filtered = consignments;
     
     // Apply Galaxy filter
     if (excludeGalaxy) {
       filtered = filtered.filter(c => !isGalaxyRelated(c.remarks));
+    }
+    
+    // Apply Only Bill filter
+    if (excludeOnlyBill) {
+      filtered = filtered.filter(c => c.entry_type !== 'only_bill');
     }
     
     // Apply Branch filter (only for SAI KRUPA MARBLES)
@@ -421,6 +434,22 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
                   />
                   <label htmlFor="excludeGalaxy" className="text-sm font-medium text-green-800 cursor-pointer">
                     Exclude Galaxy
+                  </label>
+                </div>
+              )}
+              
+              {/* Only Bill Filter - Only show if customer has only bill consignments */}
+              {hasOnlyBillEntries && (
+                <div className={`${hasGalaxyConsignments ? '' : 'ml-auto'} flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl`}>
+                  <input
+                    type="checkbox"
+                    id="excludeOnlyBill"
+                    checked={excludeOnlyBill}
+                    onChange={(e) => setExcludeOnlyBill(e.target.checked)}
+                    className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                  />
+                  <label htmlFor="excludeOnlyBill" className="text-sm font-medium text-amber-800 cursor-pointer">
+                    Exclude Only Bill
                   </label>
                 </div>
               )}

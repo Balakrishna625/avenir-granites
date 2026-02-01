@@ -86,6 +86,7 @@ export default function Page() {
   const [showSettlementModal, setShowSettlementModal] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [excludeGalaxy, setExcludeGalaxy] = useState(false);
+  const [excludeOnlyBill, setExcludeOnlyBill] = useState(false);
   const { showToast } = useToast();
 
   const handleUnlockToggle = () => {
@@ -177,11 +178,26 @@ export default function Page() {
     return consignments.some(c => isGalaxyRelated(c.remarks));
   }, [consignments, customerId]);
 
-  // Filter consignments based on Galaxy exclusion
+  // Check if current customer has any only bill consignments
+  const hasOnlyBillEntries = useMemo(() => {
+    if (customerId === "all") return false;
+    return consignments.some(c => c.entry_type === 'only_bill');
+  }, [consignments, customerId]);
+
+  // Filter consignments based on Galaxy exclusion and Only Bill exclusion
   const filteredConsignments = useMemo(() => {
-    if (!excludeGalaxy || customerId === "all") return consignments;
-    return consignments.filter(c => !isGalaxyRelated(c.remarks));
-  }, [consignments, excludeGalaxy, customerId]);
+    let filtered = consignments;
+    
+    if (excludeGalaxy && customerId !== "all") {
+      filtered = filtered.filter(c => !isGalaxyRelated(c.remarks));
+    }
+    
+    if (excludeOnlyBill && customerId !== "all") {
+      filtered = filtered.filter(c => c.entry_type !== 'only_bill');
+    }
+    
+    return filtered;
+  }, [consignments, excludeGalaxy, excludeOnlyBill, customerId]);
 
   const kpi = useMemo(() => {
     const expectedTotal = filteredConsignments.reduce((s, r) => s + (r.total || 0), 0);
@@ -1101,21 +1117,38 @@ export default function Page() {
         <CustomerAnalytics dateFrom={dateFrom} dateTo={dateTo} />
       ) : (
         <>
-          {/* Galaxy Filter - Show only when customer is selected and has galaxy consignments */}
-          {customerId !== "all" && hasGalaxyConsignments && (
-            <div className="mb-4 flex justify-end">
-              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl">
-                <input
-                  type="checkbox"
-                  id="excludeGalaxy"
-                  checked={excludeGalaxy}
-                  onChange={(e) => setExcludeGalaxy(e.target.checked)}
-                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                />
-                <label htmlFor="excludeGalaxy" className="text-sm font-medium text-green-800 cursor-pointer">
-                  Exclude Galaxy
-                </label>
-              </div>
+          {/* Galaxy Filter and Only Bill Filter - Show only when customer is selected */}
+          {customerId !== "all" && (hasGalaxyConsignments || hasOnlyBillEntries) && (
+            <div className="mb-4 flex justify-end gap-3">
+              {hasGalaxyConsignments && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="excludeGalaxy"
+                    checked={excludeGalaxy}
+                    onChange={(e) => setExcludeGalaxy(e.target.checked)}
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                  <label htmlFor="excludeGalaxy" className="text-sm font-medium text-green-800 cursor-pointer">
+                    Exclude Galaxy
+                  </label>
+                </div>
+              )}
+              
+              {hasOnlyBillEntries && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="excludeOnlyBill"
+                    checked={excludeOnlyBill}
+                    onChange={(e) => setExcludeOnlyBill(e.target.checked)}
+                    className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                  />
+                  <label htmlFor="excludeOnlyBill" className="text-sm font-medium text-amber-800 cursor-pointer">
+                    Exclude Only Bill
+                  </label>
+                </div>
+              )}
             </div>
           )}
           

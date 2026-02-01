@@ -17,6 +17,7 @@ interface Consignment {
   rtgs_expected: number;
   cash_expected: number;
   remarks?: string;
+  entry_type?: string | null;
 }
 
 interface ConsignmentsTableProps {
@@ -184,6 +185,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
               <tr className="bg-gray-100 border-b">
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">S.No</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Date</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Type</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Customer</th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Total (₹)</th>
                 <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">RTGS Expected (₹)</th>
@@ -195,7 +197,7 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
             <tbody className="divide-y divide-gray-200">
               {consignments.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                     No consignments found. Add your first consignment using the form above.
                   </td>
                 </tr>
@@ -219,6 +221,30 @@ export function ConsignmentsTable({ consignments, onAddConsignment, onEditConsig
                           />
                         ) : (
                           formatDisplayDate(c.date)
+                        )}
+                      </td>
+                      
+                      {/* Type */}
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {c.entry_type === 'only_bill' && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+                            Only Bill
+                          </span>
+                        )}
+                        {c.entry_type === 'job_work' && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded">
+                            Job Work
+                          </span>
+                        )}
+                        {c.entry_type === 'sales' && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
+                            Sales
+                          </span>
+                        )}
+                        {!c.entry_type && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">
+                            Regular
+                          </span>
                         )}
                       </td>
                       
