@@ -61,18 +61,6 @@ interface BankTransfer {
   notes?: string;
 }
 
-interface Settlement {
-  id: string;
-  settlement_date: string;
-  settlement_amount: number;
-  settlement_mode: string;
-  settlement_reference?: string;
-  settlement_notes?: string;
-  customers?: {
-    name: string;
-  };
-}
-
 interface Adjustment {
   id: string;
   bank_account_id: string;
@@ -88,7 +76,6 @@ export default function BankAccountsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [bankTransfers, setBankTransfers] = useState<BankTransfer[]>([]);
-  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
@@ -118,21 +105,19 @@ export default function BankAccountsPage() {
     try {
       setLoading(true);
       
-      const [accountsRes, transactionsRes, expensesRes, transfersRes, settlementsRes, adjustmentsRes] = await Promise.all([
+      const [accountsRes, transactionsRes, expensesRes, transfersRes, adjustmentsRes] = await Promise.all([
         fetch('/api/bank-accounts'),
         fetch(`/api/transactions?from=${fromDate}&to=${toDate}`),
         fetch(`/api/expenses?from=${fromDate}&to=${toDate}`),
         fetch(`/api/bank-transfers?from=${fromDate}&to=${toDate}`),
-        fetch(`/api/settlements?from=${fromDate}&to=${toDate}`),
         fetch('/api/bank-accounts/adjustments'),
       ]);
 
-      const [accountsData, transactionsData, expensesData, transfersData, settlementsData, adjustmentsData] = await Promise.all([
+      const [accountsData, transactionsData, expensesData, transfersData, adjustmentsData] = await Promise.all([
         accountsRes.json(),
         transactionsRes.json(),
         expensesRes.json(),
         transfersRes.json(),
-        settlementsRes.json(),
         adjustmentsRes.json()
       ]);
 
@@ -140,7 +125,6 @@ export default function BankAccountsPage() {
       setTransactions(transactionsData);
       setExpenses(expensesData);
       setBankTransfers(transfersData);
-      setSettlements(settlementsData);
       setAdjustments(adjustmentsData);
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -174,7 +158,7 @@ export default function BankAccountsPage() {
       return index === -1 ? 999 : index; // Unmatched accounts go to end
     };
     
-    if (!bankAccounts || !Array.isArray(transactions) || !Array.isArray(expenses) || !Array.isArray(bankTransfers) || !Array.isArray(settlements)) {
+    if (!bankAccounts || !Array.isArray(transactions) || !Array.isArray(expenses) || !Array.isArray(bankTransfers)) {
       return [];
     }
     
@@ -185,25 +169,9 @@ export default function BankAccountsPage() {
           .filter(t => t.account_id === account.id)
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
-        // Add RTGS settlements as credits for all accounts
-        const settlementCredits = settlements
-          .filter(s => s.settlement_mode === 'RTGS') // Only RTGS settlements
-          .sort((a, b) => new Date(a.settlement_date).getTime() - new Date(b.settlement_date).getTime());
+        const credits = transactionCredits.map(t => ({ ...t, type: 'transaction' as const }));
         
-        // Combine transaction and settlement credits
-        const credits = [
-          ...transactionCredits.map(t => ({ ...t, type: 'transaction' as const })),
-          ...settlementCredits.map(s => ({ 
-            ...s, 
-            type: 'settlement' as const, 
-            date: s.settlement_date, 
-            amount: s.settlement_amount,
-            account_id: account.id 
-          }))
-        ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        const totalCredits = transactionCredits.reduce((sum, t) => sum + (t.amount || 0), 0) +
-                             settlementCredits.reduce((sum, s) => sum + (s.settlement_amount || 0), 0);
+        const totalCredits = transactionCredits.reduce((sum, t) => sum + (t.amount || 0), 0);
 
 // Debits: Expenses from this account + Bank transfers out
       const expenseDebits = expenses
@@ -255,7 +223,7 @@ export default function BankAccountsPage() {
         const bActivity = b.credits.length + b.debits.length;
         return bActivity - aActivity;
       });
-  }, [bankAccounts, transactions, expenses, bankTransfers, settlements, adjustments]);
+  }, [bankAccounts, transactions, expenses, bankTransfers, adjustments]);
 
   const toggleHideAccount = (accountId: string) => {
     setHiddenAccounts(prev => {
