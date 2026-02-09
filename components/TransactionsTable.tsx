@@ -37,6 +37,8 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rtgsSortOrder, setRtgsSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
   const [cashSortOrder, setCashSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
+  const [rtgsFromDate, setRtgsFromDate] = useState<string>('');
+  const [rtgsToDate, setRtgsToDate] = useState<string>('');
   const [cashFromDate, setCashFromDate] = useState<string>('');
   const [cashToDate, setCashToDate] = useState<string>('');
   const formRef = useRef<HTMLFormElement>(null);
@@ -244,7 +246,15 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
   };
 
   const rtgsTransactions = transactions
-    .filter(t => t.mode === 'RTGS')
+    .filter(t => {
+      if (t.mode !== 'RTGS') return false;
+      
+      // Apply date filters if set
+      if (rtgsFromDate && t.date < rtgsFromDate) return false;
+      if (rtgsToDate && t.date > rtgsToDate) return false;
+      
+      return true;
+    })
     .sort((a, b) => sortByDate(a, b, rtgsSortOrder));
   
   const cashTransactions = transactions
@@ -394,6 +404,43 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                     </span>
                   </button>
                 </div>
+              </div>
+              
+              {/* Date Filters for RTGS */}
+              <div className="flex items-center gap-3 pt-2 border-t border-blue-200">
+                <span className="text-sm font-medium text-blue-800">Filter by Date:</span>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-blue-700">From:</label>
+                  <Input
+                    type="date"
+                    value={rtgsFromDate}
+                    onChange={(e) => setRtgsFromDate(e.target.value)}
+                    className="w-36 h-8 text-sm border-blue-300 focus:ring-blue-500"
+                    placeholder="From date"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-blue-700">To:</label>
+                  <Input
+                    type="date"
+                    value={rtgsToDate}
+                    onChange={(e) => setRtgsToDate(e.target.value)}
+                    className="w-36 h-8 text-sm border-blue-300 focus:ring-blue-500"
+                    placeholder="To date"
+                  />
+                </div>
+                {(rtgsFromDate || rtgsToDate) && (
+                  <button
+                    onClick={() => {
+                      setRtgsFromDate('');
+                      setRtgsToDate('');
+                    }}
+                    className="text-xs px-3 py-1 bg-white border border-blue-300 rounded hover:bg-blue-100 text-blue-700 transition-colors"
+                    title="Clear date filters"
+                  >
+                    Clear Filters
+                  </button>
+                )}
               </div>
             </div>
             <div className="overflow-x-auto max-h-96 overflow-y-auto">

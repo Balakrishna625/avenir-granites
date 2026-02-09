@@ -87,6 +87,8 @@ export default function Page() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [excludeGalaxy, setExcludeGalaxy] = useState(false);
   const [excludeOnlyBill, setExcludeOnlyBill] = useState(false);
+  const [consignmentDateFrom, setConsignmentDateFrom] = useState("");
+  const [consignmentDateTo, setConsignmentDateTo] = useState("");
   const { showToast } = useToast();
 
   const handleUnlockToggle = () => {
@@ -184,9 +186,17 @@ export default function Page() {
     return consignments.some(c => c.entry_type === 'only_bill');
   }, [consignments, customerId]);
 
-  // Filter consignments based on Galaxy exclusion and Only Bill exclusion
+  // Filter consignments based on Galaxy exclusion, Only Bill exclusion, and date range
   const filteredConsignments = useMemo(() => {
     let filtered = consignments;
+    
+    // Apply date filters if set
+    if (consignmentDateFrom) {
+      filtered = filtered.filter(c => c.date >= consignmentDateFrom);
+    }
+    if (consignmentDateTo) {
+      filtered = filtered.filter(c => c.date <= consignmentDateTo);
+    }
     
     if (excludeGalaxy && customerId !== "all") {
       filtered = filtered.filter(c => !isGalaxyRelated(c.remarks));
@@ -197,14 +207,29 @@ export default function Page() {
     }
     
     return filtered;
-  }, [consignments, excludeGalaxy, excludeOnlyBill, customerId]);
+  }, [consignments, excludeGalaxy, excludeOnlyBill, customerId, consignmentDateFrom, consignmentDateTo]);
+
+  // Filter transactions by consignment date range for consistent KPI calculations
+  const filteredTransactions = useMemo(() => {
+    let filtered = txns;
+    
+    // Apply consignment date filters to transactions if set
+    if (consignmentDateFrom) {
+      filtered = filtered.filter(t => t.date >= consignmentDateFrom);
+    }
+    if (consignmentDateTo) {
+      filtered = filtered.filter(t => t.date <= consignmentDateTo);
+    }
+    
+    return filtered;
+  }, [txns, consignmentDateFrom, consignmentDateTo]);
 
   const kpi = useMemo(() => {
     const expectedTotal = filteredConsignments.reduce((s, r) => s + (r.total || 0), 0);
     const expectedRTGS = filteredConsignments.reduce((s, r) => s + (r.rtgs_expected || 0), 0);
     const expectedCASH = filteredConsignments.reduce((s, r) => s + (r.cash_expected || 0), 0);
-    const receivedRTGS = txns.filter((t) => t.mode === "RTGS").reduce((s, t) => s + (t.amount || 0), 0);
-    const receivedCASH = txns.filter((t) => t.mode === "CASH").reduce((s, t) => s + (t.amount || 0), 0);
+    const receivedRTGS = filteredTransactions.filter((t) => t.mode === "RTGS").reduce((s, t) => s + (t.amount || 0), 0);
+    const receivedCASH = filteredTransactions.filter((t) => t.mode === "CASH").reduce((s, t) => s + (t.amount || 0), 0);
     const receivedTotal = receivedRTGS + receivedCASH;
     
     // Calculate old due amount and waived amount for the selected customer
@@ -247,13 +272,13 @@ export default function Page() {
       totalReceivables: adjustedTotalReceivables,
       effectiveGalaxyPayments
     };
-  }, [filteredConsignments, txns, customers, customerId, waivedTransactions, excludeGalaxy]);
+  }, [filteredConsignments, filteredTransactions, customers, customerId, waivedTransactions, excludeGalaxy]);
 
   // Calculate account-wise totals
   const accountSummary = useMemo(() => {
     const accountTotals = new Map();
     
-    txns.forEach(txn => {
+    filteredTransactions.forEach(txn => {
       const account = accounts.find(a => a.id === txn.account_id);
       const accountName = account?.name || 'Unknown Account';
       
@@ -277,7 +302,7 @@ export default function Page() {
       rtgs: data.rtgs,
       cash: data.cash
     })).sort((a, b) => b.total - a.total); // Sort by total amount descending
-  }, [txns, accounts]);
+  }, [filteredTransactions, accounts]);
 
   const currentCustomerName =
     customerId === "all" ? "All Customers" : (customers.find((c) => c.id === customerId)?.name || "");
@@ -1152,6 +1177,51 @@ export default function Page() {
             </div>
           )}
           
+          {/* Consignments Date Filter */}
+          <div className="bg-white rounded-xl border shadow-sm p-4 mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <Calendar className="w-5 h-5 text-gray-500" />
+              <span className="text-sm font-semibold text-gray-700">Filter Consignments:</span>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-1">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <label className="text-sm text-gray-600 whitespace-nowrap">From:</label>
+                  <Input
+                    type="date"
+                    value={consignmentDateFrom}
+                    onChange={(e) => setConsignmentDateFrom(e.target.value)}
+                    className="border rounded-lg px-3 py-1.5 text-sm w-full sm:w-auto"
+                  />
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <label className="text-sm text-gray-600 whitespace-nowrap">To:</label>
+                  <Input
+                    type="date"
+                    value={consignmentDateTo}
+                    onChange={(e) => setConsignmentDateTo(e.target.value)}
+                    className="border rounded-lg px-3 py-1.5 text-sm w-full sm:w-auto"
+                  />
+                </div>
+                {(consignmentDateFrom || consignmentDateTo) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setConsignmentDateFrom("");
+                      setConsignmentDateTo("");
+                    }}
+                    className="text-xs whitespace-nowrap w-full sm:w-auto"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+              <div className="text-sm text-gray-600 font-medium">
+                {filteredConsignments.length} / {consignments.length} records
+              </div>
+            </div>
+          </div>
+
           {/* Consignments Table */}
           <ConsignmentsTable 
             consignments={filteredConsignments}
@@ -1165,7 +1235,7 @@ export default function Page() {
 
           {/* Transactions Table */}
           <TransactionsTable 
-            transactions={txns}
+            transactions={filteredTransactions}
             accounts={accounts}
             customers={customers}
             onAddTransaction={customerId !== "all" ? handleAddTransaction : undefined}
