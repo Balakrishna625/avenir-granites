@@ -443,7 +443,7 @@ export function TransactionsTable({ transactions, accounts, customers, onAddTran
                 )}
               </div>
             </div>
-            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="min-w-full">
                 <thead className="sticky top-0 bg-gray-100">
                   <tr>
