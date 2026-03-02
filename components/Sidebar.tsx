@@ -23,7 +23,8 @@ import {
   TrendingUp,
   ShoppingBag,
   Star,
-  Wallet
+  Wallet,
+  CalendarRange
 } from 'lucide-react';
 
 interface MenuItem {
@@ -39,6 +40,11 @@ const menuItems: MenuItem[] = [
     title: 'Galaxy Account',
     href: '/galaxy',
     icon: <Star className="w-5 h-5" />
+  },
+  {
+    title: 'Monthly Summary',
+    href: '/monthly-summary',
+    icon: <CalendarRange className="w-5 h-5" />
   },
   {
     title: 'Customer Management',

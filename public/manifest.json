@@ -45,6 +45,13 @@
       "icons": [{ "src": "/icon-192x192.svg", "sizes": "192x192" }]
     },
     {
+      "name": "Monthly Summary",
+      "short_name": "Summary",
+      "description": "Monthly analysis and reports",
+      "url": "/monthly-summary",
+      "icons": [{ "src": "/icon-192x192.svg", "sizes": "192x192" }]
+    },
+    {
       "name": "Production",
       "short_name": "Production",
       "description": "Multi-cutter production entry",

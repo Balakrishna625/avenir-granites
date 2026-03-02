@@ -46,14 +46,16 @@ BEGIN
   END IF;
   
   -- Calculate current financials for this period
-  SELECT 
-    coalesce(sum(c.total), 0) AS total_invoiced,
-    coalesce(sum(t.amount), 0) AS total_received
-  INTO v_total_invoiced, v_total_received
-  FROM customer_account_periods cap
-  LEFT JOIN consignments c ON c.period_id = cap.id
-  LEFT JOIN transactions t ON t.period_id = cap.id
-  WHERE cap.id = v_current_period_id;
+  -- FIX: Use separate queries to avoid cartesian product duplication
+  SELECT coalesce(sum(total), 0)
+  INTO v_total_invoiced
+  FROM consignments
+  WHERE period_id = v_current_period_id;
+  
+  SELECT coalesce(sum(amount), 0)
+  INTO v_total_received
+  FROM transactions
+  WHERE period_id = v_current_period_id;
   
   -- Get old due and period waived amount
   SELECT 
