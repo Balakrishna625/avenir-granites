@@ -6,7 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-t
 const secret = new TextEncoder().encode(JWT_SECRET);
 
 // Paths that don't require authentication
-const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/whatsapp/webhook'];
+const PUBLIC_PATHS = ['/login', '/api/auth/login'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

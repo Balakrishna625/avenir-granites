@@ -25,9 +25,7 @@ import {
   Download,
   Settings,
   Eye,
-  EyeOff,
-  ChevronDown,
-  ChevronRight
+  EyeOff
 } from "lucide-react";
 
 interface BankCollection {
@@ -174,12 +172,6 @@ export default function ExpensesPage() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
-
-  // WhatsApp quick add state
-  const [showWhatsAppInput, setShowWhatsAppInput] = useState(false);
-  const [whatsappMessage, setWhatsappMessage] = useState("");
-  const [whatsappImage, setWhatsappImage] = useState<File | null>(null);
-  const [submittingWhatsApp, setSubmittingWhatsApp] = useState(false);
 
   // UI-only: Hidden accounts state (stored in localStorage)
   const [hiddenAccountIds, setHiddenAccountIds] = useState<Set<string>>(() => {
@@ -378,79 +370,6 @@ export default function ExpensesPage() {
     } catch (error) {
       console.error("Error adding expense:", error);
       showToast('error', 'Failed to add expense');
-    }
-  }
-
-  async function handleWhatsAppSubmit() {
-    if (!whatsappMessage.trim()) {
-      showToast('error', 'Please enter a WhatsApp message');
-      return;
-    }
-
-    setSubmittingWhatsApp(true);
-    try {
-      // Step 1: Parse the WhatsApp message to extract expense data
-      const parseResponse = await fetch('/api/expenses/parse-whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: whatsappMessage.trim() })
-      });
-
-      if (!parseResponse.ok) {
-        throw new Error('Failed to parse WhatsApp message');
-      }
-
-      const parsedData = await parseResponse.json();
-
-      // Step 2: Upload image if present
-      let imageUrl = null;
-      if (whatsappImage) {
-        const formData = new FormData();
-        formData.append('file', whatsappImage);
-        
-        const uploadResponse = await fetch('/api/upload-receipt', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (uploadResponse.ok) {
-          const uploadData = await uploadResponse.json();
-          imageUrl = uploadData.url;
-        }
-      }
-
-      // Step 3: Create pending expense
-      const pendingExpense = {
-        message_text: whatsappMessage.trim(),
-        image_url: imageUrl,
-        amount: parsedData.amount || 0,
-        description: parsedData.description || 'WhatsApp expense',
-        expense_date: parsedData.date || new Date().toISOString().split('T')[0],
-        parsed_text_amount: parsedData.amount,
-        confidence_score: parsedData.confidence || 0.5
-      };
-
-      const response = await fetch('/api/expenses/pending', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pendingExpense)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create pending expense');
-      }
-
-      // Success - reset form
-      setWhatsappMessage('');
-      setWhatsappImage(null);
-      setShowWhatsAppInput(false);
-      showToast('success', 'Expense added to approval queue! Check "Pending Approvals" to review.');
-      
-    } catch (error: any) {
-      console.error('Error submitting WhatsApp expense:', error);
-      showToast('error', error.message || 'Failed to submit expense');
-    } finally {
-      setSubmittingWhatsApp(false);
     }
   }
 
@@ -840,73 +759,6 @@ export default function ExpensesPage() {
           <CardContent className="p-6">
             <div className="mb-4">
               <h2 className="text-xl font-semibold text-gray-900">Add New Expense</h2>
-            </div>
-
-            {/* Quick Add from WhatsApp - Collapsible Section */}
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200 rounded-lg mb-6 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowWhatsAppInput(!showWhatsAppInput)}
-                className="w-full flex items-center justify-between p-4 hover:bg-green-100/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="bg-green-500 text-white p-2 rounded-lg">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <h3 className="text-sm font-bold text-gray-900">Quick Add from WhatsApp</h3>
-                    <p className="text-xs text-gray-600">Paste message and receipt to add to approval queue</p>
-                  </div>
-                </div>
-                {showWhatsAppInput ? (
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
-                ) : (
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
-                )}
-              </button>
-
-              {showWhatsAppInput && (
-                <div className="p-4 pt-0 space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-2">
-                      WhatsApp Message / Caption
-                    </label>
-                    <textarea
-                      value={whatsappMessage}
-                      onChange={(e) => setWhatsappMessage(e.target.value)}
-                      placeholder="Paste WhatsApp message here...&#10;Example: Paid 5000 for diesel at Indian Oil on 12th Dec"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                      rows={4}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-2">
-                      Receipt Image (Optional)
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setWhatsappImage(e.target.files?.[0] || null)}
-                      className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-                    />
-                    {whatsappImage && (
-                      <p className="text-xs text-gray-600 mt-1">Selected: {whatsappImage.name}</p>
-                    )}
-                  </div>
-
-                  <Button
-                    type="button"
-                    onClick={handleWhatsAppSubmit}
-                    disabled={submittingWhatsApp || !whatsappMessage.trim()}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {submittingWhatsApp ? 'Processing...' : 'Parse & Add to Queue'}
-                  </Button>
-                </div>
-              )}
             </div>
 
             <form onSubmit={handleAddExpense} className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6">

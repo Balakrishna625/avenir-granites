@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create a new pending expense (from WhatsApp parser)
+// POST - Create a new pending expense
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

@@ -239,7 +239,7 @@ export default function PendingExpensesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Pending Approvals</h1>
-            <p className="text-gray-600 mt-1">Review and approve expenses from WhatsApp</p>
+            <p className="text-gray-600 mt-1">Review and approve pending expenses</p>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 rounded-lg">
             <Clock className="w-5 h-5 text-orange-600" />

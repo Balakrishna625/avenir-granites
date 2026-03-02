@@ -328,7 +328,7 @@ export default function MultiCutterPage() {
     return { slabs, sqft };
   }
 
-  // Parse WhatsApp message and auto-fill form
+  // Parse message and auto-fill form
   function parseWhatsAppMessage(message: string) {
     try {
       const lines = message.split('\n').map(line => line.trim()).filter(Boolean);
@@ -967,15 +967,15 @@ export default function MultiCutterPage() {
               </h2>
             </div>
 
-            {/* WhatsApp Message Parser */}
+            {/* Message Parser */}
             {!editingId && (
               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" />
-                  Quick Fill from WhatsApp Message
+                  Quick Fill from Message
                 </h3>
                 <textarea
-                  placeholder="Paste your WhatsApp message here and click 'Auto Fill'..."
+                  placeholder="Paste your production message here and click 'Auto Fill'..."
                   className="w-full p-3 border border-blue-300 rounded-lg text-sm font-mono resize-y min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500"
                   id="whatsapp-message"
                 />
