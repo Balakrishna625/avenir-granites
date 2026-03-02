@@ -64,6 +64,16 @@ const COLORS = [
 
 const fmt = (n: number) => (n || 0).toLocaleString('en-IN');
 
+// Format Y-axis values in Indian style (thousands/lakhs)
+const formatYAxis = (value: number) => {
+  if (value >= 100000) {
+    return `${(value / 100000).toFixed(1)} L`; // Lakhs
+  } else if (value >= 1000) {
+    return `${(value / 1000).toFixed(0)} K`; // Thousands
+  }
+  return value.toString();
+};
+
 // Custom Tooltip Component
 const CustomTooltip = ({ active, payload, label, prefix = '', suffix = '' }: any) => {
   if (active && payload && payload.length) {
@@ -361,6 +371,7 @@ export default function MonthlySummaryPage() {
                     stroke="#9ca3af" 
                     tick={{ fill: '#6b7280', fontSize: 12 }}
                     axisLine={{ stroke: '#d1d5db' }}
+                    tickFormatter={formatYAxis}
                   />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }} />
                   <Bar 
@@ -408,6 +419,7 @@ export default function MonthlySummaryPage() {
                     stroke="#9ca3af" 
                     tick={{ fill: '#6b7280', fontSize: 12 }}
                     axisLine={{ stroke: '#d1d5db' }}
+                    tickFormatter={formatYAxis}
                   />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }} />
                   <Bar 
@@ -449,6 +461,7 @@ export default function MonthlySummaryPage() {
                     stroke="#9ca3af" 
                     tick={{ fill: '#6b7280', fontSize: 12 }}
                     axisLine={{ stroke: '#d1d5db' }}
+                    tickFormatter={formatYAxis}
                   />
                   <Tooltip content={(props) => <CustomTooltip {...props} prefix="₹" />} />
                   <Line 
@@ -457,8 +470,8 @@ export default function MonthlySummaryPage() {
                     stroke="#8b5cf6" 
                     strokeWidth={3}
                     name="Revenue (₹)"
-                    dot={{ fill: '#8b5cf6', r: 4, strokeWidth: 2, stroke: '#fff' }}
-                    activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }}
+                    dot={{ fill: '#fff', r: 6, strokeWidth: 3, stroke: '#8b5cf6' }}
+                    activeDot={{ fill: '#8b5cf6', r: 8, strokeWidth: 3, stroke: '#fff' }}
                     fill="url(#purpleGradient)"
                   />
                 </LineChart>
@@ -494,6 +507,7 @@ export default function MonthlySummaryPage() {
                     stroke="#9ca3af" 
                     tick={{ fill: '#6b7280', fontSize: 12 }}
                     axisLine={{ stroke: '#d1d5db' }}
+                    tickFormatter={formatYAxis}
                   />
                   <Tooltip content={(props) => <CustomTooltip {...props} suffix=" hrs" />} cursor={{ fill: 'rgba(245, 158, 11, 0.1)' }} />
                   <Bar 
@@ -539,6 +553,7 @@ export default function MonthlySummaryPage() {
                     stroke="#9ca3af" 
                     tick={{ fill: '#6b7280', fontSize: 12 }}
                     axisLine={{ stroke: '#d1d5db' }}
+                    tickFormatter={formatYAxis}
                   />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }} />
                   <Legend 
