@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
+export const dynamic = 'force-dynamic';
+
 // Normalize block names to improve matching across systems
 function normalizeBlockName(name?: string): string {
   if (!name) return ''

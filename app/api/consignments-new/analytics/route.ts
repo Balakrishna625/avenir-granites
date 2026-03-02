@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
+export const dynamic = 'force-dynamic';
+
 // Helper function to extract base block name (AVG-1A -> AVG-1)
 // Special case: if block already ends with A or B, keep it as-is (exact matching)
 function extractBaseBlockName(blockName: string): string {

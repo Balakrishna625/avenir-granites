@@ -16,7 +16,6 @@ export const metadata: Metadata = {
     telephone: false,
   },
   manifest: "/manifest.json",
-  themeColor: "#1e40af",
 };
 
 export const viewport: Viewport = {
@@ -25,6 +24,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
   viewportFit: 'cover',
+  themeColor: '#1e40af',
 };
 
 import "./globals.css";
