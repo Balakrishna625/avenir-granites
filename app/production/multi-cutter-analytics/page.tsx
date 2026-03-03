@@ -9,6 +9,16 @@ import { Input } from '@/components/ui/input';
 import { AppLayout } from '@/components/AppLayout';
 import { formatDisplayDate } from '@/lib/date-utils';
 import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
+import { 
   BarChart3, 
   Factory, 
   Layers,
@@ -462,6 +472,75 @@ export default function MultiCutterAnalyticsPage() {
       setLoading(false);
     }
   }
+
+  // 4. Calendar-week breakdown (dynamic per month)
+  const weeklyData = useMemo(() => {
+    if (dailyTrends.length === 0) return [];
+
+    // dailyTrends is newest-first; reverse to oldest-first for grouping
+    const sorted = [...dailyTrends].reverse();
+
+    // Build week buckets based on actual calendar weeks (Mon-Sun)
+    const weeks: { label: string; slabs: number; sqft: number; days: number; dateRange: string }[] = [];
+    let currentWeekStart: Date | null = null;
+    let bucket = { slabs: 0, sqft: 0, days: 0, startDate: '', endDate: '' };
+
+    sorted.forEach((t) => {
+      const d = new Date(t.date + 'T00:00:00');
+      const dayOfWeek = d.getDay(); // 0=Sun, 1=Mon
+      // Week starts on Monday. Calculate the Monday of this date's week.
+      const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - diffToMon);
+      const mondayKey = monday.toISOString().slice(0, 10);
+
+      if (!currentWeekStart || mondayKey !== currentWeekStart.toISOString().slice(0, 10)) {
+        // Flush previous bucket
+        if (currentWeekStart && bucket.days > 0) {
+          weeks.push({
+            label: `Week ${weeks.length + 1}`,
+            slabs: bucket.slabs,
+            sqft: Math.round(bucket.sqft),
+            days: bucket.days,
+            dateRange: `${formatDisplayDate(bucket.startDate)} \u2013 ${formatDisplayDate(bucket.endDate)}`,
+          });
+        }
+        currentWeekStart = monday;
+        bucket = { slabs: 0, sqft: 0, days: 0, startDate: t.date, endDate: t.date };
+      }
+
+      bucket.slabs += t.slabs;
+      bucket.sqft += t.sqft;
+      bucket.days += 1;
+      bucket.endDate = t.date;
+    });
+
+    // Flush last bucket
+    if (bucket.days > 0) {
+      weeks.push({
+        label: `Week ${weeks.length + 1}`,
+        slabs: bucket.slabs,
+        sqft: Math.round(bucket.sqft),
+        days: bucket.days,
+        dateRange: `${formatDisplayDate(bucket.startDate)} \u2013 ${formatDisplayDate(bucket.endDate)}`,
+      });
+    }
+
+    return weeks;
+  }, [dailyTrends]);
+
+  // Prepare daily chart data (oldest to newest)
+  const dailyChartData = useMemo(() => {
+    return [...dailyTrends].reverse().slice(0, 31).map((t) => {
+      const d = new Date(t.date + 'T00:00:00');
+      return {
+        label: `${d.getDate()}/${d.getMonth() + 1}`,
+        sqft: t.sqft,
+        slabs: t.slabs,
+        machines: t.machines_active,
+      };
+    });
+  }, [dailyTrends]);
 
   if (loading) {
     return (
@@ -939,7 +1018,7 @@ export default function MultiCutterAnalyticsPage() {
           </div>
         )}
 
-        {/* ========== DAILY PERFORMANCE CHART ========== */}
+        {/* ========== DAILY PRODUCTION BAR CHART ========== */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
@@ -948,49 +1027,158 @@ export default function MultiCutterAnalyticsPage() {
             </div>
             <p className="text-sm text-gray-600">{dailyTrends.length} days of data</p>
           </div>
-          
-          {/* Visual Bar Chart - Chronological Order (oldest to newest) */}
-          <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-            {[...dailyTrends].reverse().slice(0, 30).map((trend, index) => {
-              const maxSqft = Math.max(...dailyTrends.map(d => d.sqft));
-              const percentage = maxSqft > 0 ? (trend.sqft / maxSqft) * 100 : 0;
-              
-              return (
-                <div key={index} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-gray-700 w-28">{formatDisplayDate(trend.date)}</span>
-                    <div className="flex-1 mx-4">
-                      <div className="w-full bg-gray-200 rounded-full h-9 relative overflow-hidden shadow-sm">
-                        <div 
-                          className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 rounded-full flex items-center justify-end pr-3 transition-all duration-300"
-                          style={{ width: `${percentage}%` }}
-                        >
-                          {percentage > 15 && (
-                            <span className="text-xs font-bold text-white drop-shadow">{fmt(trend.sqft)} sqft</span>
-                          )}
-                        </div>
-                        {percentage <= 15 && (
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-700">
-                            {fmt(trend.sqft)} sqft
-                          </span>
-                        )}
+
+          {dailyChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={420}>
+              <BarChart data={dailyChartData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }} barCategoryGap="12%">
+                <defs>
+                  <linearGradient id="dailySqftGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={1} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={{ stroke: '#d1d5db' }}
+                  tickLine={false}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toString()}
+                />
+                <Tooltip
+                  content={({ active, payload, label }: any) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-3 text-sm">
+                        <p className="font-semibold text-gray-900 mb-1">{label}</p>
+                        <p className="text-indigo-600">Sq.Ft: <b>{fmt(d.sqft)}</b></p>
+                        <p className="text-gray-600">Slabs: <b>{fmt(d.slabs)}</b></p>
+                        <p className="text-gray-500">Machines: <b>{d.machines}</b></p>
                       </div>
-                    </div>
-                    <div className="text-right space-y-0.5 min-w-[80px]">
-                      <p className="text-xs font-semibold text-gray-700">{trend.slabs} slabs</p>
-                      <p className="text-xs text-gray-500">{trend.machines_active} machine{trend.machines_active !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {dailyTrends.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No production data available for the selected period
-              </div>
-            )}
-          </div>
+                    );
+                  }}
+                  cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
+                />
+                <Bar dataKey="sqft" fill="url(#dailySqftGrad)" name="Sq. Ft." radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No production data available for the selected period
+            </div>
+          )}
         </Card>
+
+        {/* ========== WEEKLY COMPARISON (CALENDAR WEEKS) ========== */}
+        {weeklyData.length > 0 && (
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <Calendar className="w-5 h-5 text-purple-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900">Weekly Comparison</h3>
+              </div>
+              <p className="text-sm text-gray-500">{weeklyData.length} calendar weeks</p>
+            </div>
+
+            {/* Weekly bar chart */}
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }} barGap={4} barCategoryGap="20%">
+                <defs>
+                  <linearGradient id="weekSqftGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#6d28d9" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="weekSlabsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#059669" stopOpacity={1} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                  axisLine={{ stroke: '#d1d5db' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  yAxisId="sqft"
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toString()}
+                />
+                <YAxis
+                  yAxisId="slabs"
+                  orientation="right"
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  content={({ active, payload }: any) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-3 text-sm">
+                        <p className="font-semibold text-gray-900 mb-1">{d.label}</p>
+                        <p className="text-[10px] text-gray-500 mb-1.5">{d.dateRange}</p>
+                        <p className="text-purple-600">Sq.Ft: <b>{fmt(d.sqft)}</b></p>
+                        <p className="text-emerald-600">Slabs: <b>{fmt(d.slabs)}</b></p>
+                        <p className="text-gray-500">Working Days: <b>{d.days}</b></p>
+                      </div>
+                    );
+                  }}
+                  cursor={{ fill: 'rgba(139, 92, 246, 0.08)' }}
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: '12px' }}
+                  iconType="rect"
+                />
+                <Bar yAxisId="sqft" dataKey="sqft" fill="url(#weekSqftGrad)" name="Sq. Ft." radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="slabs" dataKey="slabs" fill="url(#weekSlabsGrad)" name="Slabs" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+
+            {/* Weekly summary cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-5 pt-4 border-t border-gray-200">
+              {weeklyData.map((week, idx) => {
+                const prevWeek = idx > 0 ? weeklyData[idx - 1] : null;
+                const sqftChange = prevWeek && prevWeek.sqft > 0
+                  ? ((week.sqft - prevWeek.sqft) / prevWeek.sqft * 100)
+                  : null;
+
+                return (
+                  <div key={week.label} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-purple-700">{week.label}</span>
+                      <span className="text-[10px] text-gray-400">{week.days}d</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 mb-2 truncate" title={week.dateRange}>{week.dateRange}</div>
+                    <div className="text-lg font-bold text-gray-900">{fmt(week.sqft)}</div>
+                    <div className="text-xs text-gray-500">sq.ft &middot; {fmt(week.slabs)} slabs</div>
+                    {sqftChange !== null && (
+                      <div className={`mt-1.5 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                        sqftChange >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {sqftChange >= 0 ? '↑' : '↓'} {Math.abs(sqftChange).toFixed(1)}% vs prev
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* ========== MATERIAL TYPE BREAKDOWN ========== */}
         <Card className="p-6">
