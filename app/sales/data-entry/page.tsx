@@ -111,10 +111,7 @@ interface FormData {
 }
 
 function formatIndianNumber(num: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(num)
+  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Math.round(num || 0))
 }
 
 export default function SalesDataEntryPage() {

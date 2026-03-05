@@ -46,7 +46,7 @@ export function formatINR(amount: number): string {
  * @returns Formatted string like "1,00,000"
  */
 export function formatIndianNumber(amount: number): string {
-  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(amount || 0);
+  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(Math.round(amount || 0));
 }
 
 /**

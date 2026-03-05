@@ -58,6 +58,7 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditTransactionModal, setShowEditTransactionModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [createPendingExpense, setCreatePendingExpense] = useState(true);
   
   const [newTransaction, setNewTransaction] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -119,7 +120,8 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
           date: newTransaction.date,
           type: transactionType,
           amount: parseFloat(newTransaction.amount),
-          notes: newTransaction.notes
+          notes: newTransaction.notes,
+          createExpense: transactionType === 'purchase' ? createPendingExpense : false
         })
       });
 
@@ -131,6 +133,7 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
       showToast('success', `${transactionType === 'purchase' ? 'Purchase' : 'Payment'} added successfully`);
       setShowAddModal(false);
       setNewTransaction({ date: new Date().toISOString().split('T')[0], amount: '', notes: '' });
+      setCreatePendingExpense(true);
       await loadVendorData();
     } catch (error: any) {
       console.error('Failed to add transaction:', error);
@@ -571,6 +574,21 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
                   />
                 </div>
 
+                {transactionType === 'purchase' && (
+                  <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-100">
+                    <input
+                      type="checkbox"
+                      id="createExpense"
+                      checked={createPendingExpense}
+                      onChange={(e) => setCreatePendingExpense(e.target.checked)}
+                      className="w-4 h-4 accent-orange-600"
+                    />
+                    <label htmlFor="createExpense" className="text-sm text-gray-700 cursor-pointer">
+                      Create pending expense <span className="text-gray-400">(Raw Materials · Counter · On Credit)</span>
+                    </label>
+                  </div>
+                )}
+
                 <div className="flex gap-3 pt-4">
                   <Button
                     onClick={handleAddTransaction}
@@ -584,7 +602,7 @@ export default function VendorDetailPage({ params }: { params: { id: string } })
                     Add {transactionType === 'purchase' ? 'Purchase' : 'Payment'}
                   </Button>
                   <Button
-                    onClick={() => setShowAddModal(false)}
+                    onClick={() => { setShowAddModal(false); setCreatePendingExpense(true); }}
                     variant="outline"
                     className="flex-1"
                   >
