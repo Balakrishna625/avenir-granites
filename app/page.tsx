@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar, Download, PlusCircle, BarChart3, Settings, Archive, Lock, Unlock, Pencil, Trash2 } from "lucide-react";
+import { Calendar, Download, PlusCircle, BarChart3, Settings, Archive, Lock, Unlock, Pencil, Trash2, FileText } from "lucide-react";
 import { ConsignmentsTable } from "@/components/ConsignmentsTable";
 import { TransactionsTable } from "@/components/TransactionsTable";
 import { CustomerAnalytics } from "@/components/CustomerAnalytics";
@@ -308,6 +308,60 @@ export default function Page() {
 
   const currentCustomerName =
     customerId === "all" ? "All Customers" : (customers.find((c) => c.id === customerId)?.name || "");
+
+  function openAccountStatement() {
+    if (customerId === 'all') {
+      alert('Please select a specific customer to generate an account statement.');
+      return;
+    }
+
+    const selectedCustomer = customers.find(c => c.id === customerId);
+
+    const statementData = {
+      customerName: selectedCustomer?.name || '',
+      generatedDate: new Date().toISOString().split('T')[0],
+      consignmentDateFrom,
+      consignmentDateTo,
+      excludeGalaxy,
+      excludeOnlyBill,
+      kpi: {
+        expectedTotal: kpi.expectedTotal,
+        expectedRTGS: kpi.expectedRTGS,
+        expectedCASH: kpi.expectedCASH,
+        receivedRTGS: kpi.receivedRTGS,
+        receivedCASH: kpi.receivedCASH,
+        receivedTotal: kpi.receivedTotal,
+        oldDueAmount: kpi.oldDueAmount,
+        waivedAmount: kpi.waivedAmount,
+        totalReceivables: kpi.totalReceivables,
+      },
+      oldDueNotes: selectedCustomer?.old_due_notes || null,
+      waivedTransactions: waivedTransactions.map(wt => ({
+        id: wt.id,
+        amount: wt.amount,
+        waived_date: wt.waived_date,
+        notes: wt.notes || null,
+      })),
+      consignments: filteredConsignments.map(c => ({
+        date: c.date,
+        total: c.total,
+        rtgs_expected: c.rtgs_expected || 0,
+        cash_expected: c.cash_expected || 0,
+        remarks: c.remarks || null,
+        entry_type: c.entry_type || null,
+      })),
+      transactions: filteredTransactions.map(t => ({
+        date: t.date,
+        mode: t.mode,
+        amount: t.amount,
+        account_name: accounts.find(a => a.id === t.account_id)?.name || '',
+        note: t.note || null,
+      })),
+    };
+
+    sessionStorage.setItem('account_statement_data', JSON.stringify(statementData));
+    window.open('/account-statement', '_blank');
+  }
 
   async function exportExcel() {
     try {
@@ -937,6 +991,11 @@ export default function Page() {
               <Button type="button" className="rounded-2xl pointer-events-auto w-full sm:w-auto justify-center" variant="secondary" onClick={exportExcel}>
                 <Download className="w-4 h-4 mr-2" /> Export Excel
               </Button>
+              {customerId && customerId !== 'all' && (
+                <Button type="button" className="rounded-2xl pointer-events-auto w-full sm:w-auto justify-center bg-orange-600 hover:bg-orange-700 text-white" onClick={openAccountStatement}>
+                  <FileText className="w-4 h-4 mr-2" /> Account Statement
+                </Button>
+              )}
             </div>
           </div>
         </div>
