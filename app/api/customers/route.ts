@@ -101,7 +101,7 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   const body = await req.json();
-  const { id, old_due_amount, waived_amount, customer_type } = body;
+  const { id, old_due_amount, old_due_notes, waived_amount, customer_type } = body;
   
   if (!id) {
     return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });
@@ -115,6 +115,10 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Old due amount must be 0 or greater" }, { status: 400 });
     }
     updateData.old_due_amount = old_due_amount;
+  }
+
+  if (old_due_notes !== undefined) {
+    updateData.old_due_notes = old_due_notes || null;
   }
   
   if (waived_amount !== undefined) {

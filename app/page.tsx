@@ -79,6 +79,7 @@ export default function Page() {
   const [transactionSubmitted, setTransactionSubmitted] = useState(false);
   const [editingOldDue, setEditingOldDue] = useState(false);
   const [oldDueInput, setOldDueInput] = useState("");
+  const [oldDueNotesInput, setOldDueNotesInput] = useState("");
   const [editingWaivedAmount, setEditingWaivedAmount] = useState(false);
   const [editingWaivedId, setEditingWaivedId] = useState<string | null>(null);
   const [waivedAmountInput, setWaivedAmountInput] = useState("");
@@ -539,7 +540,7 @@ export default function Page() {
       const res = await fetch("/api/customers", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: customerId, old_due_amount: amount }),
+        body: JSON.stringify({ id: customerId, old_due_amount: amount, old_due_notes: oldDueNotesInput || null }),
       });
 
       const data = await res.json();
@@ -552,13 +553,14 @@ export default function Page() {
       setCustomers(prevCustomers =>
         prevCustomers.map(customer =>
           customer.id === customerId
-            ? { ...customer, old_due_amount: amount }
+            ? { ...customer, old_due_amount: amount, old_due_notes: oldDueNotesInput || null }
             : customer
         )
       );
 
       setEditingOldDue(false);
       setOldDueInput("");
+      setOldDueNotesInput("");
       showToast("success", "Old due amount updated successfully!");
     } catch (error) {
       alert("Failed to update old due amount");
@@ -574,12 +576,14 @@ export default function Page() {
     
     const selectedCustomer = customers.find(c => c.id === customerId);
     setOldDueInput(String(selectedCustomer?.old_due_amount || 0));
+    setOldDueNotesInput(selectedCustomer?.old_due_notes || "");
     setEditingOldDue(true);
   }
 
   function cancelEditingOldDue() {
     setEditingOldDue(false);
     setOldDueInput("");
+    setOldDueNotesInput("");
   }
 
   async function updateWaivedAmount() {
@@ -1012,7 +1016,7 @@ export default function Page() {
 
       {/* Previous Due Section - Compact and subtle for individual customers */}
       {customerId !== "all" && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
@@ -1024,48 +1028,60 @@ export default function Page() {
                 {kpi.oldDueAmount > 0 && (
                   <span className="text-xs text-gray-500 ml-2">(included in Total Receivables)</span>
                 )}
+                {!editingOldDue && customers.find(c => c.id === customerId)?.old_due_notes && (
+                  <div className="text-xs text-gray-500 mt-1 italic">
+                    {customers.find(c => c.id === customerId)?.old_due_notes}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              {!editingOldDue ? (
-                <Button 
-                  onClick={startEditingOldDue}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-100"
-                >
-                  {kpi.oldDueAmount > 0 ? 'Edit' : 'Add'}
-                </Button>
-              ) : (
-                <>
+            <Button 
+              onClick={editingOldDue ? cancelEditingOldDue : startEditingOldDue}
+              size="sm"
+              variant="outline"
+              className="text-xs h-7 px-3 border-gray-300 text-gray-600 hover:bg-gray-100"
+            >
+              {editingOldDue ? 'Cancel' : (kpi.oldDueAmount > 0 ? 'Edit' : 'Add')}
+            </Button>
+          </div>
+
+          {editingOldDue && (
+            <div className="bg-white border border-gray-300 rounded-lg p-3 space-y-2">
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500 block mb-1">Amount (₹) *</label>
                   <Input
                     type="number"
                     step="0.01"
                     min="0"
                     value={oldDueInput}
                     onChange={(e) => setOldDueInput(e.target.value)}
-                    placeholder="Amount"
-                    className="w-24 h-7 text-xs text-right"
+                    placeholder="0"
+                    className="h-8 text-sm"
                   />
+                </div>
+                <div className="flex items-end">
                   <Button 
                     onClick={updateOldDueAmount}
                     size="sm"
-                    className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                    className="h-8 px-4 text-xs bg-green-600 hover:bg-green-700"
                   >
                     Save
                   </Button>
-                  <Button 
-                    onClick={cancelEditingOldDue}
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2 text-xs"
-                  >
-                    Cancel
-                  </Button>
-                </>
-              )}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Notes (Optional)</label>
+                <Input
+                  type="text"
+                  value={oldDueNotesInput}
+                  onChange={(e) => setOldDueNotesInput(e.target.value)}
+                  placeholder="e.g. Carried over from previous year, dispute settlement..."
+                  className="h-8 text-sm"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
