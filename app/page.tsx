@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar, Download, PlusCircle, BarChart3, Settings, Archive, Lock, Unlock } from "lucide-react";
+import { Calendar, Download, PlusCircle, BarChart3, Settings, Archive, Lock, Unlock, Pencil, Trash2 } from "lucide-react";
 import { ConsignmentsTable } from "@/components/ConsignmentsTable";
 import { TransactionsTable } from "@/components/TransactionsTable";
 import { CustomerAnalytics } from "@/components/CustomerAnalytics";
@@ -80,6 +80,7 @@ export default function Page() {
   const [editingOldDue, setEditingOldDue] = useState(false);
   const [oldDueInput, setOldDueInput] = useState("");
   const [editingWaivedAmount, setEditingWaivedAmount] = useState(false);
+  const [editingWaivedId, setEditingWaivedId] = useState<string | null>(null);
   const [waivedAmountInput, setWaivedAmountInput] = useState("");
   const [waivedDateInput, setWaivedDateInput] = useState("");
   const [waivedNotesInput, setWaivedNotesInput] = useState("");
@@ -599,36 +600,72 @@ export default function Page() {
     }
 
     try {
-      const res = await fetch("/api/waived-transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          customer_id: customerId, 
-          amount: amount,
-          waived_date: waivedDateInput,
-          notes: waivedNotesInput || null
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Failed to save waived amount");
-        return;
+      if (editingWaivedId) {
+        // Update existing entry
+        const res = await fetch("/api/waived-transactions", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            id: editingWaivedId,
+            amount,
+            waived_date: waivedDateInput,
+            notes: waivedNotesInput || null
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || "Failed to update waived amount"); return; }
+        showToast("success", "Waived amount updated!");
+      } else {
+        // Create new entry
+        const res = await fetch("/api/waived-transactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            customer_id: customerId, 
+            amount,
+            waived_date: waivedDateInput,
+            notes: waivedNotesInput || null
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || "Failed to save waived amount"); return; }
+        showToast("success", "Waived amount saved successfully!");
       }
 
-      // Reload waived transactions
       const updatedTransactions = await fetch(`/api/waived-transactions?customerId=${customerId}`)
         .then((r) => r.json());
       setWaivedTransactions(updatedTransactions);
 
       setEditingWaivedAmount(false);
+      setEditingWaivedId(null);
       setWaivedAmountInput("");
       setWaivedDateInput("");
       setWaivedNotesInput("");
-      showToast("success", "Waived amount saved successfully!");
     } catch (error) {
       alert("Failed to save waived amount");
       console.error("Error saving waived amount:", error);
+    }
+  }
+
+  function startEditWaivedEntry(wt: any) {
+    setEditingWaivedId(wt.id);
+    setWaivedAmountInput(String(wt.amount));
+    setWaivedDateInput(wt.waived_date);
+    setWaivedNotesInput(wt.notes || "");
+    setEditingWaivedAmount(true);
+  }
+
+  async function deleteWaivedEntry(id: string) {
+    if (!confirm("Delete this waived amount entry?")) return;
+    try {
+      const res = await fetch(`/api/waived-transactions?id=${id}`, { method: "DELETE" });
+      if (!res.ok) { alert("Failed to delete entry"); return; }
+      const updatedTransactions = await fetch(`/api/waived-transactions?customerId=${customerId}`)
+        .then((r) => r.json());
+      setWaivedTransactions(updatedTransactions);
+      showToast("success", "Waived amount entry deleted.");
+    } catch {
+      alert("Failed to delete entry");
     }
   }
 
@@ -648,6 +685,7 @@ export default function Page() {
 
   function cancelEditingWaivedAmount() {
     setEditingWaivedAmount(false);
+    setEditingWaivedId(null);
     setWaivedAmountInput("");
     setWaivedDateInput("");
     setWaivedNotesInput("");
@@ -1057,9 +1095,12 @@ export default function Page() {
             </Button>
           </div>
 
-          {/* Add Waived Amount Form */}
+          {/* Add / Edit Waived Amount Form */}
           {editingWaivedAmount && (
             <div className="bg-white border border-amber-300 rounded-lg p-4 space-y-3">
+              <p className="text-xs font-semibold text-amber-700">
+                {editingWaivedId ? "Edit Waived Amount" : "Add Waived Amount"}
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-gray-600 block mb-1">Amount *</label>
@@ -1119,7 +1160,7 @@ export default function Page() {
               <h4 className="text-xs font-semibold text-gray-700 mb-2">Waived Amount History:</h4>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {waivedTransactions.map((wt) => (
-                  <div key={wt.id} className="flex items-start justify-between text-xs border-b border-gray-100 pb-2">
+                  <div key={wt.id} className="flex items-start justify-between text-xs border-b border-gray-100 pb-2 last:border-0">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-amber-700">{fmt(wt.amount)}</span>
@@ -1128,6 +1169,22 @@ export default function Page() {
                       {wt.notes && (
                         <div className="text-gray-600 mt-1 italic">{wt.notes}</div>
                       )}
+                    </div>
+                    <div className="flex gap-1 ml-2 shrink-0">
+                      <button
+                        onClick={() => startEditWaivedEntry(wt)}
+                        className="p-1 text-blue-500 hover:bg-blue-50 rounded"
+                        title="Edit"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => deleteWaivedEntry(wt.id)}
+                        className="p-1 text-red-500 hover:bg-red-50 rounded"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   </div>
                 ))}
