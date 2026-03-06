@@ -51,6 +51,23 @@ interface Summary {
   avgMonthlyHours: number;
 }
 
+interface CustomerSqftMonth {
+  key: string;
+  label: string;
+}
+
+interface CustomerSqftEntry {
+  id: string;
+  name: string;
+  monthlyData: Record<string, number>;
+  total: number;
+}
+
+interface CustomerSqftData {
+  months: CustomerSqftMonth[];
+  customers: CustomerSqftEntry[];
+}
+
 interface LiveComparison {
   currentDay: number;
   thisMonthName: string;
@@ -108,7 +125,9 @@ export default function MonthlySummaryPage() {
   const [loading, setLoading] = useState(true);
   const [liveComparison, setLiveComparison] = useState<LiveComparison | null>(null);
   const [liveLoading, setLiveLoading] = useState(true);
-  
+  const [customerSqft, setCustomerSqft] = useState<CustomerSqftData | null>(null);
+  const [customerSqftLoading, setCustomerSqftLoading] = useState(true);
+
   // Default: October 2025 to current date
   const currentDate = new Date();
   
@@ -141,6 +160,27 @@ export default function MonthlySummaryPage() {
   useEffect(() => {
     fetchMonthlySummary();
   }, [fetchMonthlySummary]);
+
+  const fetchCustomerSqft = useCallback(async () => {
+    setCustomerSqftLoading(true);
+    try {
+      const res = await fetch(
+        `/api/monthly-summary/customer-sqft?fromMonth=${fromMonth}&fromYear=${fromYear}&toMonth=${toMonth}&toYear=${toYear}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setCustomerSqft(data);
+      }
+    } catch (err) {
+      console.error('Error fetching customer sqft:', err);
+    } finally {
+      setCustomerSqftLoading(false);
+    }
+  }, [fromMonth, fromYear, toMonth, toYear]);
+
+  useEffect(() => {
+    fetchCustomerSqft();
+  }, [fetchCustomerSqft]);
 
   // Fetch live month-to-month comparison on mount
   useEffect(() => {
@@ -722,6 +762,72 @@ export default function MonthlySummaryPage() {
                 </table>
               </div>
             </Card>
+
+            {/* Customer-wise Monthly SFT Widget */}
+            <div className="mt-2">
+              <div className="flex items-center gap-2 mb-4">
+                <ShoppingBag className="w-5 h-5 text-violet-600" />
+                <h2 className="text-base font-semibold text-gray-900">Customer-wise Monthly SFT Purchased</h2>
+              </div>
+              {customerSqftLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-violet-600"></div>
+                  <span className="ml-3 text-gray-500 text-sm">Loading customer data...</span>
+                </div>
+              ) : !customerSqft || customerSqft.customers.length === 0 ? (
+                <Card className="p-5 bg-white shadow-sm border border-gray-200 rounded-lg">
+                  <p className="text-center text-gray-400 text-sm py-4">No customer sales data for this period.</p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {customerSqft.customers.map((customer) => {
+                    const maxSqft = Math.max(
+                      ...customerSqft.months.map(m => customer.monthlyData[m.key] || 0),
+                      1
+                    );
+                    return (
+                      <Card key={customer.id} className="p-4 bg-white shadow-sm border border-gray-200 rounded-lg">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-gray-900 truncate">{customer.name}</h3>
+                            <p className="text-xs text-violet-600 font-medium mt-0.5">
+                              Total: {fmt(Math.round(customer.total))} sq.ft
+                            </p>
+                          </div>
+                          <span className="ml-2 flex-shrink-0 text-[10px] bg-violet-50 text-violet-700 font-semibold px-2 py-0.5 rounded-full">
+                            {customerSqft.months.length} mo
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {customerSqft.months.map((m) => {
+                            const sqft = customer.monthlyData[m.key] || 0;
+                            const pct = maxSqft > 0 ? (sqft / maxSqft) * 100 : 0;
+                            return (
+                              <div key={m.key}>
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <span className="text-[11px] text-gray-500 w-16 flex-shrink-0">{m.label}</span>
+                                  <span className={`text-[11px] font-semibold ml-1 ${
+                                    sqft > 0 ? 'text-gray-800' : 'text-gray-300'
+                                  }`}>
+                                    {sqft > 0 ? `${fmt(Math.round(sqft))} sq.ft` : '—'}
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                  <div
+                                    className="bg-violet-500 h-1.5 rounded-full transition-all duration-500"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>

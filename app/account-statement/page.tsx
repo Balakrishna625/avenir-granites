@@ -100,12 +100,9 @@ export default function AccountStatementPage() {
         .doc { background: #fff; padding: 28px 28px 20px; border-radius: 10px; box-shadow: 0 2px 14px rgba(0,0,0,.08); }
 
         /* ── header ── */
-        .hdr { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 3px solid #f97316; margin-bottom: 18px; }
-        .co { font-size: 26px; font-weight: 800; color: #1d4ed8; }
-        .co-sub { font-size: 10px; color: #6b7280; margin-top: 2px; }
-        .hdr-r { text-align: right; }
-        .h-title { font-size: 10px; font-weight: 700; color: #ea580c; text-transform: uppercase; letter-spacing: .6px; margin-top: 2px; }
-        .h-cust { font-size: 24px; font-weight: 800; color: #111; margin-top: 0; }
+        .hdr { display: flex; flex-direction: column; align-items: center; text-align: center; padding-bottom: 14px; border-bottom: 3px solid #f97316; margin-bottom: 18px; }
+        .h-title { font-size: 11px; font-weight: 700; color: #ea580c; text-transform: uppercase; letter-spacing: .6px; margin-top: 4px; }
+        .h-cust { font-size: 28px; font-weight: 800; color: #111; margin-top: 0; }
         .h-meta { font-size: 10px; color: #6b7280; margin-top: 1px; }
         .ftag { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 3px; padding: 1px 6px; font-size: 9px; color: #4b5563; display: inline-block; margin-top: 3px; margin-right: 3px; }
 
@@ -155,8 +152,8 @@ export default function AccountStatementPage() {
         td.r { text-align: right; }
         td.amt { text-align: right; font-weight: 700; }
         tbody tr:nth-child(even) { background: #f9fafb; }
-        .tr-total { background: #f8fafc; color: #0f172a; font-weight: 700; }
-        .tr-total td { padding: 7px 8px; border-bottom: none; color: #0f172a; }
+        .tr-total { background: #1f2937 !important; color: #fff; font-weight: 700; }
+        .tr-total td { padding: 7px 8px; border-bottom: none; }
         .tr-total td.r { text-align: right; }
 
         /* ── payment section ── */
@@ -169,8 +166,8 @@ export default function AccountStatementPage() {
         .pay-pair-tbl td.amt { text-align: right; font-weight: 700; }
         .pay-pair-tbl td.r { text-align: right; }
         .pay-pair-tbl tbody tr:nth-child(even) { background: #f9fafb; }
-        .pay-pair-tbl .tr-total { background: #f8fafc; color: #0f172a; font-weight: 700; }
-        .pay-pair-tbl .tr-total td { padding: 4px 6px; border-bottom: none; font-size: 10px; color: #0f172a; }
+        .pay-pair-tbl .tr-total { background: #1f2937 !important; color: #fff; font-weight: 700; }
+        .pay-pair-tbl .tr-total td { padding: 4px 6px; border-bottom: none; font-size: 10px; }
         .pay-pair-tbl .col-sep { border-left: 2px solid #d1d5db; }
         /* Slightly larger legible styles specifically for the cash table */
         .cash-pair td { font-size: 11px; padding: 4px 8px; line-height: 1.4; }
@@ -219,26 +216,20 @@ export default function AccountStatementPage() {
         <div className="doc">
           {/* ── Header ── */}
           <div className="hdr">
-            <div>
-              <div className="co">Avenir Granites</div>
-              <div className="co-sub">Granite Supplier</div>
-            </div>
-            <div className="hdr-r">
-              <div className="h-cust">{data.customerName}</div>
-              <div className="h-title">Account Statement</div>
-              <div className="h-meta">Generated: {fmtDate(data.generatedDate)}</div>
-              {(data.consignmentDateFrom || data.consignmentDateTo) && (
-                <div className="h-meta">
-                  Period: {data.consignmentDateFrom ? fmtDate(data.consignmentDateFrom) : 'Start'} → {data.consignmentDateTo ? fmtDate(data.consignmentDateTo) : 'Today'}
-                </div>
-              )}
-              {(data.excludeGalaxy || data.excludeOnlyBill) && (
-                <div style={{ marginTop: 3 }}>
-                  {data.excludeGalaxy && <span className="ftag">Galaxy Excl.</span>}
-                  {data.excludeOnlyBill && <span className="ftag">Only Bill Excl.</span>}
-                </div>
-              )}
-            </div>
+            <div className="h-cust">{data.customerName}</div>
+            <div className="h-title">Account Statement</div>
+            <div className="h-meta">Generated: {fmtDate(data.generatedDate)}</div>
+            {(data.consignmentDateFrom || data.consignmentDateTo) && (
+              <div className="h-meta">
+                Period: {data.consignmentDateFrom ? fmtDate(data.consignmentDateFrom) : 'Start'} → {data.consignmentDateTo ? fmtDate(data.consignmentDateTo) : 'Today'}
+              </div>
+            )}
+            {(data.excludeGalaxy || data.excludeOnlyBill) && (
+              <div style={{ marginTop: 3 }}>
+                {data.excludeGalaxy && <span className="ftag">Galaxy Excl.</span>}
+                {data.excludeOnlyBill && <span className="ftag">Only Bill Excl.</span>}
+              </div>
+            )}
           </div>
 
           {/* ── KPI Summary Table ── */}
@@ -426,8 +417,8 @@ export default function AccountStatementPage() {
 
           {/* ── Footer ── */}
           <div className="foot">
-            <span>Avenir Granites — Account Statement</span>
-            <span>{data.customerName} · Generated {fmtDate(data.generatedDate)}</span>
+            <span>{data.customerName} — Account Statement</span>
+            <span>Generated {fmtDate(data.generatedDate)}</span>
           </div>
         </div>
       </div>
