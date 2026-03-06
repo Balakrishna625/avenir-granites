@@ -86,11 +86,16 @@ export async function GET(request: Request) {
 
     // Sort customers by total sqft descending
     const customers = Object.values(customerMap)
-      .map(c => ({
-        ...c,
-        monthlyData: c.monthlyData,
-        total: Number(c.total.toFixed(2))
-      }))
+      .map(c => {
+        const activeMonths = Object.values(c.monthlyData).filter(v => v > 0).length;
+        return {
+          ...c,
+          monthlyData: c.monthlyData,
+          total: Number(c.total.toFixed(2)),
+          avgSqft: activeMonths > 0 ? Number((c.total / activeMonths).toFixed(2)) : 0,
+          activeMonths
+        };
+      })
       .sort((a, b) => b.total - a.total);
 
     return NextResponse.json({ months, customers });

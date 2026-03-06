@@ -61,6 +61,8 @@ interface CustomerSqftEntry {
   name: string;
   monthlyData: Record<string, number>;
   total: number;
+  avgSqft: number;
+  activeMonths: number;
 }
 
 interface CustomerSqftData {
@@ -792,6 +794,10 @@ export default function MonthlySummaryPage() {
                             <h3 className="text-sm font-semibold text-gray-900 truncate">{customer.name}</h3>
                             <p className="text-xs text-violet-600 font-medium mt-0.5">
                               Total: {fmt(Math.round(customer.total))} sq.ft
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              Avg: {fmt(Math.round(customer.avgSqft))} sq.ft / month
+                              <span className="ml-1 text-gray-300">({customer.activeMonths} active mo)</span>
                             </p>
                           </div>
                           <span className="ml-2 flex-shrink-0 text-[10px] bg-violet-50 text-violet-700 font-semibold px-2 py-0.5 rounded-full">
