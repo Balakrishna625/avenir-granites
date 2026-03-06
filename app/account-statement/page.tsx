@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { maskCustomerName } from '@/lib/maskingUtils';
 
 interface StatementData {
   customerName: string;
@@ -173,6 +174,7 @@ export default function AccountStatementPage() {
         .cash-pair td { font-size: 11px; padding: 4px 8px; line-height: 1.4; }
         .cash-pair th { font-size: 10px; padding: 6px 8px; }
         .pay-pair-tbl td.empty { background: #f9fafb; border-bottom: 1px solid #f0f0f0; }
+        .acct-print { display: none; }
 
         /* ── footer ── */
         .foot { margin-top: 20px; padding-top: 10px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; color: #9ca3af; font-size: 9px; }
@@ -193,6 +195,8 @@ export default function AccountStatementPage() {
           /* print sizes for cash table slightly larger for readability */
           .cash-pair td { font-size: 9.5px; padding: 2px 6px; line-height: 1.25; }
           .cash-pair th { font-size: 8.5px; padding: 3px 6px; }
+          .acct-screen { display: none !important; }
+          .acct-print { display: inline !important; }
           thead { display: table-header-group; }
           tr { break-inside: avoid; }
           .hdr { break-inside: avoid; }
@@ -335,7 +339,7 @@ export default function AccountStatementPage() {
                       <td style={{ color: '#9ca3af' }}>{i + 1}</td>
                       <td>{fmtDate(t.date)}</td>
                       <td className="amt" style={{ color: '#1d4ed8' }}>{fmtAmt(t.amount)}</td>
-                      <td style={{ color: '#4b5563' }}>{t.account_name || '-'}</td>
+                      <td style={{ color: '#4b5563' }}><span className="acct-screen">{t.account_name || '-'}</span><span className="acct-print">{maskCustomerName(t.account_name || '-')}</span></td>
                     </tr>
                   ))}
                   <tr className="tr-total">
@@ -381,13 +385,13 @@ export default function AccountStatementPage() {
                           <td style={{ color: '#9ca3af' }}>{r + 1}</td>
                           <td>{fmtDate(a.date)}</td>
                           <td className="amt" style={{ color: '#15803d' }}>{fmtAmt(a.amount)}</td>
-                          <td style={{ color: '#4b5563' }}>{a.account_name || '-'}</td>
+                          <td style={{ color: '#4b5563' }}><span className="acct-screen">{a.account_name || '-'}</span><span className="acct-print">{maskCustomerName(a.account_name || '-')}</span></td>
                           {b ? (
                             <>
                               <td className="col-sep" style={{ color: '#9ca3af' }}>{r + numRows + 1}</td>
                               <td>{fmtDate(b.date)}</td>
                               <td className="amt" style={{ color: '#15803d' }}>{fmtAmt(b.amount)}</td>
-                              <td style={{ color: '#4b5563' }}>{b.account_name || '-'}</td>
+                              <td style={{ color: '#4b5563' }}><span className="acct-screen">{b.account_name || '-'}</span><span className="acct-print">{maskCustomerName(b.account_name || '-')}</span></td>
                             </>
                           ) : (
                             <td colSpan={4} className="empty"></td>
@@ -397,7 +401,7 @@ export default function AccountStatementPage() {
                               <td className="col-sep" style={{ color: '#9ca3af' }}>{r + numRows * 2 + 1}</td>
                               <td>{fmtDate(c.date)}</td>
                               <td className="amt" style={{ color: '#15803d' }}>{fmtAmt(c.amount)}</td>
-                              <td style={{ color: '#4b5563' }}>{c.account_name || '-'}</td>
+                              <td style={{ color: '#4b5563' }}><span className="acct-screen">{c.account_name || '-'}</span><span className="acct-print">{maskCustomerName(c.account_name || '-')}</span></td>
                             </>
                           ) : (
                             <td colSpan={4} className="empty"></td>
