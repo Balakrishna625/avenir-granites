@@ -475,8 +475,8 @@ export default function SalesDataEntryPage() {
     
     // Auto-calculate payment split
     // For Only Bill mode: RTGS = Official Total, Cash = 0 (no actual sale)
-    const rtgs = officialTotal
-    const cash = isOnlyBill ? 0 : (grossTotal - officialTotal)
+    const rtgs = Math.round(officialTotal)
+    const cash = isOnlyBill ? 0 : Math.round(grossTotal - officialTotal)
     
     return { totalSlabs, totalSqft, totalTons, subtotal, grossTotal, officialSubtotal, officialTotal, rtgs, cash, totalOfficialSqft, factoryMiningAmount, factoryGstAmount, totalFactoryAmount }
   }
@@ -1481,8 +1481,8 @@ export default function SalesDataEntryPage() {
                   <label className="text-xs text-gray-700 block mb-1">RTGS Expected (Official)</label>
                   <Input
                     type="number"
-                    step="0.01"
-                    value={rtgs.toFixed(2)}
+                    step="1"
+                    value={rtgs}
                     readOnly
                     className="bg-gray-100 font-semibold"
                     title="Auto-filled from Official Total"
@@ -1492,8 +1492,8 @@ export default function SalesDataEntryPage() {
                   <label className="text-xs text-gray-700 block mb-1">Cash Expected (Difference)</label>
                   <Input
                     type="number"
-                    step="0.01"
-                    value={cash.toFixed(2)}
+                    step="1"
+                    value={cash}
                     readOnly
                     className="bg-gray-100 font-semibold"
                     title="Auto-calculated: Gross Total - Official Total"
