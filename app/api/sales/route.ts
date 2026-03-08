@@ -163,7 +163,7 @@ export async function POST(request: Request) {
     // Job work amounts are added to customer payable, not paid immediately
     if (!onlyBill && !jobWork) {
       const payment_total = Number(rtgs_expected) + Number(cash_expected);
-      if (Math.abs(payment_total - gross_total) > 0.01) {
+      if (Math.abs(payment_total - Math.round(gross_total)) > 1) {
         return NextResponse.json(
           { error: `Payment split (₹${payment_total.toFixed(2)}) must equal gross total (₹${gross_total.toFixed(2)})` },
           { status: 400 }
