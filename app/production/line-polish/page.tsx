@@ -497,15 +497,18 @@ export default function LinePolishPage() {
             const normalizedMaterial = material.toUpperCase().replace(/\s+/g, '');
             const normalizedProcess = process.toLowerCase().trim();
 
+            // Helper: matches both spellings — "lapotra" (report spelling) and "laputra" (legacy)
+            const isLapotra = (s: string) => s.includes('lapotra') || s.includes('laputra');
+
             // Map to activity types
             if (normalizedMaterial === 'S/G' || normalizedMaterial === 'SG') {
               if (normalizedProcess.includes('polish') && normalizedProcess.includes('grind')) {
                 activityType = 'S/G Polish Grinding';
-              } else if (normalizedProcess.includes('laputra') && normalizedProcess.includes('grind')) {
+              } else if (isLapotra(normalizedProcess) && normalizedProcess.includes('grind')) {
                 activityType = 'S/G Laputra Grinding';
               } else if (normalizedProcess.includes('polish')) {
                 activityType = 'S/G Polishing';
-              } else if (normalizedProcess.includes('laputra')) {
+              } else if (isLapotra(normalizedProcess)) {
                 activityType = 'S/G Laputra';
               } else if (normalizedProcess.includes('grind')) {
                 activityType = 'S/G Grinding';
@@ -513,11 +516,11 @@ export default function LinePolishPage() {
             } else if (normalizedMaterial === 'B/P' || normalizedMaterial === 'BP') {
               if (normalizedProcess.includes('polish') && normalizedProcess.includes('grind')) {
                 activityType = 'B/P Polish Grinding';
-              } else if (normalizedProcess.includes('laputra') && normalizedProcess.includes('grind')) {
+              } else if (isLapotra(normalizedProcess) && normalizedProcess.includes('grind')) {
                 activityType = 'B/P Laputra Grinding';
               } else if (normalizedProcess.includes('polish')) {
                 activityType = 'B/P Polishing';
-              } else if (normalizedProcess.includes('laputra')) {
+              } else if (isLapotra(normalizedProcess)) {
                 activityType = 'B/P Laputra';
               } else if (normalizedProcess.includes('grind')) {
                 activityType = 'B/P Grinding';
