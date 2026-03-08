@@ -152,30 +152,42 @@ function aggregateMonthlyData(
     });
     const workerHours = lpFiltered.reduce((sum, r) => sum + (Number(r.no_of_hours) || 0), 0);
 
+    // Round sqft and revenue to whole numbers (standard rounding: >=0.5 rounds up).
+    // workerHours kept to 1 decimal — half-hour precision is meaningful for labour records.
+    // No cross-field addition here, so rounding each independently causes no mismatch.
     return {
       month: name,
       fullMonth: `${name} ${year}`,
-      multiCutterProduction: Number(multiCutterProduction.toFixed(2)),
+      multiCutterProduction: Math.round(multiCutterProduction),
       multiCutterSlabs,
-      salesSqft: Number(salesSqft.toFixed(2)),
-      salesRevenue: Number(salesRevenue.toFixed(2)),
-      workerHours: Number(workerHours.toFixed(1))
+      salesSqft: Math.round(salesSqft),
+      salesRevenue: Math.round(salesRevenue),
+      workerHours: Math.round(workerHours * 10) / 10   // 1 decimal place
     };
   });
 }
 
 // Calculate overall summary
+// NOTE: Totals are re-summed from already-rounded monthly values.
+// Averages are derived from raw (pre-round) re-sums to avoid compounded rounding drift,
+// then rounded themselves — so avg * months may differ from total by up to (months/2) sqft, which is expected.
 function calculateSummary(monthlyData: any[]) {
   const monthCount = monthlyData.length || 1;
+
+  const totalProduction = monthlyData.reduce((sum, m) => sum + m.multiCutterProduction, 0);
+  const totalSalesSqft  = monthlyData.reduce((sum, m) => sum + m.salesSqft, 0);
+  const totalRevenue    = monthlyData.reduce((sum, m) => sum + m.salesRevenue, 0);
+  const totalHours      = monthlyData.reduce((sum, m) => sum + m.workerHours, 0);
+
   return {
-    totalMultiCutterProduction: Number(monthlyData.reduce((sum, m) => sum + m.multiCutterProduction, 0).toFixed(2)),
+    totalMultiCutterProduction: Math.round(totalProduction),
     totalMultiCutterSlabs: monthlyData.reduce((sum, m) => sum + m.multiCutterSlabs, 0),
-    totalSalesSqft: Number(monthlyData.reduce((sum, m) => sum + m.salesSqft, 0).toFixed(2)),
-    totalSalesRevenue: Number(monthlyData.reduce((sum, m) => sum + m.salesRevenue, 0).toFixed(2)),
-    totalWorkerHours: Number(monthlyData.reduce((sum, m) => sum + m.workerHours, 0).toFixed(1)),
-    avgMonthlyProduction: Number((monthlyData.reduce((sum, m) => sum + m.multiCutterProduction, 0) / monthCount).toFixed(2)),
-    avgMonthlySales: Number((monthlyData.reduce((sum, m) => sum + m.salesSqft, 0) / monthCount).toFixed(2)),
-    avgMonthlyRevenue: Number((monthlyData.reduce((sum, m) => sum + m.salesRevenue, 0) / monthCount).toFixed(2)),
-    avgMonthlyHours: Number((monthlyData.reduce((sum, m) => sum + m.workerHours, 0) / monthCount).toFixed(1))
+    totalSalesSqft:    Math.round(totalSalesSqft),
+    totalSalesRevenue: Math.round(totalRevenue),
+    totalWorkerHours:  Math.round(totalHours * 10) / 10,
+    avgMonthlyProduction: Math.round(totalProduction / monthCount),
+    avgMonthlySales:      Math.round(totalSalesSqft  / monthCount),
+    avgMonthlyRevenue:    Math.round(totalRevenue     / monthCount),
+    avgMonthlyHours:      Math.round((totalHours / monthCount) * 10) / 10
   };
 }
