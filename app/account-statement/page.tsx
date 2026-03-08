@@ -72,7 +72,9 @@ export default function AccountStatementPage() {
     try {
       const raw = sessionStorage.getItem('account_statement_data');
       if (!raw) { setError('No statement data found. Please use the Account Statement button from the dashboard.'); return; }
-      setData(JSON.parse(raw));
+      const parsed = JSON.parse(raw);
+      setData(parsed);
+      if (parsed?.customerName) document.title = parsed.customerName;
     } catch {
       setError('Failed to load statement data.');
     }
@@ -106,7 +108,7 @@ export default function AccountStatementPage() {
         body { font-family: Arial, Helvetica, sans-serif; background: #f3f4f6; color: #1f2937; font-size: 13px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
         .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
-        .toolbar { background: #1f2937; padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; border-radius: 8px; margin-bottom: 14px; }
+        .toolbar { background: #2563eb; padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; border-radius: 8px; margin-bottom: 14px; }
         .print-btn { background: #f97316; color: #fff; border: none; padding: 9px 22px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; }
         .print-btn:hover { background: #ea580c; }
         .hint { color: #9ca3af; font-size: 11px; }
@@ -123,8 +125,10 @@ export default function AccountStatementPage() {
         .kpi-tbl { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
         .kpi-tbl th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: 8px 12px; text-align: right; border-bottom: 2px solid #d1d5db; color: #374151; background: #f9fafb; }
         .kpi-tbl th:first-child { text-align: left; }
+        .kpi-tbl th.op { width: 22px; padding: 0; text-align: center; background: #f9fafb; }
         .kpi-tbl td { padding: 10px 12px; font-size: 15px; font-weight: 700; text-align: right; border-bottom: 1px solid #e5e7eb; }
         .kpi-tbl td:first-child { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #4b5563; text-align: left; }
+        .kpi-tbl td.op { font-size: 17px; font-weight: 500; text-align: center; color: #94a3b8; background: transparent !important; width: 22px; padding: 0; border-bottom: 1px solid #e5e7eb; }
         .kpi-tbl tr.inv td.rtgs { color: #1d4ed8; background: #eff6ff; }
         .kpi-tbl tr.inv td.cash { color: #15803d; background: #f0fdf4; }
         .kpi-tbl tr.inv td.total { color: #374151; background: #f9fafb; }
@@ -135,17 +139,12 @@ export default function AccountStatementPage() {
         .kpi-tbl tr.pend td.cash { color: #c2410c; background: #fff7ed; }
         .kpi-tbl tr.pend td.total { color: #b91c1c; background: #fef2f2; }
 
-        /* ── summary boxes (stacked below KPI) ── */
-        .sum-row { display: flex; gap: 24px; align-items: center; margin-bottom: 20px; }
-        .sum-box { border-radius: 8px; padding: 12px 16px; }
-        .sum-box .sb-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-        .sum-box .sb-val { font-size: 20px; font-weight: 800; margin-top: 3px; }
-        .sb-orange { background: none; border: none; padding: 4px 0; color: #92400e; }
-        .sb-orange .sb-lbl { font-size: 9px; font-weight: 600; color: #6b7280; letter-spacing: .4px; }
-        .sb-orange .sb-val { font-size: 16px; font-weight: 700; color: #d97706; }
-        .sb-red { background: #fef2f2; border: 2px solid #fca5a5; color: #b91c1c; box-shadow: 0 2px 8px rgba(185,28,28,.12); }
-        .sb-red .sb-lbl { font-size: 11px; }
-        .sb-red .sb-val { font-size: 30px; }
+        /* ── summary boxes ── */
+        .sum-section { text-align: center; margin-bottom: 20px; }
+        .prev-due-chip { display: inline-block; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 20px; padding: 4px 16px; font-size: 10px; color: #92400e; font-weight: 600; letter-spacing: .3px; margin-bottom: 10px; }
+        .sb-red { display: inline-block; background: #fef2f2; border: 2px solid #fca5a5; border-radius: 10px; padding: 14px 40px; color: #b91c1c; box-shadow: 0 2px 12px rgba(185,28,28,.10); }
+        .sb-red .sb-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+        .sb-red .sb-val { font-size: 34px; font-weight: 800; margin-top: 4px; }
 
         /* ── section labels ── */
         .slbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: #fff; padding: 5px 12px; border-radius: 4px; display: inline-block; margin-bottom: 8px; }
@@ -158,32 +157,35 @@ export default function AccountStatementPage() {
 
         /* ── tables ── */
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        thead tr { background: #1f2937; color: #fff; }
-        th { padding: 7px 8px; text-align: left; font-weight: 600; font-size: 11px; letter-spacing: .2px; white-space: nowrap; }
+        thead tr { background: #1f2937; }
+        th { padding: 8px 8px 7px; text-align: left; font-weight: 600; font-size: 11px; letter-spacing: .2px; color: #fff; white-space: nowrap; }
         th.r { text-align: right; }
         td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
         td.r { text-align: right; }
         td.amt { text-align: right; font-weight: 700; }
         tbody tr:nth-child(even) { background: #f9fafb; }
-        .tr-total { background: #1f2937 !important; color: #fff; font-weight: 700; }
+        /* per-section total rows — dark charcoal */
+        .tr-total { font-weight: 700; }
         .tr-total td { padding: 7px 8px; border-bottom: none; }
         .tr-total td.r { text-align: right; }
+        .tr-total-amber { background: #1f2937 !important; color: #fff !important; }
+        .tr-total-blue  { background: #1f2937 !important; color: #fff !important; }
+        .tr-total-green { background: #1f2937 !important; color: #fff !important; }
 
         /* ── payment section ── */
         .pay-section { margin-bottom: 0; }
         .pay-pair-tbl { width: 100%; border-collapse: collapse; font-size: 10px; }
-        .pay-pair-tbl thead tr { background: #374151; color: #fff; }
-        .pay-pair-tbl th { padding: 4px 6px; font-size: 9px; font-weight: 600; white-space: nowrap; }
+        .pay-pair-tbl thead tr { background: #1f2937; }
+        .pay-pair-tbl th { padding: 4px 6px; font-size: 9px; font-weight: 600; color: #fff; white-space: nowrap; }
         .pay-pair-tbl th.r { text-align: right; }
-        .pay-pair-tbl td { padding: 2px 6px; font-size: 10px; line-height: 1.35; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+        .pay-pair-tbl td { padding: 2px 6px; font-size: 11.5px; line-height: 1.35; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
         .pay-pair-tbl td.amt { text-align: right; font-weight: 700; }
         .pay-pair-tbl td.r { text-align: right; }
         .pay-pair-tbl tbody tr:nth-child(even) { background: #f9fafb; }
-        .pay-pair-tbl .tr-total { background: #1f2937 !important; color: #fff; font-weight: 700; }
         .pay-pair-tbl .tr-total td { padding: 4px 6px; border-bottom: none; font-size: 10px; }
         .pay-pair-tbl .col-sep { border-left: 2px solid #d1d5db; }
         /* Slightly larger legible styles specifically for the cash table */
-        .cash-pair td { font-size: 11px; padding: 4px 8px; line-height: 1.4; }
+        .cash-pair td { font-size: 12.5px; padding: 4px 8px; line-height: 1.4; }
         .cash-pair th { font-size: 10px; padding: 6px 8px; }
         .pay-pair-tbl td.empty { background: #f9fafb; border-bottom: 1px solid #f0f0f0; }
 
@@ -200,11 +202,11 @@ export default function AccountStatementPage() {
           .kpi-tbl td { padding: 6px 8px; font-size: 13px; }
           .kpi-tbl th { padding: 5px 8px; font-size: 10px; }
           .sum-box .sb-val { font-size: 16px; }
-          .pay-pair-tbl td { padding: 1px 5px; font-size: 8.5px; line-height: 1.2; }
+          .pay-pair-tbl td { padding: 1px 5px; font-size: 9.8px; line-height: 1.2; }
           .pay-pair-tbl th { padding: 3px 5px; font-size: 8px; }
           .pay-pair-tbl .tr-total td { padding: 3px 5px; font-size: 8.5px; }
           /* print sizes for cash table slightly larger for readability */
-          .cash-pair td { font-size: 9.5px; padding: 2px 6px; line-height: 1.25; }
+          .cash-pair td { font-size: 11px; padding: 2px 6px; line-height: 1.25; }
           .cash-pair th { font-size: 8.5px; padding: 3px 6px; }
           thead { display: table-header-group; }
           tr { break-inside: avoid; }
@@ -251,42 +253,59 @@ export default function AccountStatementPage() {
               <tr>
                 <th></th>
                 <th style={{ textAlign: 'right' }}>RTGS (₹)</th>
+                <th className="op"></th>
                 <th style={{ textAlign: 'right' }}>Cash (₹)</th>
+                <th className="op"></th>
                 <th style={{ textAlign: 'right' }}>Total (₹)</th>
               </tr>
             </thead>
             <tbody>
               <tr className="inv">
-                <td>Invoiced</td>
+                <td>Invoice Billed</td>
                 <td className="rtgs">{fmtAmt(data.kpi.expectedRTGS)}</td>
+                <td className="op">+</td>
                 <td className="cash">{fmtAmt(data.kpi.expectedCASH)}</td>
+                <td className="op">=</td>
                 <td className="total">{fmtAmt(data.kpi.expectedTotal)}</td>
               </tr>
               <tr className="rec">
-                <td>Received</td>
-                <td className="rtgs">{fmtAmt(data.kpi.receivedRTGS)}</td>
-                <td className="cash">{fmtAmt(data.kpi.receivedCASH)}</td>
-                <td className="total">{fmtAmt(totalReceived)}</td>
+                <td>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#60a5fa', lineHeight: 1 }}>−</span>
+                    Received
+                  </span>
+                </td>
+                <td className="rtgs"><span style={{ fontSize: 12, color: '#60a5fa', fontWeight: 600, marginRight: 2 }}>−</span>{fmtAmt(data.kpi.receivedRTGS)}</td>
+                <td className="op">+</td>
+                <td className="cash"><span style={{ fontSize: 12, color: '#4ade80', fontWeight: 600, marginRight: 2 }}>−</span>{fmtAmt(data.kpi.receivedCASH)}</td>
+                <td className="op">=</td>
+                <td className="total"><span style={{ fontSize: 12, color: '#c084fc', fontWeight: 600, marginRight: 2 }}>−</span>{fmtAmt(totalReceived)}</td>
               </tr>
               <tr className="pend">
-                <td>Pending</td>
+                <td>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#f87171', lineHeight: 1 }}>=</span>
+                    Pending
+                  </span>
+                </td>
                 <td className="rtgs">{fmtAmt(pendingRTGS)}</td>
+                <td className="op">+</td>
                 <td className="cash">{fmtAmt(pendingCash)}</td>
+                <td className="op">=</td>
                 <td className="total">{fmtAmt(data.kpi.expectedTotal - totalReceived)}</td>
               </tr>
             </tbody>
           </table>
 
           {/* ── Previous Due + Total Outstanding ── */}
-          <div className="sum-row">
+          <div className="sum-section">
             {data.kpi.oldDueAmount > 0 && (
-              <div className="sum-box sb-orange">
-                <div className="sb-lbl">Previous Due (carried forward)</div>
-                <div className="sb-val">{fmtAmt(data.kpi.oldDueAmount)}</div>
+              <div>
+                <span className="prev-due-chip">+ Previous Due (carried forward): {fmtAmt(data.kpi.oldDueAmount)}</span>
               </div>
             )}
-            <div className="sum-box sb-red">
-              <div className="sb-lbl">Total Outstanding Receivables</div>
+            <div className="sb-red">
+              <div className="sb-lbl">Total Outstanding Due</div>
               <div className="sb-val">{fmtAmt(data.kpi.totalReceivables)}</div>
             </div>
           </div>
@@ -296,7 +315,7 @@ export default function AccountStatementPage() {
           {/* ── Consignments (full width) ── */}
           <div style={{ marginBottom: 18 }}>
             <div className="slbl sl-orange">Consignments — {data.consignments.length} records</div>
-            <table>
+            <table className="tbl-amber">
               <thead>
                 <tr>
                   <th style={{ width: 28 }}>#</th>
@@ -316,7 +335,7 @@ export default function AccountStatementPage() {
                     <td className="r" style={{ color: '#15803d' }}>{fmtAmt(c.cash_expected)}</td>
                   </tr>
                 ))}
-                <tr className="tr-total">
+                <tr className="tr-total tr-total-amber">
                   <td colSpan={2}>Total — {data.consignments.length} entries</td>
                   <td className="r">{fmtAmt(data.kpi.expectedTotal)}</td>
                   <td className="r">{fmtAmt(data.kpi.expectedRTGS)}</td>
@@ -333,7 +352,7 @@ export default function AccountStatementPage() {
             {/* RTGS — full width, single entry per row */}
             <div style={{ marginBottom: 18 }}>
               <div className="slbl sl-blue">RTGS Payments — {rtgsTxns.length}</div>
-              <table className="pay-pair-tbl cash-pair">
+              <table className="pay-pair-tbl cash-pair tbl-blue">
                 <thead>
                   <tr>
                     <th style={{ width: 28 }}>#</th>
@@ -351,7 +370,7 @@ export default function AccountStatementPage() {
                       <td style={{ color: '#4b5563' }}>{printMasked ? maskCustomerName(t.account_name || '-') : (t.account_name || '-')}</td>
                     </tr>
                   ))}
-                  <tr className="tr-total">
+                  <tr className="tr-total tr-total-blue">
                     <td colSpan={2}>Total — {rtgsTxns.length} entries</td>
                     <td className="r">{fmtAmt(data.kpi.receivedRTGS)}</td>
                     <td></td>
@@ -365,7 +384,7 @@ export default function AccountStatementPage() {
             {/* Cash — full width, 3 entries per row */}
             <div>
               <div className="slbl sl-green">Cash Payments — {cashTxns.length}</div>
-              <table className="pay-pair-tbl">
+              <table className="pay-pair-tbl tbl-green">
                 <thead>
                   <tr>
                     <th style={{ width: 18 }}>#</th>
@@ -419,7 +438,7 @@ export default function AccountStatementPage() {
                       );
                     });
                   })()}
-                  <tr className="tr-total">
+                  <tr className="tr-total tr-total-green">
                     <td colSpan={3}>Total — {cashTxns.length} entries</td>
                     <td colSpan={9} className="r">{fmtAmt(data.kpi.receivedCASH)}</td>
                   </tr>
