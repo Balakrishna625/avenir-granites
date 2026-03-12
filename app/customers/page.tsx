@@ -398,7 +398,7 @@ export default function CustomersPage() {
         </h3>
         <div className="space-y-4">
           {filteredCustomers
-            .filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) > 0)
+            .filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) >= 1)
             .sort((a, b) => {
               const aReceivables = a.totalReceivables !== undefined ? a.totalReceivables : a.totalPending;
               const bReceivables = b.totalReceivables !== undefined ? b.totalReceivables : b.totalPending;
@@ -439,7 +439,7 @@ export default function CustomersPage() {
                 </div>
               );
             })}
-          {filteredCustomers.filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) > 0).length === 0 && (
+          {filteredCustomers.filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) >= 1).length === 0 && (
             <p className="text-center text-gray-500 py-8">No outstanding receivables</p>
           )}
         </div>
