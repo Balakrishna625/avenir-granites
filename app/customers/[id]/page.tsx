@@ -87,6 +87,8 @@ interface CurrentPeriodSummary {
   total_invoiced: number;
   total_received: number;
   total_pending: number;
+  old_due_amount: number;
+  waived_amount: number;
   consignment_count: number;
   transaction_count: number;
   last_payment_date: string | null;
@@ -202,7 +204,11 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   // Memoize calculated values to avoid recalculation on every render
   const totalReceivables = useMemo(() => {
     if (!customer || !currentPeriodSummary) return 0;
-    return (currentPeriodSummary.total_pending || 0) + customer.old_due_amount - customer.waived_amount;
+    // Use waived_amount from summary (sum of waived_transactions table) — not customer.waived_amount
+    // which is a stale flat field that may not reflect waived_transaction entries.
+    const waived = currentPeriodSummary.waived_amount ?? customer.waived_amount ?? 0;
+    const oldDue = currentPeriodSummary.old_due_amount ?? customer.old_due_amount ?? 0;
+    return (currentPeriodSummary.total_pending || 0) + oldDue - waived;
   }, [customer, currentPeriodSummary]);
 
   // Only Bill calculations
@@ -875,8 +881,8 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
           customerId={customerId}
           customerName={customer.name}
           currentBalance={currentPeriodSummary?.total_pending || 0}
-          oldDueAmount={customer.old_due_amount}
-          waivedAmount={customer.waived_amount}
+          oldDueAmount={currentPeriodSummary?.old_due_amount ?? customer.old_due_amount ?? 0}
+          waivedAmount={currentPeriodSummary?.waived_amount ?? 0}
           onClose={() => setShowSettlementModal(false)}
           onSuccess={handleSettlementSuccess}
         />

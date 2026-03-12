@@ -244,7 +244,6 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
               const bReceivables = b.totalReceivables !== undefined ? b.totalReceivables : b.totalPending;
               return bReceivables - aReceivables;
             })
-            .slice(0, 10)
             .map((customer) => {
               const receivablesAmount = customer.totalReceivables !== undefined ? customer.totalReceivables : customer.totalPending;
               const maxReceivables = Math.max(...filteredCustomers.map(c => 
