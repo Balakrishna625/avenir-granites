@@ -335,8 +335,11 @@ export default function MultiCutterPage() {
       const unparsedLines: string[] = [];
       const warnings: string[] = [];
       
-      // Check for "No Running" scenario first
-      const hasNoRunning = lines.some(line => line.match(/no\s+running/i));
+      // Check for "No Running" scenario — only treat as global NO RUNNING when
+      // there are NO machine headers at all. If machine headers exist, let the
+      // per-machine parser handle "No Running" lines individually.
+      const hasMachineHeaders = lines.some(line => line.match(/Machine\s*-?\s*[123]/i));
+      const hasNoRunning = !hasMachineHeaders && lines.some(line => line.match(/no\s+[-–]?\s*(running|cutting)/i));
       
       // Extract date - handle both 2-digit year (26) and 4-digit year (2026)
       const dateMatch = lines[0].match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
@@ -442,11 +445,10 @@ export default function MultiCutterPage() {
         else if (line.match(/Date\s*:-?/i)) {
           lineProcessed = true;
         }
-        // Check for per-machine "No Running" scenario
-        else if (currentMachine && line.match(/no\s*-?\s*running/i)) {
-          // Extract the reason/notes after "No Running"
-          const notesMatch = line.match(/no\s*-?\s*running[,:\s-]*(.*)/i);
-          const notes = notesMatch && notesMatch[1] ? notesMatch[1].trim() : 'NO RUNNING';
+        // Check for per-machine "No Running" / "No Cutting" scenario
+        else if (currentMachine && line.match(/no\s*[-–]?\s*(running|cutting)/i)) {
+          // Use the full line as notes (e.g. "No Cutting - No Running")
+          const notes = line.replace(/^[-–\s]+|[-–\s]+$/g, '').trim() || 'NO RUNNING';
           machineNoRunningNotes[currentMachine] = notes;
           lineProcessed = true;
         }
