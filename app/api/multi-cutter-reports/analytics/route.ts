@@ -172,13 +172,19 @@ export async function GET(req: Request) {
             material_type: block.material_type,
             times_processed: 0,
             total_slabs: 0,
-            total_sqft: 0
+            total_sqft: 0,
+            production_entries: []
           });
         }
         const b = blockMap.get(key)!;
         b.times_processed++;
         b.total_slabs += Number(block.slabs) || 0;
         b.total_sqft += Number(block.sqft) || 0;
+        b.production_entries.push({
+          date: report.date,
+          sqft: Number(block.sqft) || 0,
+          slabs: Number(block.slabs) || 0
+        });
       });
     });
 

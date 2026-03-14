@@ -32,7 +32,8 @@ import {
   Award,
   Activity,
   Box,
-  Ruler
+  Ruler,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -73,12 +74,19 @@ interface MaterialBreakdown {
   total_sqft: number;
 }
 
+interface ProductionEntry {
+  date: string;
+  sqft: number;
+  slabs: number;
+}
+
 interface TopBlock {
   block_name: string;
   material_type: string;
   times_processed: number;
   total_slabs: number;
   total_sqft: number;
+  production_entries?: ProductionEntry[];
 }
 
 interface MultiCutterAnalytics {
@@ -110,6 +118,14 @@ export default function MultiCutterAnalyticsPage() {
     lastDayOfMonth.toISOString().split('T')[0]
   );
   const [blockGroupsData, setBlockGroupsData] = useState<TopBlock[]>([]);
+  const [selectedBlockForModal, setSelectedBlockForModal] = useState<{
+    base_name: string;
+    material_type: string;
+    blocks: string[];
+    blockDetails: Record<string, ProductionEntry[]>;
+    total_sqft: number;
+    block_count: number;
+  } | null>(null);
 
   // Extract data (use empty arrays while loading to prevent hook issues)
   const summary = analytics?.summary || {} as AnalyticsSummary;
@@ -224,6 +240,7 @@ export default function MultiCutterAnalyticsPage() {
       total_sqft: number;
       times_processed: number;
       blocks: string[];
+      blockDetails: Record<string, ProductionEntry[]>;
     }>();
 
     // Use blockGroupsData instead of topBlocks for the visual overview
@@ -252,7 +269,8 @@ export default function MultiCutterAnalyticsPage() {
           total_slabs: 0,
           total_sqft: 0,
           times_processed: 0,
-          blocks: []
+          blocks: [],
+          blockDetails: {}
         });
       }
 
@@ -262,6 +280,9 @@ export default function MultiCutterAnalyticsPage() {
       group.total_sqft += block.total_sqft;
       group.times_processed += block.times_processed;
       group.blocks.push(block.block_name);
+      group.blockDetails[block.block_name] = (block.production_entries || []).slice().sort(
+        (a: ProductionEntry, b: ProductionEntry) => a.date.localeCompare(b.date)
+      );
     });
 
     // Convert to array - initially unsorted
@@ -1405,9 +1426,17 @@ export default function MultiCutterAnalyticsPage() {
                     {prefixGroup.blocks.map((block) => (
                       <div 
                         key={`${block.base_name}-${block.material_type}`} 
-                        className="flex flex-col items-center"
+                        className="flex flex-col items-center cursor-pointer group"
+                        onClick={() => setSelectedBlockForModal({
+                          base_name: block.base_name,
+                          material_type: block.material_type,
+                          blocks: block.blocks,
+                          blockDetails: block.blockDetails,
+                          total_sqft: block.total_sqft,
+                          block_count: block.block_count
+                        })}
                       >
-                        <div className={`w-24 h-16 ${colors.bg} border-2 ${colors.border} rounded-md flex items-center justify-center shadow-sm hover:shadow-md transition-shadow`}>
+                        <div className={`w-24 h-16 ${colors.bg} border-2 ${colors.border} rounded-md flex items-center justify-center shadow-sm hover:shadow-md group-hover:scale-105 transition-all`}>
                           <div className="text-center px-1.5">
                             <div className={`text-[11px] font-bold ${colors.text} truncate`}>
                               {block.base_name}
@@ -1516,6 +1545,88 @@ export default function MultiCutterAnalyticsPage() {
           </div>
         </Card>
       </div>
+
+      {/* Block Production Dates Modal */}
+      {selectedBlockForModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setSelectedBlockForModal(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-blue-600">
+              <div>
+                <h3 className="text-lg font-bold text-white">{selectedBlockForModal.base_name}</h3>
+                <p className="text-xs text-indigo-200 mt-0.5">
+                  {selectedBlockForModal.block_count} variant{selectedBlockForModal.block_count > 1 ? 's' : ''} &middot; {fmt(selectedBlockForModal.total_sqft)} sq.ft total
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedBlockForModal(null)}
+                className="text-white/80 hover:text-white transition-colors rounded-full p-1 hover:bg-white/20"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body - scrollable */}
+            <div className="overflow-y-auto flex-1 p-5 space-y-5">
+              {selectedBlockForModal.blocks.slice().sort().map((variantName) => {
+                const entries = selectedBlockForModal.blockDetails[variantName] || [];
+                const variantTotal = entries.reduce((s, e) => s + e.sqft, 0);
+                return (
+                  <div key={variantName} className="border border-gray-200 rounded-xl overflow-hidden">
+                    {/* Variant header */}
+                    <div className="bg-gray-50 px-4 py-2.5 flex items-center justify-between border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm">
+                          {variantName.slice(-1).toUpperCase()}
+                        </span>
+                        <span className="font-semibold text-gray-800 text-sm">{variantName}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
+                        {fmt(variantTotal)} sq.ft &middot; {entries.length} session{entries.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {/* Entries table */}
+                    {entries.length > 0 ? (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-xs text-gray-500 uppercase tracking-wide bg-white border-b border-gray-100">
+                            <th className="py-2 px-4 text-left font-semibold">#</th>
+                            <th className="py-2 px-4 text-left font-semibold">Date</th>
+                            <th className="py-2 px-4 text-right font-semibold">Sq. Ft</th>
+                            <th className="py-2 px-4 text-right font-semibold">Slabs</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {entries.map((entry, i) => (
+                            <tr key={`${entry.date}-${i}`} className="border-b border-gray-50 hover:bg-blue-50 transition-colors">
+                              <td className="py-2 px-4 text-gray-400 text-xs">{i + 1}</td>
+                              <td className="py-2 px-4 font-medium text-gray-800">
+                                {new Date(entry.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </td>
+                              <td className="py-2 px-4 text-right font-bold text-green-700">{fmt(entry.sqft)}</td>
+                              <td className="py-2 px-4 text-right text-gray-600">{entry.slabs}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p className="py-4 text-center text-gray-400 text-sm">No production entries in this period</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
