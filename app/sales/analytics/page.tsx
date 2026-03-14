@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
-import { BarChart3, TrendingUp, Package, DollarSign, Users, Layers, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from 'lucide-react'
+import { BarChart2, BarChart3, TrendingUp, Package, DollarSign, Users, Layers, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from 'lucide-react'
 import { AppLayout } from '@/components/AppLayout'
 import { useSessionMonthString } from '@/hooks/useSessionMonth'
 
@@ -235,6 +235,21 @@ export default function SalesAnalyticsPage() {
   const materialsByAvgPrice = materialsWithAvgPrice
     .sort((a, b) => b.avgPrice - a.avgPrice)
     .slice(0, 10)
+
+  // Category weighted-average price (S/G, B/P, Burgandy)
+  const categoryGroups = [
+    { key: 'sg',       label: 'S/G',      color: 'sg',       match: (m: string) => /^s\/g/i.test(m) || /\bs\/g\b/i.test(m) },
+    { key: 'bp',       label: 'B/P',      color: 'bp',       match: (m: string) => /^b\/p/i.test(m) || /\bb\/p\b/i.test(m) },
+    { key: 'burgandy', label: 'Burgandy', color: 'burgandy', match: (m: string) => /burgandy/i.test(m) },
+  ]
+
+  const categoryStats = categoryGroups.map(group => {
+    const rows = materialsWithAvgPrice.filter(m => group.match(m.material))
+    const totalSqftG = rows.reduce((s, r) => s + r.sqft, 0)
+    const totalRevG  = rows.reduce((s, r) => s + r.revenue, 0)
+    const avgPriceG  = totalSqftG > 0 ? totalRevG / totalSqftG : 0
+    return { ...group, rows, totalSqft: totalSqftG, totalRevenue: totalRevG, avgPrice: avgPriceG }
+  }).filter(g => g.totalSqft > 0)
 
   return (
     <AppLayout>
@@ -470,6 +485,73 @@ export default function SalesAnalyticsPage() {
               )}
             </Card>
           </div>
+
+          {/* Category Average Price Widget */}
+          {categoryStats.length > 0 && (
+            <Card className="p-6 mb-6">
+              <div className="flex items-center gap-2 mb-5">
+                <BarChart2 className="w-5 h-5 text-indigo-600" />
+                <h2 className="text-lg font-semibold">Average Selling Price by Category</h2>
+                <span className="text-xs text-gray-500 ml-1">(Weighted avg = Total Amount ÷ Total Sq.Ft)</span>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                {categoryStats.map(group => {
+                  const colorMap: Record<string, { bg: string; border: string; badge: string; text: string; subtext: string; row: string; head: string }> = {
+                    sg:       { bg: 'bg-slate-50',  border: 'border-slate-300', badge: 'bg-slate-500',  text: 'text-slate-700', subtext: 'text-slate-500', row: 'bg-slate-50/60',  head: 'bg-slate-100' },
+                    bp:       { bg: 'bg-gray-50',   border: 'border-gray-400',  badge: 'bg-gray-800',   text: 'text-gray-800',  subtext: 'text-gray-600',  row: 'bg-gray-100/60', head: 'bg-gray-200'  },
+                    burgandy: { bg: 'bg-red-50',    border: 'border-red-300',   badge: 'bg-red-900',    text: 'text-red-900',   subtext: 'text-red-700',   row: 'bg-red-50/60',   head: 'bg-red-100'   },
+                  }
+                  const c = colorMap[group.color] || colorMap.blue
+                  return (
+                    <div key={group.key} className={`rounded-xl border ${c.border} ${c.bg} overflow-hidden`}>
+                      {/* Header */}
+                      <div className={`${c.head} px-4 py-3 flex items-center justify-between`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`${c.badge} text-white text-xs font-bold px-2 py-0.5 rounded-full`}>{group.label}</span>
+                          <span className="font-semibold text-gray-800 text-sm">{group.rows.length} material{group.rows.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-xl font-extrabold ${c.text}`}>₹{group.avgPrice.toFixed(2)}</div>
+                          <div className="text-xs text-gray-500">per Sq.Ft</div>
+                        </div>
+                      </div>
+                      {/* Breakdown table */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className={`${c.head} border-b`}>
+                              <th className="px-3 py-1.5 text-left font-medium text-gray-600">Material</th>
+                              <th className="px-3 py-1.5 text-right font-medium text-gray-600">Sq.Ft</th>
+                              <th className="px-3 py-1.5 text-right font-medium text-gray-600">Amount (₹)</th>
+                              <th className="px-3 py-1.5 text-right font-medium text-gray-600">Avg/Sft</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.rows.sort((a, b) => b.sqft - a.sqft).map((row, i) => (
+                              <tr key={row.material} className={`border-t ${i % 2 === 0 ? 'bg-white' : c.row}`}>
+                                <td className="px-3 py-1.5 font-medium text-gray-700">{row.material}</td>
+                                <td className="px-3 py-1.5 text-right text-gray-600">{row.sqft.toFixed(2)}</td>
+                                <td className="px-3 py-1.5 text-right text-gray-700">₹{formatIndianNumber(row.revenue)}</td>
+                                <td className={`px-3 py-1.5 text-right font-bold ${c.text}`}>₹{row.avgPrice.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className={`border-t-2 font-semibold ${c.head}`}>
+                              <td className="px-3 py-2 text-gray-700">Total</td>
+                              <td className="px-3 py-2 text-right text-gray-700">{group.totalSqft.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right text-gray-700">₹{formatIndianNumber(group.totalRevenue)}</td>
+                              <td className={`px-3 py-2 text-right font-extrabold ${c.text}`}>₹{group.avgPrice.toFixed(2)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+          )}
 
           {/* Actual vs Official Material Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

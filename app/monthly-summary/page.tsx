@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { 
   BarChart, 
   Bar, 
+  LabelList,
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -54,6 +55,17 @@ interface Summary {
 interface CustomerSqftMonth {
   key: string;
   label: string;
+}
+
+interface CategoryAvgEntry {
+  month: string;
+  fullMonth: string;
+  sg: number | null;
+  bp: number | null;
+  burgandy: number | null;
+  sgSqft: number;
+  bpSqft: number;
+  burgundySqft: number;
 }
 
 interface CustomerSqftEntry {
@@ -129,6 +141,8 @@ export default function MonthlySummaryPage() {
   const [liveLoading, setLiveLoading] = useState(true);
   const [customerSqft, setCustomerSqft] = useState<CustomerSqftData | null>(null);
   const [customerSqftLoading, setCustomerSqftLoading] = useState(true);
+  const [categoryAvgData, setCategoryAvgData] = useState<CategoryAvgEntry[]>([]);
+  const [categoryAvgLoading, setCategoryAvgLoading] = useState(true);
 
   // Default: October 2025 to current date
   const currentDate = new Date();
@@ -162,6 +176,27 @@ export default function MonthlySummaryPage() {
   useEffect(() => {
     fetchMonthlySummary();
   }, [fetchMonthlySummary]);
+
+  const fetchCategoryAvg = useCallback(async () => {
+    setCategoryAvgLoading(true);
+    try {
+      const res = await fetch(
+        `/api/monthly-summary/category-avg?fromMonth=${fromMonth}&fromYear=${fromYear}&toMonth=${toMonth}&toYear=${toYear}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setCategoryAvgData(data);
+      }
+    } catch (err) {
+      console.error('Error fetching category avg:', err);
+    } finally {
+      setCategoryAvgLoading(false);
+    }
+  }, [fromMonth, fromYear, toMonth, toYear]);
+
+  useEffect(() => {
+    fetchCategoryAvg();
+  }, [fetchCategoryAvg]);
 
   const fetchCustomerSqft = useCallback(async () => {
     setCustomerSqftLoading(true);
@@ -723,6 +758,111 @@ export default function MonthlySummaryPage() {
                 </Card>
               )}
             </div>
+
+            {/* Avg Selling Price by Category Chart */}
+            <Card className="p-4 bg-white shadow-sm border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-4 h-4 text-indigo-600" />
+                <h2 className="text-sm font-semibold text-gray-900">Avg Selling Price by Category (₹/Sq.Ft)</h2>
+              </div>
+              {(() => {
+                const sgAvg   = (() => { const ts = categoryAvgData.filter(d => d.sg != null && d.sgSqft > 0); const rev = ts.reduce((s,d) => s + (d.sg ?? 0) * d.sgSqft, 0); const sqft = ts.reduce((s,d) => s + d.sgSqft, 0); return sqft > 0 ? rev / sqft : null; })();
+                const bpAvg   = (() => { const ts = categoryAvgData.filter(d => d.bp != null && d.bpSqft > 0); const rev = ts.reduce((s,d) => s + (d.bp ?? 0) * d.bpSqft, 0); const sqft = ts.reduce((s,d) => s + d.bpSqft, 0); return sqft > 0 ? rev / sqft : null; })();
+                const buAvg   = (() => { const ts = categoryAvgData.filter(d => d.burgandy != null && d.burgundySqft > 0); const rev = ts.reduce((s,d) => s + (d.burgandy ?? 0) * d.burgundySqft, 0); const sqft = ts.reduce((s,d) => s + d.burgundySqft, 0); return sqft > 0 ? rev / sqft : null; })();
+                return (
+                  <div className="flex items-center gap-3 mb-3 flex-wrap">
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                      <span className="w-2.5 h-2 rounded-sm inline-block flex-shrink-0" style={{ backgroundColor: '#708090' }}></span>
+                      <span className="text-[11px] font-medium text-slate-600">S/G</span>
+                      {sgAvg != null && <span className="text-[12px] font-bold text-slate-800 ml-1">₹{Math.round(sgAvg)}<span className="text-[10px] font-normal text-slate-500">/sft avg</span></span>}
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5">
+                      <span className="w-2.5 h-2 rounded-sm inline-block flex-shrink-0" style={{ backgroundColor: '#1e2d40' }}></span>
+                      <span className="text-[11px] font-medium text-gray-700">B/P</span>
+                      {bpAvg != null && <span className="text-[12px] font-bold text-gray-900 ml-1">₹{Math.round(bpAvg)}<span className="text-[10px] font-normal text-gray-500">/sft avg</span></span>}
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
+                      <span className="w-2.5 h-2 rounded-sm inline-block flex-shrink-0" style={{ backgroundColor: '#800020' }}></span>
+                      <span className="text-[11px] font-medium text-red-800">Burgandy</span>
+                      {buAvg != null && <span className="text-[12px] font-bold text-red-900 ml-1">₹{Math.round(buAvg)}<span className="text-[10px] font-normal text-red-500">/sft avg</span></span>}
+                    </div>
+                  </div>
+                );
+              })()}
+              {categoryAvgLoading ? (
+                <div className="flex items-center justify-center h-[220px]">
+                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-500"></div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={categoryAvgData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }} barCategoryGap="20%" barGap={2}>
+                    <defs>
+                      <linearGradient id="sgGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#8899aa" stopOpacity={0.9}/>
+                        <stop offset="100%" stopColor="#5f7a8a" stopOpacity={1}/>
+                      </linearGradient>
+                      <linearGradient id="bpGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3a4d60" stopOpacity={0.9}/>
+                        <stop offset="100%" stopColor="#1e2d40" stopOpacity={1}/>
+                      </linearGradient>
+                      <linearGradient id="burgandyGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#9e1a2f" stopOpacity={0.9}/>
+                        <stop offset="100%" stopColor="#6b0018" stopOpacity={1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} axisLine={false} tickLine={false}
+                      tickFormatter={(v) => `₹${v}`} />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(148,163,184,0.08)' }}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const entry = categoryAvgData.find(d => d.month === label);
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                            <p className="font-semibold text-gray-900 mb-2">{entry?.fullMonth || label}</p>
+                            {payload.map((p: any) => p.value != null && (
+                              <p key={p.dataKey} className="mb-1" style={{ color: p.fill }}>
+                                <span className="font-medium">{p.name}:</span>{' '}
+                                <span className="font-bold">₹{p.value.toFixed(2)}/sft</span>
+                                {p.dataKey === 'sg'       && entry && <span className="text-gray-400 ml-1">({entry.sgSqft.toLocaleString('en-IN')} sft)</span>}
+                                {p.dataKey === 'bp'       && entry && <span className="text-gray-400 ml-1">({entry.bpSqft.toLocaleString('en-IN')} sft)</span>}
+                                {p.dataKey === 'burgandy' && entry && <span className="text-gray-400 ml-1">({entry.burgundySqft.toLocaleString('en-IN')} sft)</span>}
+                              </p>
+                            ))}
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="sg"       fill="url(#sgGradient)"       name="S/G"      radius={[3,3,0,0]}>
+                      <LabelList dataKey="sg" position="insideTop" content={({ x, y, width, height, value }: any) => {
+                        if (!value || (height ?? 0) < 22) return null;
+                        const cx = (x ?? 0) + (width ?? 0) / 2;
+                        const cy = (y ?? 0) + (height ?? 0) / 2;
+                        return <text x={cx} y={cy} transform={`rotate(-90,${cx},${cy})`} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={900} fill="#ffffff" stroke="rgba(0,0,0,0.75)" strokeWidth={3} paintOrder="stroke" letterSpacing={0.5}>{`₹${Math.round(value)}`}</text>;
+                      }} />
+                    </Bar>
+                    <Bar dataKey="bp"       fill="url(#bpGradient)"       name="B/P"      radius={[3,3,0,0]}>
+                      <LabelList dataKey="bp" position="insideTop" content={({ x, y, width, height, value }: any) => {
+                        if (!value || (height ?? 0) < 22) return null;
+                        const cx = (x ?? 0) + (width ?? 0) / 2;
+                        const cy = (y ?? 0) + (height ?? 0) / 2;
+                        return <text x={cx} y={cy} transform={`rotate(-90,${cx},${cy})`} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={900} fill="#ffffff" stroke="rgba(0,0,0,0.75)" strokeWidth={3} paintOrder="stroke" letterSpacing={0.5}>{`₹${Math.round(value)}`}</text>;
+                      }} />
+                    </Bar>
+                    <Bar dataKey="burgandy" fill="url(#burgandyGradient)" name="Burgandy" radius={[3,3,0,0]}>
+                      <LabelList dataKey="burgandy" position="insideTop" content={({ x, y, width, height, value }: any) => {
+                        if (!value || (height ?? 0) < 22) return null;
+                        const cx = (x ?? 0) + (width ?? 0) / 2;
+                        const cy = (y ?? 0) + (height ?? 0) / 2;
+                        return <text x={cx} y={cy} transform={`rotate(-90,${cx},${cy})`} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={900} fill="#ffffff" stroke="rgba(0,0,0,0.75)" strokeWidth={3} paintOrder="stroke" letterSpacing={0.5}>{`₹${Math.round(value)}`}</text>;
+                      }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </Card>
 
             {/* Data Table */}
             <Card className="p-5 bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">

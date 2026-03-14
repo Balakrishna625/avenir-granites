@@ -6,7 +6,9 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const now = new Date();
-    const currentDay = now.getDate(); // e.g. 2 (for March 2)
+    // Exclude today — data is entered the next morning, so "current day" is yesterday.
+    const today = now.getDate();
+    const currentDay = today > 1 ? today - 1 : 1; // never go below day 1
     const currentMonth = now.getMonth(); // 0-indexed (2 = March)
     const currentYear = now.getFullYear();
 
