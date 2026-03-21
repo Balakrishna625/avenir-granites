@@ -31,6 +31,7 @@ interface ConsignmentAnalytics {
     totalNetMeasurement: number
     totalGrossMeasurement: number
     totalExpenditure: number
+    productionCostPerSqft: number
     costBreakdown: {
       purchaseCost: number
       transportCost: number
@@ -263,10 +264,10 @@ function ConsignmentAnalyticsContent() {
               <div className="flex-1">
                 <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Production Cost</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {consignment.quarryName === 'Gokanakonda' ? '₹32' : consignment.quarryName === 'Sai lakshmi' ? '₹25' : 'N/A'}
+                  {consignment.productionCostPerSqft > 0 ? `₹${formatIndianNumber(consignment.productionCostPerSqft)}` : 'N/A'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {consignment.quarryName === 'Gokanakonda' ? 'per sqft (Gokanakonda)' : consignment.quarryName === 'Sai lakshmi' ? 'per sqft (Sai lakshmi)' : 'Only for Gokanakonda & Sai lakshmi'}
+                  {consignment.productionCostPerSqft > 0 ? 'per sqft (All quarries)' : 'Not specified'}
                 </p>
               </div>
               <BarChart3 className="w-8 h-8 text-cyan-500" />
@@ -280,15 +281,13 @@ function ConsignmentAnalyticsContent() {
                 <p className="text-xs text-emerald-700 font-semibold mb-1.5 uppercase tracking-wide">Effective per Sqft</p>
                 <p className="text-xl font-bold text-emerald-900">
                   {hasProduction ? (
-                    consignment.quarryName === 'Gokanakonda' 
-                      ? `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95) + 32).toFixed(2)))}`
-                      : consignment.quarryName === 'Sai lakshmi'
-                        ? `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95) + 25).toFixed(2)))}`
-                        : `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2)))}`
+                    consignment.productionCostPerSqft > 0
+                      ? `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95) + consignment.productionCostPerSqft).toFixed(2)))}`
+                      : `₹${formatIndianNumber(Number((consignment.totalExpenditure / (production.totalSqft * 0.95)).toFixed(2)))}`
                   ) : 'N/A'}
                 </p>
                 <p className="text-xs text-emerald-600 mt-1 font-medium">
-                  {consignment.quarryName === 'Gokanakonda' || consignment.quarryName === 'Sai lakshmi' ? 'Cost + Production' : 'Same as Cost/Sqft'}
+                  {consignment.productionCostPerSqft > 0 ? 'Cost + Production' : 'Same as Cost/Sqft'}
                 </p>
               </div>
               <DollarSign className="w-8 h-8 text-emerald-600" />

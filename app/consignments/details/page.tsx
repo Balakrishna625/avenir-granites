@@ -13,6 +13,7 @@ interface BlockRow {
   id: string
   block_name: string
   gross_measurement: string
+  net_measurement: string
 }
 
 interface Consignment {
@@ -35,6 +36,7 @@ interface Consignment {
     id: string
     block_no: string | null
     gross_measurement: number | null
+    net_measurement: number | null
     arrival_status: 'pending' | 'received'
   }>
 }
@@ -96,6 +98,7 @@ export default function ConsignmentDetailsPage() {
     net_measurement: '',
     number_of_blocks: '', // Number of blocks to create as placeholders
     purchase_cost_rate: '', // User can enter manually
+    production_cost_per_sqft: '', // Production cost per sqft (for all quarries)
     transport_cost: '',
     loading_cost: '',
     quarry_commission: '',
@@ -103,7 +106,7 @@ export default function ConsignmentDetailsPage() {
   })
 
   const [blockRows, setBlockRows] = useState<BlockRow[]>([
-    { id: '1', block_name: 'AVG-', gross_measurement: '' }
+    { id: '1', block_name: 'AVG-', gross_measurement: '', net_measurement: '' }
   ])
 
   // Fetch consignments
@@ -156,7 +159,8 @@ export default function ConsignmentDetailsPage() {
       {
         id: Date.now().toString(),
         block_name: 'AVG-',
-        gross_measurement: ''
+        gross_measurement: '',
+        net_measurement: ''
       }
     ])
   }
@@ -176,7 +180,8 @@ export default function ConsignmentDetailsPage() {
   const calculateTotals = () => {
     const totalBlocks = blockRows.filter(row => row.block_name.trim() !== 'AVG-' && row.block_name.trim() !== '').length
     const totalGross = blockRows.reduce((sum, row) => sum + (parseFloat(row.gross_measurement) || 0), 0)
-    return { totalBlocks, totalGross }
+    const totalNet = blockRows.reduce((sum, row) => sum + (parseFloat(row.net_measurement) || 0), 0)
+    return { totalBlocks, totalGross, totalNet }
   }
 
   // Calculate transport cost per block based on quarry
@@ -251,6 +256,7 @@ export default function ConsignmentDetailsPage() {
         total_blocks_count: numberOfBlocks,
         net_measurement: parseFloat(formData.net_measurement),
         purchase_cost_rate: purchase_cost_rate,
+        production_cost_per_sqft: parseFloat(formData.production_cost_per_sqft) || 0,
         total_gross_measurement: useManualBlocks ? blockRows.reduce((sum, row) => sum + (parseFloat(row.gross_measurement) || 0), 0) : 0,
         transport_cost: parseFloat(formData.transport_cost) || 0,
         loading_cost: parseFloat(formData.loading_cost) || 0,
@@ -259,6 +265,7 @@ export default function ConsignmentDetailsPage() {
         blocks: useManualBlocks ? validBlocks.map(block => ({
           block_name: block.block_name,
           gross_measurement: parseFloat(block.gross_measurement) || 0,
+          net_measurement: parseFloat(block.net_measurement) || 0,
           arrival_status: 'received' // Manual blocks are already received
         })) : [] // Empty array - we'll create placeholders separately
       }
@@ -323,6 +330,7 @@ export default function ConsignmentDetailsPage() {
       net_measurement: '',
       number_of_blocks: '',
       purchase_cost_rate: '',
+      production_cost_per_sqft: '',
       transport_cost: '',
       loading_cost: '',
       quarry_commission: '',
@@ -344,6 +352,7 @@ export default function ConsignmentDetailsPage() {
       net_measurement: consignment.net_measurement?.toString() || '',
       number_of_blocks: consignment.total_blocks_count?.toString() || '',
       purchase_cost_rate: consignment.purchase_cost_rate?.toString() || '',
+      production_cost_per_sqft: (consignment as any).production_cost_per_sqft?.toString() || '',
       transport_cost: consignment.transport_cost?.toString() || '',
       loading_cost: consignment.loading_cost?.toString() || '',
       quarry_commission: consignment.quarry_commission?.toString() || '',
@@ -353,8 +362,9 @@ export default function ConsignmentDetailsPage() {
       consignment.granite_blocks?.map((block, index) => ({
         id: String(index + 1),
         block_name: block.block_no,
-        gross_measurement: block.gross_measurement?.toString() || ''
-      })) || [{ id: '1', block_name: 'AVG-', gross_measurement: '' }]
+        gross_measurement: block.gross_measurement?.toString() || '',
+        net_measurement: (block as any).net_measurement?.toString() || ''
+      })) || [{ id: '1', block_name: 'AVG-', gross_measurement: '', net_measurement: '' }]
     )
     setShowAddForm(true)
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
@@ -385,7 +395,7 @@ export default function ConsignmentDetailsPage() {
     }
   }
 
-  const { totalBlocks, totalGross } = calculateTotals()
+  const { totalBlocks, totalGross, totalNet } = calculateTotals()
 
   return (
     <AppLayout>
@@ -574,8 +584,9 @@ export default function ConsignmentDetailsPage() {
                 <div className="space-y-3">
                   {/* Mobile: Stack labels with inputs, Desktop: Grid layout */}
                   <div className="hidden sm:grid sm:grid-cols-12 gap-3 text-xs font-medium text-gray-600 px-2">
-                    <div className="col-span-7">Block Name</div>
-                    <div className="col-span-4 text-right">Gross (m)</div>
+                    <div className="col-span-5">Block Name</div>
+                    <div className="col-span-3 text-right">Gross (m)</div>
+                    <div className="col-span-3 text-right">Net (m) <span className="text-gray-400">(Optional)</span></div>
                     <div className="col-span-1"></div>
                   </div>
 
@@ -583,7 +594,7 @@ export default function ConsignmentDetailsPage() {
                     <div key={row.id} className="bg-gray-50 p-3 rounded-lg">
                       {/* Mobile: Vertical Stack, Desktop: Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                        <div className="sm:col-span-7">
+                        <div className="sm:col-span-5">
                           <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Block Name</label>
                           <Input
                             value={row.block_name}
@@ -592,13 +603,25 @@ export default function ConsignmentDetailsPage() {
                             className="font-mono w-full"
                           />
                         </div>
-                        <div className="sm:col-span-4">
+                        <div className="sm:col-span-3">
                           <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Gross Measurement (m)</label>
                           <Input
                             type="number"
                             step="0.01"
                             value={row.gross_measurement}
                             onChange={(e) => handleBlockRowChange(row.id, 'gross_measurement', e.target.value)}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            placeholder="0.00"
+                            className="text-right w-full"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="text-xs font-medium text-gray-700 mb-1 block sm:hidden">Net Measurement (m) - Optional</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={row.net_measurement}
+                            onChange={(e) => handleBlockRowChange(row.id, 'net_measurement', e.target.value)}
                             onWheel={(e) => e.currentTarget.blur()}
                             placeholder="0.00"
                             className="text-right w-full"
@@ -624,7 +647,7 @@ export default function ConsignmentDetailsPage() {
                 {/* Auto-calculated Totals */}
                 <div className="mt-4 bg-blue-50 p-4 rounded-lg">
                   <p className="text-xs font-medium text-gray-600 mb-3">Summary (Auto-calculated)</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">Total Blocks</label>
                       <Input
@@ -640,6 +663,16 @@ export default function ConsignmentDetailsPage() {
                         type="number"
                         step="0.01"
                         value={totalGross.toFixed(2)}
+                        disabled
+                        className="bg-white font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Total Net (m)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={totalNet.toFixed(2)}
                         disabled
                         className="bg-white font-semibold"
                       />
@@ -713,6 +746,24 @@ export default function ConsignmentDetailsPage() {
                         }
                         disabled
                         className="pl-7 bg-gray-100 font-semibold"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Production Cost per Sqft
+                      <span className="ml-2 text-xs text-gray-500">(Optional - All quarries)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-gray-500">₹</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.production_cost_per_sqft}
+                        onChange={(e) => setFormData({ ...formData, production_cost_per_sqft: e.target.value })}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        placeholder="32"
+                        className="pl-7"
                       />
                     </div>
                   </div>

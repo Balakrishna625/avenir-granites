@@ -134,12 +134,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: consignmentError.message }, { status: 500 });
     }
 
-    // Create blocks - net_measurement is deprecated at block level but keep for backward compatibility
+    // Create blocks with optional net_measurement
     const blocksToInsert = blocks.map((block: any) => ({
       consignment_id: consignment.id,
       block_no: block.block_name.toUpperCase(),
       gross_measurement: parseFloat(block.gross_measurement) || 0,
-      net_measurement: 0, // Deprecated field
+      net_measurement: parseFloat(block.net_measurement) || 0, // Optional field per block
       grade: block.grade || 'A',
       status: 'RAW'
     }));
@@ -213,12 +213,12 @@ export async function PUT(request: NextRequest) {
         .delete()
         .eq('consignment_id', id);
 
-      // Insert new blocks
+      // Insert new blocks with optional net_measurement
       const blocksToInsert = blocks.map((block: any) => ({
         consignment_id: id,
         block_no: block.block_name.toUpperCase(),
         gross_measurement: parseFloat(block.gross_measurement) || 0,
-        net_measurement: 0, // Deprecated field
+        net_measurement: parseFloat(block.net_measurement) || 0, // Optional field per block
         grade: block.grade || 'A',
         status: 'RAW'
       }));
