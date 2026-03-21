@@ -1003,27 +1003,27 @@ export default function Page() {
 
             {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3 md:gap-4">
-        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm">
+        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm min-w-0">
           <div className="text-[10px] md:text-xs text-gray-600 uppercase tracking-wide truncate">Total Invoiced</div>
-          <div className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900 truncate">{fmt(kpi.expectedTotal)}</div>
+          <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 break-words">{fmt(kpi.expectedTotal)}</div>
         </div>
-        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm">
+        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm min-w-0">
           <div className="text-[10px] md:text-xs text-gray-600 uppercase tracking-wide truncate">Invoiced RTGS</div>
-          <div className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900 truncate">{fmt(kpi.expectedRTGS)}</div>
+          <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 break-words">{fmt(kpi.expectedRTGS)}</div>
         </div>
-        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm">
+        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm min-w-0">
           <div className="text-[10px] md:text-xs text-gray-600 uppercase tracking-wide truncate">Invoiced Cash</div>
-          <div className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900 truncate">{fmt(kpi.expectedCASH)}</div>
+          <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 break-words">{fmt(kpi.expectedCASH)}</div>
         </div>
-        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm">
+        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm min-w-0">
           <div className="text-[10px] md:text-xs text-blue-600 uppercase tracking-wide truncate">Received RTGS</div>
-          <div className="text-lg md:text-xl lg:text-2xl font-bold text-blue-600 truncate">{fmt(kpi.receivedRTGS)}</div>
+          <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-blue-600 break-words">{fmt(kpi.receivedRTGS)}</div>
         </div>
-        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm">
+        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm min-w-0">
           <div className="text-[10px] md:text-xs text-green-600 uppercase tracking-wide truncate">Received Cash</div>
-          <div className="text-lg md:text-xl lg:text-2xl font-bold text-green-600 truncate">{fmt(kpi.receivedCASH)}</div>
+          <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-green-600 break-words">{fmt(kpi.receivedCASH)}</div>
         </div>
-        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm">
+        <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm min-w-0">
           <div className={`text-[10px] md:text-xs uppercase tracking-wide truncate ${
             (kpi.expectedTotal - kpi.receivedTotal - kpi.waivedAmount) >= 0 
               ? 'text-purple-600' 
@@ -1031,7 +1031,7 @@ export default function Page() {
           }`}>
             {(kpi.expectedTotal - kpi.receivedTotal - kpi.waivedAmount) >= 0 ? 'Total Pending' : 'Total Advance'}
           </div>
-          <div className={`text-lg md:text-xl lg:text-2xl font-bold truncate ${
+          <div className={`text-base sm:text-lg md:text-xl lg:text-2xl font-bold break-words ${
             (kpi.expectedTotal - kpi.receivedTotal - kpi.waivedAmount) >= 0 
               ? 'text-purple-600' 
               : 'text-green-600'
@@ -1044,13 +1044,13 @@ export default function Page() {
         </div>
         {/* Show Total Receivables/Advance based on value */}
         {(kpi.oldDueAmount > 0 || kpi.totalReceivables < 0) && (
-          <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm">
+          <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm min-w-0">
             <div className={`text-[10px] md:text-xs uppercase tracking-wide truncate ${
               kpi.totalReceivables >= 0 ? 'text-red-600' : 'text-green-600'
             }`}>
               {kpi.totalReceivables >= 0 ? 'Total Receivables' : 'Total Advance'}
             </div>
-            <div className={`text-lg md:text-xl lg:text-2xl font-bold truncate ${
+            <div className={`text-base sm:text-lg md:text-xl lg:text-2xl font-bold break-words ${
               kpi.totalReceivables >= 0 ? 'text-red-600' : 'text-green-600'
             }`}>
               {fmt(Math.abs(kpi.totalReceivables))}
@@ -1065,10 +1065,10 @@ export default function Page() {
         
         {/* Galaxy Payments Tile - Only show when Galaxy excluded and there's excess payment */}
         {excludeGalaxy && kpi.effectiveGalaxyPayments > 0 && (
-          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 border-2 border-purple-200 shadow-sm">
-            <div className="text-xs text-purple-600 uppercase tracking-wide font-semibold">Galaxy Payments</div>
-            <div className="text-2xl font-bold text-purple-600">{fmt(kpi.effectiveGalaxyPayments)}</div>
-            <div className="text-xs text-purple-500 mt-1">Effective Amount Received</div>
+          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-3 md:p-4 border-2 border-purple-200 shadow-sm min-w-0">
+            <div className="text-[10px] md:text-xs text-purple-600 uppercase tracking-wide font-semibold truncate">Galaxy Payments</div>
+            <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-purple-600 break-words">{fmt(kpi.effectiveGalaxyPayments)}</div>
+            <div className="text-[10px] md:text-xs text-purple-500 mt-1 truncate">Effective Amount Received</div>
           </div>
         )}
       </div>
