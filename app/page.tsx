@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from "react";
-import { AppLayout } from "@/components/AppLayout";
+import { DashboardLayout } from "@/components/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar, Download, PlusCircle, BarChart3, Settings, Archive, Lock, Unlock, Pencil, Trash2, FileText } from "lucide-react";
@@ -854,7 +854,7 @@ export default function Page() {
   }
 
   return (
-    <AppLayout>
+    <DashboardLayout>
       <div className="min-h-screen w-full bg-gray-50 p-4 sm:p-6 space-y-6">
       <div className="space-y-4">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
@@ -1433,7 +1433,7 @@ export default function Page() {
         onClose={() => setShowPinModal(false)}
         onSubmit={handlePinSubmit}
       />
-    </AppLayout>
+    </DashboardLayout>
   );
 }
 
