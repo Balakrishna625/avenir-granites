@@ -95,6 +95,7 @@ export default function ConsignmentDetailsPage() {
     quarry_name: '',
     net_measurement: '',
     number_of_blocks: '', // Number of blocks to create as placeholders
+    purchase_cost_rate: '', // User can enter manually
     transport_cost: '',
     loading_cost: '',
     quarry_commission: '',
@@ -192,8 +193,8 @@ export default function ConsignmentDetailsPage() {
   }
 
   const calculatePurchaseCost = () => {
-    if (!formData.net_measurement || !formData.quarry_name) return 0
-    const rate = formData.quarry_name === 'Gokanakonda' ? 21000 : 18000
+    if (!formData.net_measurement || !formData.purchase_cost_rate) return 0
+    const rate = parseFloat(formData.purchase_cost_rate) || 0
     return (parseFloat(formData.net_measurement) || 0) * rate
   }
 
@@ -218,6 +219,11 @@ export default function ConsignmentDetailsPage() {
       return
     }
 
+    if (!formData.purchase_cost_rate || parseFloat(formData.purchase_cost_rate) <= 0) {
+      toast.error('Please enter purchase cost rate')
+      return
+    }
+
     if (!formData.number_of_blocks || parseInt(formData.number_of_blocks) < 1) {
       toast.error('Please enter number of blocks')
       return
@@ -234,8 +240,8 @@ export default function ConsignmentDetailsPage() {
 
     setSaving(true)
     try {
-      // Calculate purchase_cost_rate based on quarry
-      const purchase_cost_rate = formData.quarry_name === 'Gokanakonda' ? 21000 : 18000
+      // Use user-entered purchase_cost_rate
+      const purchase_cost_rate = parseFloat(formData.purchase_cost_rate) || 0
 
       // Step 1: Create/Update consignment
       const consignmentPayload = {
@@ -316,6 +322,7 @@ export default function ConsignmentDetailsPage() {
       quarry_name: '',
       net_measurement: '',
       number_of_blocks: '',
+      purchase_cost_rate: '',
       transport_cost: '',
       loading_cost: '',
       quarry_commission: '',
@@ -336,6 +343,7 @@ export default function ConsignmentDetailsPage() {
       quarry_name: consignment.quarry_name || '',
       net_measurement: consignment.net_measurement?.toString() || '',
       number_of_blocks: consignment.total_blocks_count?.toString() || '',
+      purchase_cost_rate: consignment.purchase_cost_rate?.toString() || '',
       transport_cost: consignment.transport_cost?.toString() || '',
       loading_cost: consignment.loading_cost?.toString() || '',
       quarry_commission: consignment.quarry_commission?.toString() || '',
@@ -676,16 +684,17 @@ export default function ConsignmentDetailsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Purchase Cost Rate
+                      Purchase Cost Rate <span className="text-red-500">*</span>
                       <span className="ml-2 text-xs text-gray-500">
-                        ({formData.quarry_name === 'Gokanakonda' ? '₹21,000' : '₹18,000'}/m)
+                        (per meter)
                       </span>
                     </label>
                     <Input
-                      type="text"
-                      value={formData.quarry_name === 'Gokanakonda' ? '21,000' : '18,000'}
-                      disabled
-                      className="bg-gray-100"
+                      type="number"
+                      value={formData.purchase_cost_rate}
+                      onChange={(e) => setFormData({ ...formData, purchase_cost_rate: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="18000"
                     />
                   </div>
                   <div>
@@ -697,9 +706,9 @@ export default function ConsignmentDetailsPage() {
                       <Input
                         type="text"
                         value={
-                          formData.net_measurement && formData.quarry_name
+                          formData.net_measurement && formData.purchase_cost_rate
                             ? formatIndianNumber((parseFloat(formData.net_measurement) || 0) * 
-                               (formData.quarry_name === 'Gokanakonda' ? 21000 : 18000))
+                               (parseFloat(formData.purchase_cost_rate) || 0))
                             : '0'
                         }
                         disabled
