@@ -73,12 +73,12 @@ const menuItems: MenuItem[] = [
     ]
   },
   {
-    title: 'Vendor Management',
+    title: 'Contractor Payments',
     icon: <Building2 className="w-5 h-5" />,
     children: [
       {
-        title: 'Vendors',
-        href: '/vendors',
+        title: 'Payment Tracking',
+        href: '/contractors',
         icon: <Building2 className="w-4 h-4" />
       }
     ]
@@ -186,7 +186,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Vendor Management', 'Sales Management', 'Consignment Management', 'Production Management', 'Expense Management']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Contractor Payments', 'Sales Management', 'Consignment Management', 'Production Management', 'Expense Management']);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems(prev => 

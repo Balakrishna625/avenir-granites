@@ -65,9 +65,10 @@ export function AddExpenseForm({ onClose, onSuccess }: AddExpenseFormProps) {
       setCategories(categoriesData);
       setAccounts(accountsData);
 
-      // Set default account if available
-      if (accountsData.length > 0) {
-        setFormData(prev => ({ ...prev, account_id: accountsData[0].id }));
+      // Set default account to CH ANJIBABU A/C if available
+      const defaultAccount = accountsData.find((acc: Account) => acc.name === 'CH ANJIBABU A/C');
+      if (defaultAccount) {
+        setFormData(prev => ({ ...prev, account_id: defaultAccount.id }));
       }
     } catch (error) {
       console.error("Failed to load data:", error);

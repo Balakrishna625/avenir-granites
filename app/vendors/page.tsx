@@ -6,17 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/AppLayout";
 import { useToast } from "@/components/ui/toast";
-import { useRouter } from "next/navigation";
 import { 
   Plus,
   Users,
-  TrendingUp,
-  TrendingDown,
   DollarSign,
   X,
-  AlertCircle,
-  Edit2,
-  Trash2
+  Calendar,
+  ArrowRight,
+  Wallet,
+  TrendingUp,
+  Receipt
 } from "lucide-react";
 
 const INR = new Intl.NumberFormat("en-IN", { 
@@ -26,37 +25,49 @@ const INR = new Intl.NumberFormat("en-IN", {
 });
 const fmt = (n: number) => INR.format(n || 0);
 
-interface Vendor {
+interface ContractorPayment {
   id: string;
-  name: string;
-  contact_person?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  vendor_code?: string;
-  gst_number?: string;
-  payment_terms?: string;
+  contractor_name: string;
+  month: string;
+  total_payable: number;
+  carry_forward: number;
+  total_paid: number;
   balance: number;
-  total_purchases: number;
-  total_payments: number;
 }
 
-export default function VendorsPage() {
-  const router = useRouter();
+interface PaymentTransaction {
+  id: string;
+  payment_date: string;
+  amount: number;
+  payment_mode: string;
+  notes?: string;
+}
+
+export default function ContractorPaymentsPage() {
   const { showToast } = useToast();
-  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  
-  const [newVendor, setNewVendor] = useState({
-    name: '',
-    contact_person: '',
-    phone: '',
-    email: '',
-    address: ''
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+  
+  const [dineshData, setDineshData] = useState<ContractorPayment | null>(null);
+  const [linePolishData, setLinePolishData] = useState<ContractorPayment | null>(null);
+  const [dineshTransactions, setDineshTransactions] = useState<PaymentTransaction[]>([]);
+  const [linePolishTransactions, setLinePolishTransactions] = useState<PaymentTransaction[]>([]);
+  
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPayableModal, setShowPayableModal] = useState(false);
+  const [selectedContractor, setSelectedContractor] = useState('');
+  
+  const [paymentForm, setPaymentForm] = useState({
+    payment_date: new Date().toISOString().split('T')[0],
+    amount: '',
+    payment_mode: 'Cash',
+    notes: ''
+  });
+  
+  const [payableAmount, setPayableAmount] = useState('');
 
   useEffect(() => {
     loadVendors();
@@ -176,6 +187,23 @@ export default function VendorsPage() {
   const vendorsWithBalance = vendors.filter(v => v.balance > 0).length;
   const totalPurchases = vendors.reduce((sum, v) => sum + v.total_purchases, 0);
   const totalPayments = vendors.reduce((sum, v) => sum + v.total_payments, 0);
+
+  // Separate internal contractors from regular vendors
+  const internalContractorNames = ['Contractor Dinesh', 'Contractor LinePolish'];
+  const internalContractors = vendors.filter(v => internalContractorNames.includes(v.name));
+  const regularVendors = vendors.filter(v => !internalContractorNames.includes(v.name));
+
+  // Calculate totals for internal contractors
+  const contractorsTotalBalance = internalContractors.reduce((sum, v) => sum + v.balance, 0);
+  const contractorsWithBalance = internalContractors.filter(v => v.balance > 0).length;
+  const contractorsTotalPurchases = internalContractors.reduce((sum, v) => sum + v.total_purchases, 0);
+  const contractorsTotalPayments = internalContractors.reduce((sum, v) => sum + v.total_payments, 0);
+
+  // Calculate totals for regular vendors
+  const vendorsTotalBalance = regularVendors.reduce((sum, v) => sum + v.balance, 0);
+  const regularVendorsWithBalance = regularVendors.filter(v => v.balance > 0).length;
+  const vendorsTotalPurchases = regularVendors.reduce((sum, v) => sum + v.total_purchases, 0);
+  const vendorsTotalPayments = regularVendors.reduce((sum, v) => sum + v.total_payments, 0);
 
   if (loading) {
     return (
