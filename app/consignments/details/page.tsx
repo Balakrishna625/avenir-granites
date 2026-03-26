@@ -337,7 +337,7 @@ export default function ConsignmentDetailsPage() {
       other_charges: ''
     })
     setBlockRows([
-      { id: '1', block_name: 'AVG-', gross_measurement: '' }
+      { id: '1', block_name: 'AVG-', gross_measurement: '', net_measurement: '' }
     ])
     setShowAddForm(false)
     setEditingConsignment(null)

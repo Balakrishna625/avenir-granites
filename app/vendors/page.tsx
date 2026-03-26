@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,11 @@ import {
   ArrowRight,
   Wallet,
   TrendingUp,
-  Receipt
+  TrendingDown,
+  Receipt,
+  AlertCircle,
+  Edit2,
+  Trash2
 } from "lucide-react";
 
 const INR = new Intl.NumberFormat("en-IN", { 
@@ -24,6 +29,22 @@ const INR = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0 
 });
 const fmt = (n: number) => INR.format(n || 0);
+
+interface Vendor {
+  id: string;
+  name: string;
+  vendor_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  balance: number;
+  total_purchases: number;
+  total_payments: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 interface ContractorPayment {
   id: string;
@@ -44,8 +65,20 @@ interface PaymentTransaction {
 }
 
 export default function ContractorPaymentsPage() {
+  const router = useRouter();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [newVendor, setNewVendor] = useState({
+    name: '',
+    contact_person: '',
+    phone: '',
+    email: '',
+    address: ''
+  });
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
