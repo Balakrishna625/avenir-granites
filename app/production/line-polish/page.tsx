@@ -911,6 +911,53 @@ export default function LinePolishPage() {
   // Add sorting for reports table
   const { sortedData: sortedReports, sortConfig: reportsSortConfig, requestSort: requestReportsSort } = useTableSort(filteredReports);
 
+  // Detect missing dates in the selected month
+  const getMissingDates = () => {
+    if (showAllRecords) return [];
+    
+    const today = new Date();
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const selectedDate = new Date(year, month - 1, 1);
+    
+    // If selected month is in the future, no missing dates
+    if (selectedDate.getFullYear() > today.getFullYear() || 
+        (selectedDate.getFullYear() === today.getFullYear() && selectedDate.getMonth() > today.getMonth())) {
+      return [];
+    }
+    
+    // Get the last day to check (yesterday if current month, last day of month if past month)
+    let lastDayToCheck;
+    if (selectedDate.getFullYear() === today.getFullYear() && selectedDate.getMonth() === today.getMonth()) {
+      // Current month - check up to yesterday
+      lastDayToCheck = today.getDate() - 1;
+    } else {
+      // Past month - check entire month
+      lastDayToCheck = new Date(year, month, 0).getDate();
+    }
+    
+    if (lastDayToCheck < 1) return []; // If today is the 1st, no dates to check yet
+    
+    // Get all dates that have reports in the selected month
+    const reportDates = new Set(
+      reports
+        .filter(report => report.date.slice(0, 7) === selectedMonth)
+        .map(report => report.date)
+    );
+    
+    // Find missing dates
+    const missingDates = [];
+    for (let day = 1; day <= lastDayToCheck; day++) {
+      const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`;
+      if (!reportDates.has(dateStr)) {
+        missingDates.push(day);
+      }
+    }
+    
+    return missingDates;
+  };
+
+  const missingDates = getMissingDates();
+
   // Memoize filtered payments for sorting
   const filteredPayments = useMemo(() => 
     payments.filter(p => showAllRecords || p.payment_date.slice(0, 7) === selectedMonth),
@@ -2000,6 +2047,40 @@ export default function LinePolishPage() {
                 {showAllRecords ? 'All Time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Total: ₹{filteredReports.reduce((sum, r) => sum + parseFloat(r.debit_amount.toString()), 0).toLocaleString('en-IN')} ({filteredReports.length} transactions)
               </p>
             </div>
+            
+            {/* Missing Dates Warning */}
+            {!showAllRecords && missingDates.length > 0 && (
+              <div className="px-6 py-4 bg-amber-50 border-b border-amber-200">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-amber-900 mb-1">
+                      Missing Dates Detected
+                    </h4>
+                    <p className="text-sm text-amber-800 mb-2">
+                      The following dates are missing reports for {new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {missingDates.map(day => {
+                        const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`;
+                        const dateObj = new Date(dateStr);
+                        return (
+                          <span 
+                            key={day}
+                            className="inline-flex items-center px-2 py-1 bg-white border border-amber-300 rounded text-xs font-medium text-amber-900"
+                          >
+                            {dateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-amber-700 mt-2">
+                      💡 Tip: Make sure to add reports for all working dates to maintain complete records.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="overflow-x-auto">
               {reportsLoading ? (

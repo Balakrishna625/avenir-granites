@@ -767,6 +767,46 @@ export default function MultiCutterPage() {
     return acc;
   }, {} as Record<string, MultiCutterReport[]>);
 
+  // Detect missing dates in the selected month
+  const getMissingDates = () => {
+    const today = new Date();
+    const selectedDate = new Date(selectedYear, selectedMonth - 1, 1);
+    
+    // If selected month is in the future, no missing dates
+    if (selectedDate.getFullYear() > today.getFullYear() || 
+        (selectedDate.getFullYear() === today.getFullYear() && selectedDate.getMonth() > today.getMonth())) {
+      return [];
+    }
+    
+    // Get the last day to check (yesterday if current month, last day of month if past month)
+    let lastDayToCheck;
+    if (selectedDate.getFullYear() === today.getFullYear() && selectedDate.getMonth() === today.getMonth()) {
+      // Current month - check up to yesterday
+      lastDayToCheck = today.getDate() - 1;
+    } else {
+      // Past month - check entire month
+      lastDayToCheck = new Date(selectedYear, selectedMonth, 0).getDate();
+    }
+    
+    if (lastDayToCheck < 1) return []; // If today is the 1st, no dates to check yet
+    
+    // Get all dates that have reports in the selected month
+    const reportDates = new Set(Object.keys(reportsByDate));
+    
+    // Find missing dates
+    const missingDates = [];
+    for (let day = 1; day <= lastDayToCheck; day++) {
+      const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      if (!reportDates.has(dateStr)) {
+        missingDates.push(day);
+      }
+    }
+    
+    return missingDates;
+  };
+
+  const missingDates = getMissingDates();
+
   if (loading) {
     return (
       <div className="min-h-screen w-full bg-gray-50 flex items-center justify-center">
@@ -1337,6 +1377,40 @@ export default function MultiCutterPage() {
             <Calendar className="w-5 h-5 mr-2 text-blue-600" />
             Production Records
           </h2>
+
+          {/* Missing Dates Warning */}
+          {missingDates.length > 0 && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-amber-900 mb-1">
+                    Missing Dates Detected
+                  </h4>
+                  <p className="text-sm text-amber-800 mb-2">
+                    The following dates are missing reports for {getMonthName(selectedMonth)} {selectedYear}:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {missingDates.map(day => {
+                      const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const dateObj = new Date(dateStr);
+                      return (
+                        <span 
+                          key={day}
+                          className="inline-flex items-center px-2 py-1 bg-white border border-amber-300 rounded text-xs font-medium text-amber-900"
+                        >
+                          {dateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-amber-700 mt-2">
+                    💡 Tip: Make sure to add reports for all working dates to maintain complete records.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Machine Tabs - Minimal Design */}
           <div className="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto">
