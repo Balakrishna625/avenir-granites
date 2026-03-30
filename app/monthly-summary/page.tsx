@@ -154,6 +154,11 @@ export default function MonthlySummaryPage() {
   const [categoryAvgLoading, setCategoryAvgLoading] = useState(true);
   const [productionCostData, setProductionCostData] = useState<ProductionCostEntry[]>([]);
   const [productionCostLoading, setProductionCostLoading] = useState(true);
+  
+  // Raw material costs per category (optional, user-defined)
+  const [sgRawMaterialCost, setSgRawMaterialCost] = useState<number>(0);
+  const [bpRawMaterialCost, setBpRawMaterialCost] = useState<number>(0);
+  const [burgundyRawMaterialCost, setBurgundyRawMaterialCost] = useState<number>(0);
 
   // Default: October 2025 to current date
   const currentDate = new Date();
@@ -898,13 +903,62 @@ export default function MonthlySummaryPage() {
 
             {/* Production Cost per SFT Chart (Excluding Raw Material & GST Challan) */}
             <Card className="p-4 bg-white shadow-sm border border-gray-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Factory className="w-4 h-4 text-purple-600" />
-                <h2 className="text-sm font-semibold text-gray-900">Production Cost per SFT (₹/Sq.Ft)</h2>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Factory className="w-4 h-4 text-purple-600" />
+                  <h2 className="text-sm font-semibold text-gray-900">Total Cost per SFT (Production + Raw Material)</h2>
+                </div>
               </div>
+              
+              {/* Raw Material Cost Inputs */}
+              <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
+                <p className="text-xs font-semibold text-gray-700 mb-2">Optional: Set Raw Material Cost per SFT</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] font-medium text-slate-600 block mb-1">S/G Raw Material</label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">₹</span>
+                      <input
+                        type="number"
+                        value={sgRawMaterialCost || ''}
+                        onChange={(e) => setSgRawMaterialCost(parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full pl-5 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-gray-700 block mb-1">B/P Raw Material</label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">₹</span>
+                      <input
+                        type="number"
+                        value={bpRawMaterialCost || ''}
+                        onChange={(e) => setBpRawMaterialCost(parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full pl-5 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-red-800 block mb-1">Burgandy Raw Material</label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">₹</span>
+                      <input
+                        type="number"
+                        value={burgundyRawMaterialCost || ''}
+                        onChange={(e) => setBurgundyRawMaterialCost(parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full pl-5 pr-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="mb-3">
                 <div className="inline-flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
-                  <span className="text-[11px] font-medium text-purple-700">Excludes: Raw Material & GST Challan</span>
+                  <span className="text-[11px] font-medium text-purple-700">Production Cost excludes: Raw Material & GST Challan</span>
                   {(() => {
                     const totalMonths = productionCostData.filter(d => d.costPerSqft != null).length;
                     const avgCost = (() => {
@@ -915,23 +969,54 @@ export default function MonthlySummaryPage() {
                     })();
                     return avgCost != null && (
                       <span className="text-[12px] font-bold text-purple-900">
-                        Avg: ₹{Math.round(avgCost)}<span className="text-[10px] font-normal text-purple-600">/sft across {totalMonths} months</span>
+                        Avg Production: ₹{Math.round(avgCost)}<span className="text-[10px] font-normal text-purple-600">/sft</span>
                       </span>
                     );
                   })()}
                 </div>
               </div>
               {productionCostLoading ? (
-                <div className="flex items-center justify-center h-[220px]">
+                <div className="flex items-center justify-center h-[300px]">
                   <div className="inline-block animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-purple-500"></div>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={productionCostData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }} barCategoryGap="20%">
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={productionCostData.map(d => ({
+                    ...d,
+                    sgRaw: sgRawMaterialCost,
+                    sgProduction: d.costPerSqft ?? 0,
+                    sgTotal: (sgRawMaterialCost || 0) + (d.costPerSqft ?? 0),
+                    bpRaw: bpRawMaterialCost,
+                    bpProduction: d.costPerSqft ?? 0,
+                    bpTotal: (bpRawMaterialCost || 0) + (d.costPerSqft ?? 0),
+                    burgundyRaw: burgundyRawMaterialCost,
+                    burgundyProduction: d.costPerSqft ?? 0,
+                    burgundyTotal: (burgundyRawMaterialCost || 0) + (d.costPerSqft ?? 0),
+                  }))} margin={{ top: 30, right: 10, left: -10, bottom: 5 }} barCategoryGap="15%" barGap={2}>
                     <defs>
-                      <linearGradient id="productionCostGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#a855f7" stopOpacity={0.9}/>
-                        <stop offset="100%" stopColor="#7c3aed" stopOpacity={1}/>
+                      <linearGradient id="sgRawGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#94a3b8" stopOpacity={0.8}/>
+                        <stop offset="100%" stopColor="#64748b" stopOpacity={1}/>
+                      </linearGradient>
+                      <linearGradient id="sgProductionGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#a5b4c5" stopOpacity={0.9}/>
+                        <stop offset="100%" stopColor="#708090" stopOpacity={1}/>
+                      </linearGradient>
+                      <linearGradient id="bpRawGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#475569" stopOpacity={0.8}/>
+                        <stop offset="100%" stopColor="#334155" stopOpacity={1}/>
+                      </linearGradient>
+                      <linearGradient id="bpProductionGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#475569" stopOpacity={0.9}/>
+                        <stop offset="100%" stopColor="#1e2d40" stopOpacity={1}/>
+                      </linearGradient>
+                      <linearGradient id="burgundyRawGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#be123c" stopOpacity={0.8}/>
+                        <stop offset="100%" stopColor="#9f1239" stopOpacity={1}/>
+                      </linearGradient>
+                      <linearGradient id="burgundyProductionGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#be123c" stopOpacity={0.9}/>
+                        <stop offset="100%" stopColor="#800020" stopOpacity={1}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
@@ -943,61 +1028,212 @@ export default function MonthlySummaryPage() {
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null;
                         const entry = productionCostData.find(d => d.month === label);
-                        if (!entry) return null;
+                        if (!entry || !entry.costPerSqft) return null;
+                        const productionCost = entry.costPerSqft;
                         return (
                           <div className="bg-white border border-purple-200 rounded-lg shadow-lg p-3 text-xs">
                             <p className="font-semibold text-gray-900 mb-2">{entry.fullMonth}</p>
-                            {entry.costPerSqft != null && (
-                              <>
-                                <p className="mb-1 text-purple-700">
-                                  <span className="font-medium">Cost per SFT:</span>{' '}
-                                  <span className="font-bold">₹{entry.costPerSqft.toFixed(2)}/sft</span>
-                                </p>
-                                <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
-                                  <p className="text-gray-600">
-                                    <span className="font-medium">Production:</span>{' '}
-                                    <span className="font-semibold">{entry.totalSqft.toLocaleString('en-IN')} sqft</span>
-                                  </p>
-                                  <p className="text-gray-600">
-                                    <span className="font-medium">Total Expenses:</span>{' '}
-                                    <span className="font-semibold">₹{entry.totalExpenses.toLocaleString('en-IN')}</span>
-                                  </p>
-                                  <p className="text-green-600">
-                                    <span className="font-medium">Adjusted Expenses:</span>{' '}
-                                    <span className="font-semibold">₹{entry.adjustedExpenses.toLocaleString('en-IN')}</span>
-                                  </p>
-                                  <p className="text-gray-500 text-[10px] italic mt-1">
-                                    (Raw Material & GST Challan excluded)
-                                  </p>
+                            <div className="space-y-2">
+                              {sgRawMaterialCost > 0 && (
+                                <div className="pb-2 border-b border-gray-200">
+                                  <p className="font-semibold text-slate-700 mb-1">S/G</p>
+                                  <p className="text-slate-600 text-[11px]">Raw Material: ₹{sgRawMaterialCost.toFixed(2)}/sft</p>
+                                  <p className="text-purple-600 text-[11px]">Production: ₹{productionCost.toFixed(2)}/sft</p>
+                                  <p className="text-slate-900 font-bold text-[11px]">Total: ₹{(sgRawMaterialCost + productionCost).toFixed(2)}/sft</p>
                                 </div>
-                              </>
-                            )}
+                              )}
+                              {bpRawMaterialCost > 0 && (
+                                <div className="pb-2 border-b border-gray-200">
+                                  <p className="font-semibold text-gray-700 mb-1">B/P</p>
+                                  <p className="text-gray-600 text-[11px]">Raw Material: ₹{bpRawMaterialCost.toFixed(2)}/sft</p>
+                                  <p className="text-purple-600 text-[11px]">Production: ₹{productionCost.toFixed(2)}/sft</p>
+                                  <p className="text-gray-900 font-bold text-[11px]">Total: ₹{(bpRawMaterialCost + productionCost).toFixed(2)}/sft</p>
+                                </div>
+                              )}
+                              {burgundyRawMaterialCost > 0 && (
+                                <div>
+                                  <p className="font-semibold text-red-700 mb-1">Burgandy</p>
+                                  <p className="text-red-600 text-[11px]">Raw Material: ₹{burgundyRawMaterialCost.toFixed(2)}/sft</p>
+                                  <p className="text-purple-600 text-[11px]">Production: ₹{productionCost.toFixed(2)}/sft</p>
+                                  <p className="text-red-900 font-bold text-[11px]">Total: ₹{(burgundyRawMaterialCost + productionCost).toFixed(2)}/sft</p>
+                                </div>
+                              )}
+                              {!sgRawMaterialCost && !bpRawMaterialCost && !burgundyRawMaterialCost && (
+                                <p className="text-purple-700">
+                                  <span className="font-medium">Production Cost:</span>{' '}
+                                  <span className="font-bold">₹{productionCost.toFixed(2)}/sft</span>
+                                </p>
+                              )}
+                            </div>
                           </div>
                         );
                       }}
                     />
-                    <Bar dataKey="costPerSqft" fill="url(#productionCostGradient)" name="Cost per SFT" radius={[4,4,0,0]}>
-                      <LabelList dataKey="costPerSqft" position="top" content={({ x, y, width, value }: any) => {
-                        if (!value) return null;
-                        const cx = (x ?? 0) + (width ?? 0) / 2;
-                        const labelY = (y ?? 0) - 5;
-                        return (
-                          <text 
-                            x={cx} 
-                            y={labelY} 
-                            textAnchor="middle" 
-                            fontSize={11} 
-                            fontWeight={700} 
-                            fill="#7c3aed"
-                          >
-                            ₹{Math.round(value)}
-                          </text>
-                        );
-                      }} />
-                    </Bar>
+                    {sgRawMaterialCost > 0 && (
+                      <>
+                        <Bar dataKey="sgRaw" stackId="sg" fill="url(#sgRawGradient)" radius={[0,0,0,0]} />
+                        <Bar dataKey="sgProduction" stackId="sg" fill="url(#sgProductionGradient)" radius={[3,3,0,0]}>
+                          <LabelList dataKey="sgTotal" position="top" content={({ x, y, width, value }: any) => {
+                            if (!value) return null;
+                            return (
+                              <text x={(x ?? 0) + (width ?? 0) / 2} y={(y ?? 0) - 5} textAnchor="middle" fontSize={10} fontWeight={700} fill="#708090">
+                                ₹{Math.round(value)}
+                              </text>
+                            );
+                          }} />
+                        </Bar>
+                      </>
+                    )}
+                    {bpRawMaterialCost > 0 && (
+                      <>
+                        <Bar dataKey="bpRaw" stackId="bp" fill="url(#bpRawGradient)" radius={[0,0,0,0]} />
+                        <Bar dataKey="bpProduction" stackId="bp" fill="url(#bpProductionGradient)" radius={[3,3,0,0]}>
+                          <LabelList dataKey="bpTotal" position="top" content={({ x, y, width, value }: any) => {
+                            if (!value) return null;
+                            return (
+                              <text x={(x ?? 0) + (width ?? 0) / 2} y={(y ?? 0) - 5} textAnchor="middle" fontSize={10} fontWeight={700} fill="#1e2d40">
+                                ₹{Math.round(value)}
+                              </text>
+                            );
+                          }} />
+                        </Bar>
+                      </>
+                    )}
+                    {burgundyRawMaterialCost > 0 && (
+                      <>
+                        <Bar dataKey="burgundyRaw" stackId="burgundy" fill="url(#burgundyRawGradient)" radius={[0,0,0,0]} />
+                        <Bar dataKey="burgundyProduction" stackId="burgundy" fill="url(#burgundyProductionGradient)" radius={[3,3,0,0]}>
+                          <LabelList dataKey="burgundyTotal" position="top" content={({ x, y, width, value }: any) => {
+                            if (!value) return null;
+                            return (
+                              <text x={(x ?? 0) + (width ?? 0) / 2} y={(y ?? 0) - 5} textAnchor="middle" fontSize={10} fontWeight={700} fill="#800020">
+                                ₹{Math.round(value)}
+                              </text>
+                            );
+                          }} />
+                        </Bar>
+                      </>
+                    )}
+                    {!sgRawMaterialCost && !bpRawMaterialCost && !burgundyRawMaterialCost && (
+                      <Bar dataKey="costPerSqft" fill="url(#sgProductionGradient)" radius={[4,4,0,0]}>
+                        <LabelList dataKey="costPerSqft" position="top" content={({ x, y, width, value }: any) => {
+                          if (!value) return null;
+                          return (
+                            <text x={(x ?? 0) + (width ?? 0) / 2} y={(y ?? 0) - 5} textAnchor="middle" fontSize={10} fontWeight={700} fill="#7c3aed">
+                              ₹{Math.round(value)}
+                            </text>
+                          );
+                        }} />
+                      </Bar>
+                    )}
                   </BarChart>
                 </ResponsiveContainer>
               )}
+              
+              {/* Profit Analysis */}
+              {(sgRawMaterialCost > 0 || bpRawMaterialCost > 0 || burgundyRawMaterialCost > 0) && (() => {
+                const sgAvg = (() => { const ts = categoryAvgData.filter(d => d.sg != null && d.sgSqft > 0); const rev = ts.reduce((s,d) => s + (d.sg ?? 0) * d.sgSqft, 0); const sqft = ts.reduce((s,d) => s + d.sgSqft, 0); return sqft > 0 ? rev / sqft : null; })();
+                const bpAvg = (() => { const ts = categoryAvgData.filter(d => d.bp != null && d.bpSqft > 0); const rev = ts.reduce((s,d) => s + (d.bp ?? 0) * d.bpSqft, 0); const sqft = ts.reduce((s,d) => s + d.bpSqft, 0); return sqft > 0 ? rev / sqft : null; })();
+                const buAvg = (() => { const ts = categoryAvgData.filter(d => d.burgandy != null && d.burgundySqft > 0); const rev = ts.reduce((s,d) => s + (d.burgandy ?? 0) * d.burgundySqft, 0); const sqft = ts.reduce((s,d) => s + d.burgundySqft, 0); return sqft > 0 ? rev / sqft : null; })();
+                const avgProductionCost = (() => { const validData = productionCostData.filter(d => d.costPerSqft != null && d.totalSqft > 0); const totalRevenue = validData.reduce((s, d) => s + (d.costPerSqft ?? 0) * d.totalSqft, 0); const totalSqft = validData.reduce((s, d) => s + d.totalSqft, 0); return totalSqft > 0 ? totalRevenue / totalSqft : 0; })();
+                
+                const sgTotalCost = sgRawMaterialCost + avgProductionCost;
+                const bpTotalCost = bpRawMaterialCost + avgProductionCost;
+                const buTotalCost = burgundyRawMaterialCost + avgProductionCost;
+                
+                const sgProfit = sgAvg ? sgAvg - sgTotalCost : null;
+                const bpProfit = bpAvg ? bpAvg - bpTotalCost : null;
+                const buProfit = buAvg ? buAvg - buTotalCost : null;
+                
+                return (
+                  <div className="mt-4 p-4 bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border border-green-200 rounded-lg">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-green-600" />
+                      Profit Analysis (Avg Across All Months)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {sgRawMaterialCost > 0 && sgAvg && (
+                        <div className="bg-white rounded-lg p-3 border border-slate-200">
+                          <p className="text-xs font-bold text-slate-700 mb-2">S/G</p>
+                          <div className="space-y-1 text-[11px]">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Selling Price:</span>
+                              <span className="font-semibold text-gray-900">₹{Math.round(sgAvg)}/sft</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Total Cost:</span>
+                              <span className="font-semibold text-gray-900">₹{Math.round(sgTotalCost)}/sft</span>
+                            </div>
+                            <div className="pt-1 border-t border-gray-200 flex justify-between items-center">
+                              <span className="font-bold text-gray-700">Profit:</span>
+                              <span className={`font-bold text-sm ${sgProfit && sgProfit > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {sgProfit ? `₹${Math.round(sgProfit)}/sft` : 'N/A'}
+                              </span>
+                            </div>
+                            {sgProfit && sgAvg && (
+                              <div className="text-[10px] text-gray-500 text-right">
+                                ({((sgProfit / sgAvg) * 100).toFixed(1)}% margin)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {bpRawMaterialCost > 0 && bpAvg && (
+                        <div className="bg-white rounded-lg p-3 border border-gray-300">
+                          <p className="text-xs font-bold text-gray-800 mb-2">B/P</p>
+                          <div className="space-y-1 text-[11px]">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Selling Price:</span>
+                              <span className="font-semibold text-gray-900">₹{Math.round(bpAvg)}/sft</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Total Cost:</span>
+                              <span className="font-semibold text-gray-900">₹{Math.round(bpTotalCost)}/sft</span>
+                            </div>
+                            <div className="pt-1 border-t border-gray-200 flex justify-between items-center">
+                              <span className="font-bold text-gray-700">Profit:</span>
+                              <span className={`font-bold text-sm ${bpProfit && bpProfit > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {bpProfit ? `₹${Math.round(bpProfit)}/sft` : 'N/A'}
+                              </span>
+                            </div>
+                            {bpProfit && bpAvg && (
+                              <div className="text-[10px] text-gray-500 text-right">
+                                ({((bpProfit / bpAvg) * 100).toFixed(1)}% margin)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {burgundyRawMaterialCost > 0 && buAvg && (
+                        <div className="bg-white rounded-lg p-3 border border-red-200">
+                          <p className="text-xs font-bold text-red-800 mb-2">Burgandy</p>
+                          <div className="space-y-1 text-[11px]">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Selling Price:</span>
+                              <span className="font-semibold text-gray-900">₹{Math.round(buAvg)}/sft</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Total Cost:</span>
+                              <span className="font-semibold text-gray-900">₹{Math.round(buTotalCost)}/sft</span>
+                            </div>
+                            <div className="pt-1 border-t border-gray-200 flex justify-between items-center">
+                              <span className="font-bold text-gray-700">Profit:</span>
+                              <span className={`font-bold text-sm ${buProfit && buProfit > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {buProfit ? `₹${Math.round(buProfit)}/sft` : 'N/A'}
+                              </span>
+                            </div>
+                            {buProfit && buAvg && (
+                              <div className="text-[10px] text-gray-500 text-right">
+                                ({((buProfit / buAvg) * 100).toFixed(1)}% margin)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </Card>
 
             {/* Data Table */}
