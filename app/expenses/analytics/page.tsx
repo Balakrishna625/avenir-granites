@@ -70,9 +70,15 @@ export default function ExpenseAnalyticsPage() {
   const [avgExpense, setAvgExpense] = useState(0);
   const [costPerSqft, setCostPerSqft] = useState(0);
   const [totalSqft, setTotalSqft] = useState(0);
+  const [actualExpenses, setActualExpenses] = useState(0); // Expenses from database
+  const [calculatedContractorCost, setCalculatedContractorCost] = useState(0); // Accrued contractor costs
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [selectedExpenseDetails, setSelectedExpenseDetails] = useState<Expense | null>(null);
+  
+  // Category merging feature for temporary visual grouping
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [showMergedView, setShowMergedView] = useState(false);
   
   // Exclusion filters for production cost calculation (checked by default)
   const [excludeRawMaterial, setExcludeRawMaterial] = useState(true);
@@ -180,7 +186,9 @@ export default function ExpenseAnalyticsPage() {
       // Add accrued contractor costs to adjusted expenses
       const finalExpenses = adjustedTotal + accruedContractorCost;
       
-      // Update total expenses to include accrued contractor costs
+      // Update state with breakdown for display
+      setActualExpenses(adjustedTotal);
+      setCalculatedContractorCost(accruedContractorCost);
       setTotalExpenses(finalExpenses);
       
       const perSqft = totalSqft > 0 ? finalExpenses / totalSqft : 0;
@@ -352,6 +360,59 @@ export default function ExpenseAnalyticsPage() {
     setExpandedCategory(prev => prev === categoryName ? null : categoryName);
   };
 
+  const toggleCategorySelection = (categoryName: string) => {
+    setSelectedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryName)) {
+        newSet.delete(categoryName);
+      } else {
+        newSet.add(categoryName);
+      }
+      return newSet;
+    });
+  };
+
+  const mergeSelectedCategories = () => {
+    if (selectedCategories.size < 2) {
+      alert('Please select at least 2 categories to merge');
+      return;
+    }
+    setShowMergedView(true);
+  };
+
+  const clearMerge = () => {
+    setSelectedCategories(new Set());
+    setShowMergedView(false);
+  };
+
+  const getMergedCategory = () => {
+    const selectedCats = categoryData.filter(cat => selectedCategories.has(cat.category_name));
+    const totalAmount = selectedCats.reduce((sum, cat) => sum + cat.total_amount, 0);
+    const totalCount = selectedCats.reduce((sum, cat) => sum + cat.expense_count, 0);
+    const perSqft = totalSqft > 0 ? totalAmount / totalSqft : 0;
+    const percentage = totalExpenses > 0 ? (totalAmount / totalExpenses) * 100 : 0;
+    
+    return {
+      category_name: `Merged (${selectedCategories.size} categories)`,
+      category_color: '#6366F1', // Indigo for merged
+      total_amount: totalAmount,
+      expense_count: totalCount,
+      percentage: percentage,
+      perSqft: perSqft,
+      isMerged: true,
+      mergedCategories: Array.from(selectedCategories)
+    };
+  };
+
+  const getDisplayCategories = () => {
+    if (showMergedView && selectedCategories.size >= 2) {
+      const merged = getMergedCategory();
+      const unselected = categoryData.filter(cat => !selectedCategories.has(cat.category_name));
+      return [merged, ...unselected];
+    }
+    return categoryData;
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -451,10 +512,10 @@ export default function ExpenseAnalyticsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-gray-600">Total Expenses</p>
-                  <h3 className="text-xl font-bold text-gray-900 mt-1">{fmt(totalExpenses)}</h3>
+                  <p className="text-xs font-medium text-gray-600">Cash Expenses</p>
+                  <h3 className="text-xl font-bold text-gray-900 mt-1">{fmt(actualExpenses)}</h3>
                   <p className="text-xs text-gray-500 mt-0.5">{expenseCount} transactions</p>
-                  <p className="text-xs text-purple-600 mt-0.5">+ Calculated contractor costs</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Recorded expenses only</p>
                 </div>
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-red-600" />
@@ -466,12 +527,21 @@ export default function ExpenseAnalyticsPage() {
           <Card className="hover:shadow-lg transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-gray-600">Avg per Transaction</p>
-                  <h3 className="text-xl font-bold text-gray-900 mt-1">{fmt(avgExpense)}</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Mean value</p>
+                <div className="w-full">
+                  <p className="text-xs font-medium text-gray-600">Total with Contractors</p>
+                  <h3 className="text-xl font-bold text-gray-900 mt-1">{fmt(totalExpenses)}</h3>
+                  <div className="mt-1 text-xs text-gray-600 space-y-0.5">
+                    <div className="flex justify-between">
+                      <span>Actual expenses:</span>
+                      <span className="font-medium">{fmt(actualExpenses)}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-0.5">
+                      <span>Contractor costs:</span>
+                      <span className="font-medium text-purple-600">+{fmt(calculatedContractorCost)}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
                   <Activity className="w-5 h-5 text-blue-600" />
                 </div>
               </div>
@@ -481,12 +551,25 @@ export default function ExpenseAnalyticsPage() {
           <Card className="hover:shadow-lg transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="w-full">
                   <p className="text-xs font-medium text-gray-600">Cost per SFT</p>
-                  <h3 className="text-xl font-bold text-gray-900 mt-1">{fmt(costPerSqft)}</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Production efficiency</p>
+                  <h3 className="text-xl font-bold text-gray-900 mt-1">₹{costPerSqft.toFixed(2)}</h3>
+                  <div className="mt-1 text-xs text-gray-600 space-y-0.5">
+                    <div className="flex justify-between">
+                      <span>Total expenses:</span>
+                      <span className="font-medium">{fmt(totalExpenses)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total SFT:</span>
+                      <span className="font-medium">{totalSqft.toLocaleString()} sqft</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-0.5">
+                      <span>Calculation:</span>
+                      <span className="font-medium text-purple-600">{fmt(totalExpenses)} ÷ {totalSqft.toLocaleString()}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
                   <Zap className="w-5 h-5 text-purple-600" />
                 </div>
               </div>
@@ -524,17 +607,68 @@ export default function ExpenseAnalyticsPage() {
               <span className="font-medium"> LinePolish @ ₹250/hr</span>
             </div>
             
-            <div className="space-y-2">{categoryData.map((cat, idx) => {
+            <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
+              💡 <strong>Tip:</strong> Select multiple small categories using checkboxes and click "Merge View" to see them combined. Click "Clear Merge" to return to normal view.
+            </div>
+            
+            {/* Category Merging Controls */}
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex-1 text-xs text-gray-600">
+                {selectedCategories.size > 0 && (
+                  <span className="font-medium text-indigo-600">
+                    {selectedCategories.size} categor{selectedCategories.size === 1 ? 'y' : 'ies'} selected
+                  </span>
+                )}
+                {selectedCategories.size === 0 && (
+                  <span>Select categories to merge temporarily</span>
+                )}
+              </div>
+              {selectedCategories.size >= 2 && !showMergedView && (
+                <button
+                  onClick={mergeSelectedCategories}
+                  className="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 transition-colors"
+                >
+                  Merge View
+                </button>
+              )}
+              {showMergedView && (
+                <button
+                  onClick={clearMerge}
+                  className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 transition-colors"
+                >
+                  Clear Merge
+                </button>
+              )}
+            </div>
+            
+            <div className="space-y-2">{getDisplayCategories().map((cat, idx) => {
                 const isExpanded = expandedCategory === cat.category_name;
-                const categoryExpenses = getExpensesByCategory(cat.category_name);
+                const isMerged = (cat as any).isMerged;
+                const categoryExpenses = isMerged ? [] : getExpensesByCategory(cat.category_name);
+                const isSelected = selectedCategories.has(cat.category_name);
                 
                 return (
-                  <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div key={idx} className={`border rounded-lg overflow-hidden ${
+                    isSelected ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200'
+                  } ${isMerged ? 'border-indigo-600 border-2 shadow-md' : ''}`}>
                     {/* Category Header - Clickable */}
-                    <button
-                      onClick={() => toggleCategoryExpand(cat.category_name)}
-                      className="w-full p-3 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between"
-                    >
+                    <div className="flex items-center">
+                      {/* Checkbox for selection (hidden in merged view) */}
+                      {!showMergedView && !isMerged && (
+                        <div className="px-2" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleCategorySelection(cat.category_name)}
+                            className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                          />
+                        </div>
+                      )}
+                      
+                      <button
+                        onClick={() => toggleCategoryExpand(cat.category_name)}
+                        className="flex-1 p-3 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between"
+                      >
                       <div className="flex items-center gap-3 flex-1">
                         <div 
                           className="w-5 h-5 rounded-full flex items-center justify-center" 
@@ -550,9 +684,21 @@ export default function ExpenseAnalyticsPage() {
                         <div className="flex-1 text-left">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold text-gray-900">{cat.category_name}</span>
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                              {cat.expense_count}
-                            </span>
+                            {isMerged && (
+                              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
+                                &#x25BC; Merged
+                              </span>
+                            )}
+                            {!isMerged && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                {cat.expense_count}
+                              </span>
+                            )}
+                            {isMerged && cat.expense_count > 0 && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                {cat.expense_count} total
+                              </span>
+                            )}
                           </div>
                           
                           {/* Progress Bar */}
@@ -572,23 +718,51 @@ export default function ExpenseAnalyticsPage() {
                           <p className="text-xs text-gray-500">₹{(cat as any).perSqft?.toFixed(2) || '0.00'}/sqft</p>
                         </div>
                       </div>
-                    </button>
+                      </button>
+                    </div>
 
-                    {/* Expanded Expense Table */}
+                    {/* Expanded Content */}
                     {isExpanded && (
                       <div className="p-3 bg-white border-t border-gray-200">
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="border-b border-gray-200">
-                                <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Date</th>
-                                <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Description</th>
-                                <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Account</th>
-                                <th className="text-right py-2 px-3 text-xs font-semibold text-gray-700">Amount</th>
-                                <th className="text-center py-2 px-3 text-xs font-semibold text-gray-700">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
+                        {/* Show merged category breakdown if it's a merged category */}
+                        {isMerged && (cat as any).mergedCategories ? (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-gray-700 mb-2">Merged Categories:</p>
+                            {(cat as any).mergedCategories.map((catName: string) => {
+                              const originalCat = categoryData.find(c => c.category_name === catName);
+                              if (!originalCat) return null;
+                              return (
+                                <div key={catName} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-3 h-3 rounded-full" 
+                                      style={{ backgroundColor: originalCat.category_color }}
+                                    />
+                                    <span className="text-xs text-gray-900">{catName}</span>
+                                    <span className="text-xs text-gray-500">({originalCat.expense_count})</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs font-semibold text-gray-900">{fmt(originalCat.total_amount)}</p>
+                                    <p className="text-xs text-gray-500">₹{originalCat.perSqft?.toFixed(2)}/sqft</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          /* Show expense table for regular categories */
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead>
+                                <tr className="border-b border-gray-200">
+                                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Date</th>
+                                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Description</th>
+                                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700">Account</th>
+                                  <th className="text-right py-2 px-3 text-xs font-semibold text-gray-700">Amount</th>
+                                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-700">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
                               {categoryExpenses.map((expense, expIdx) => (
                                 <tr 
                                   key={expense.id} 
@@ -630,7 +804,8 @@ export default function ExpenseAnalyticsPage() {
                               </tr>
                             </tfoot>
                           </table>
-                        </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
