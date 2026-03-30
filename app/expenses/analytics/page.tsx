@@ -71,10 +71,14 @@ export default function ExpenseAnalyticsPage() {
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [selectedExpenseDetails, setSelectedExpenseDetails] = useState<Expense | null>(null);
+  
+  // Exclusion filters for production cost calculation
+  const [excludeRawMaterial, setExcludeRawMaterial] = useState(false);
+  const [excludeGSTChallan, setExcludeGSTChallan] = useState(false);
 
   useEffect(() => {
     loadAnalytics();
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, excludeRawMaterial, excludeGSTChallan]);
 
   async function loadAnalytics() {
     try {
@@ -112,20 +116,44 @@ export default function ExpenseAnalyticsPage() {
       setExpenseCount(count);
       setAvgExpense(average);
 
+      // Calculate excluded amounts for production cost calculation
+      const rawMaterialAmount = expenses
+        .filter(exp => {
+          const catName = exp.expense_categories?.name || '';
+          return catName.toLowerCase().includes('raw material');
+        })
+        .reduce((sum, exp) => sum + (exp.amount || 0), 0);
+      
+      const gstChallanAmount = expenses
+        .filter(exp => {
+          const catName = exp.expense_categories?.name || '';
+          return catName.toLowerCase().includes('gst challan') || catName.toLowerCase() === 'gst challan';
+        })
+        .reduce((sum, exp) => sum + (exp.amount || 0), 0);
+      
+      // Calculate adjusted total based on exclusions
+      let adjustedTotal = total;
+      if (excludeRawMaterial) adjustedTotal -= rawMaterialAmount;
+      if (excludeGSTChallan) adjustedTotal -= gstChallanAmount;
+
       // Calculate cost per sqft from multi-cutter production data
-      // Formula: Total Expenses / Total Square Feet Produced
+      // Formula: Adjusted Total Expenses / Total Square Feet Produced
       // This updates dynamically when:
       // 1. New expenses are added/edited in Expense page
       // 2. Multi-cutter data is added/edited in Production page
       // 3. Month/Year filter is changed
+      // 4. Exclusion filters are toggled
       const totalSqft = Array.isArray(productionData) 
         ? productionData.reduce((sum, report) => sum + (report.total_sqft || 0), 0)
         : 0;
-      const perSqft = totalSqft > 0 ? total / totalSqft : 0;
+      const perSqft = totalSqft > 0 ? adjustedTotal / totalSqft : 0;
       setCostPerSqft(perSqft);
 
       console.log(`[Cost per SFT Calculation] Month: ${selectedMonth}/${selectedYear}`);
       console.log(`  Total Expenses: ₹${total.toLocaleString()}`);
+      console.log(`  Raw Material Excluded: ${excludeRawMaterial ? 'Yes' : 'No'} (₹${rawMaterialAmount.toLocaleString()})`);
+      console.log(`  GST Challan Excluded: ${excludeGSTChallan ? 'Yes' : 'No'} (₹${gstChallanAmount.toLocaleString()})`);
+      console.log(`  Adjusted Expenses: ₹${adjustedTotal.toLocaleString()}`);
       console.log(`  Total SFT Produced (Multi-Cutter): ${totalSqft.toLocaleString()} sqft`);
       console.log(`  Cost per SFT: ₹${perSqft.toFixed(2)}/sqft`);
       console.log(`  Multi-Cutter Reports Found: ${Array.isArray(productionData) ? productionData.length : 0}`);
@@ -295,6 +323,52 @@ export default function ExpenseAnalyticsPage() {
             </select>
           </div>
         </div>
+
+        {/* Exclusion Filters for Production Cost */}
+        <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Zap className="w-4 h-4 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">Production Cost Filters</h3>
+                <p className="text-xs text-gray-600 mb-3">
+                  Exclude specific expense categories from production cost (Cost per SFT) calculation
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={excludeRawMaterial}
+                      onChange={(e) => setExcludeRawMaterial(e.target.checked)}
+                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                    />
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-purple-700">
+                      Exclude Raw Material Cost
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={excludeGSTChallan}
+                      onChange={(e) => setExcludeGSTChallan(e.target.checked)}
+                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                    />
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-purple-700">
+                      Exclude GST Challan
+                    </span>
+                  </label>
+                </div>
+                {(excludeRawMaterial || excludeGSTChallan) && (
+                  <div className="mt-2 text-xs text-purple-700 font-medium">
+                    ✓ Filters active - Cost per SFT reflects adjusted expenses
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">

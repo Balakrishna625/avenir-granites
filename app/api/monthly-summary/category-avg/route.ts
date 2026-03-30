@@ -31,10 +31,10 @@ export async function GET(request: Request) {
       endDate   = `${month >= 4 ? year + 1 : year}-03-31`;
     }
 
-    // Fetch sales with their items (only need sale_date and item details)
+    // Fetch sales with their items (need sale_date, items, mining_amount, only_bill flag, job_work flag)
     const { data: sales, error } = await supabaseAdmin
       .from('sales')
-      .select('sale_date, sale_items(material_name, square_feet, total_amount)')
+      .select('sale_date, mining_amount, only_bill, job_work, total_sqft, sale_items(material_name, square_feet, total_amount)')
       .gte('sale_date', startDate)
       .lte('sale_date', endDate);
 
@@ -59,21 +59,39 @@ export async function GET(request: Request) {
       cur.setMonth(cur.getMonth() + 1);
     }
 
-    // Accumulate per-month category totals
+    // Accumulate per-month category totals + mining amounts
     type CatBucket = { sqft: number; amount: number };
-    const buckets: Record<string, { sg: CatBucket; bp: CatBucket; burgandy: CatBucket }> = {};
+    type MonthBucket = {
+      sg: CatBucket;
+      bp: CatBucket;
+      burgandy: CatBucket;
+      totalMining: number;      // total mining_amount (excluding only_bill)
+      totalRegularSqft: number; // total sqft from regular sales (excluding only_bill)
+    };
+    const buckets: Record<string, MonthBucket> = {};
     for (const m of months) {
       buckets[m.key] = {
         sg:       { sqft: 0, amount: 0 },
         bp:       { sqft: 0, amount: 0 },
         burgandy: { sqft: 0, amount: 0 },
+        totalMining: 0,
+        totalRegularSqft: 0,
       };
     }
 
     for (const sale of sales || []) {
+      // Skip job_work entries - they are service tracking, not sales
+      if (sale.job_work) continue;
+
       const d = new Date(sale.sale_date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!buckets[key]) continue;
+
+      // Track mining for regular sales (exclude only_bill)
+      if (!sale.only_bill) {
+        buckets[key].totalMining += Number(sale.mining_amount) || 0;
+        buckets[key].totalRegularSqft += Number(sale.total_sqft) || 0;
+      }
 
       for (const item of sale.sale_items || []) {
         const name = item.material_name || '';
@@ -88,12 +106,30 @@ export async function GET(request: Request) {
 
     const result = months.map(m => {
       const b = buckets[m.key];
+      
+      // Calculate global mining per sqft for this month
+      const miningPerSqft = b.totalRegularSqft > 0 ? b.totalMining / b.totalRegularSqft : 0;
+      
+      // Calculate average price WITH distributed mining for each category
+      // Formula: (Material Amount + (Category SFT × Mining Per SFT)) ÷ Category SFT
+      const sgAvg = b.sg.sqft > 0 
+        ? Math.round(((b.sg.amount + (b.sg.sqft * miningPerSqft)) / b.sg.sqft) * 100) / 100 
+        : null;
+      
+      const bpAvg = b.bp.sqft > 0 
+        ? Math.round(((b.bp.amount + (b.bp.sqft * miningPerSqft)) / b.bp.sqft) * 100) / 100 
+        : null;
+      
+      const burgundyAvg = b.burgandy.sqft > 0 
+        ? Math.round(((b.burgandy.amount + (b.burgandy.sqft * miningPerSqft)) / b.burgandy.sqft) * 100) / 100 
+        : null;
+
       return {
         month:     m.label.split(' ')[0],         // "Oct"
         fullMonth: m.label,                        // "Oct 2025"
-        sg:        b.sg.sqft       > 0 ? Math.round((b.sg.amount       / b.sg.sqft)       * 100) / 100 : null,
-        bp:        b.bp.sqft       > 0 ? Math.round((b.bp.amount       / b.bp.sqft)       * 100) / 100 : null,
-        burgandy:  b.burgandy.sqft > 0 ? Math.round((b.burgandy.amount / b.burgandy.sqft) * 100) / 100 : null,
+        sg:        sgAvg,
+        bp:        bpAvg,
+        burgandy:  burgundyAvg,
         // raw totals for tooltip
         sgSqft:       Math.round(b.sg.sqft),
         bpSqft:       Math.round(b.bp.sqft),
