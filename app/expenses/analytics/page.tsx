@@ -87,7 +87,7 @@ export default function ExpenseAnalyticsPage() {
       // Parallel API calls for better performance
       const [expensesResponse, productionResponse] = await Promise.all([
         fetch(`/api/expenses?from=${startDate}&to=${endDate}`),
-        fetch(`/api/line-polish-reports?month=${selectedMonth}&year=${selectedYear}`)
+        fetch(`/api/multi-cutter-reports?month=${selectedMonth}&year=${selectedYear}`)
       ]);
 
       const [expenses, productionData] = await Promise.all([
@@ -112,7 +112,7 @@ export default function ExpenseAnalyticsPage() {
       setExpenseCount(count);
       setAvgExpense(average);
 
-      // Calculate cost per sqft from production data
+      // Calculate cost per sqft from multi-cutter production data
       // Formula: Total Expenses / Total Square Feet Produced
       // This updates dynamically when:
       // 1. New expenses are added/edited in Expense page
@@ -126,9 +126,9 @@ export default function ExpenseAnalyticsPage() {
 
       console.log(`[Cost per SFT Calculation] Month: ${selectedMonth}/${selectedYear}`);
       console.log(`  Total Expenses: ₹${total.toLocaleString()}`);
-      console.log(`  Total SFT Produced: ${totalSqft.toLocaleString()} sqft`);
+      console.log(`  Total SFT Produced (Multi-Cutter): ${totalSqft.toLocaleString()} sqft`);
       console.log(`  Cost per SFT: ₹${perSqft.toFixed(2)}/sqft`);
-      console.log(`  Production Reports Found: ${Array.isArray(productionData) ? productionData.length : 0}`);
+      console.log(`  Multi-Cutter Reports Found: ${Array.isArray(productionData) ? productionData.length : 0}`);
 
       // Group by category
       const categoryMap = new Map<string, {name: string, color: string, total: number, count: number}>();

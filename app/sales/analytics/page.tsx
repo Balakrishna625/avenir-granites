@@ -236,6 +236,12 @@ export default function SalesAnalyticsPage() {
     .sort((a, b) => b.avgPrice - a.avgPrice)
     .slice(0, 10)
 
+  // Calculate global mining distribution (exclude only_bill sales)
+  const regularSales = filteredSales.filter(sale => !sale.only_bill)
+  const totalRegularSqft = regularSales.reduce((sum, sale) => sum + sale.total_sqft, 0)
+  const totalMiningAmount = regularSales.reduce((sum, sale) => sum + (sale.mining_amount || 0), 0)
+  const globalMiningPerSqft = totalRegularSqft > 0 ? totalMiningAmount / totalRegularSqft : 0
+
   // Category weighted-average price (S/G, B/P, Burgandy)
   const categoryGroups = [
     { key: 'sg',       label: 'S/G',      color: 'sg',       match: (m: string) => /^s\/g/i.test(m) || /\bs\/g\b/i.test(m) },
@@ -248,7 +254,23 @@ export default function SalesAnalyticsPage() {
     const totalSqftG = rows.reduce((s, r) => s + r.sqft, 0)
     const totalRevG  = rows.reduce((s, r) => s + r.revenue, 0)
     const avgPriceG  = totalSqftG > 0 ? totalRevG / totalSqftG : 0
-    return { ...group, rows, totalSqft: totalSqftG, totalRevenue: totalRevG, avgPrice: avgPriceG }
+    
+    // Calculate distributed mining for this category
+    const categoryMiningAmount = totalSqftG * globalMiningPerSqft
+    const totalWithMining = totalRevG + categoryMiningAmount
+    const avgPriceWithMining = totalSqftG > 0 ? totalWithMining / totalSqftG : 0
+    
+    return { 
+      ...group, 
+      rows, 
+      totalSqft: totalSqftG, 
+      totalRevenue: totalRevG, 
+      avgPrice: avgPriceG,
+      miningAmount: categoryMiningAmount,
+      miningPerSqft: globalMiningPerSqft,
+      totalWithMining: totalWithMining,
+      avgPriceWithMining: avgPriceWithMining
+    }
   }).filter(g => g.totalSqft > 0)
 
   return (
@@ -492,8 +514,16 @@ export default function SalesAnalyticsPage() {
               <div className="flex items-center gap-2 mb-5">
                 <BarChart2 className="w-5 h-5 text-indigo-600" />
                 <h2 className="text-lg font-semibold">Average Selling Price by Category</h2>
-                <span className="text-xs text-gray-500 ml-1">(Weighted avg = Total Amount ÷ Total Sq.Ft)</span>
+                <span className="text-xs text-gray-500 ml-1">(Material + Distributed Mining)</span>
               </div>
+              {globalMiningPerSqft > 0 && (
+                <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                  <span className="text-amber-600 text-lg">ℹ️</span>
+                  <div className="text-xs text-amber-800">
+                    <strong>Mining Distribution:</strong> Total mining amount of <strong>₹{formatIndianNumber(totalMiningAmount)}</strong> is distributed across <strong>{totalRegularSqft.toFixed(2)} sqft</strong> of regular sales (excludes only-bill), resulting in a uniform rate of <strong>₹{globalMiningPerSqft.toFixed(2)}/sqft</strong> added to each category.
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                 {categoryStats.map(group => {
                   const colorMap: Record<string, { bg: string; border: string; badge: string; text: string; subtext: string; row: string; head: string }> = {
@@ -511,7 +541,7 @@ export default function SalesAnalyticsPage() {
                           <span className="font-semibold text-gray-800 text-sm">{group.rows.length} material{group.rows.length !== 1 ? 's' : ''}</span>
                         </div>
                         <div className="text-right">
-                          <div className={`text-xl font-extrabold ${c.text}`}>₹{group.avgPrice.toFixed(2)}</div>
+                          <div className={`text-xl font-extrabold ${c.text}`}>₹{group.avgPriceWithMining.toFixed(2)}</div>
                           <div className="text-xs text-gray-500">per Sq.Ft</div>
                         </div>
                       </div>
@@ -535,13 +565,31 @@ export default function SalesAnalyticsPage() {
                                 <td className={`px-3 py-1.5 text-right font-bold ${c.text}`}>₹{row.avgPrice.toFixed(2)}</td>
                               </tr>
                             ))}
+                            {/* Subtotal row (Material only) */}
+                            <tr className={`border-t ${c.head}`}>
+                              <td className="px-3 py-2 text-gray-700 font-medium">Subtotal</td>
+                              <td className="px-3 py-2 text-right text-gray-700 font-medium">{group.totalSqft.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right text-gray-700 font-medium">₹{formatIndianNumber(group.totalRevenue)}</td>
+                              <td className={`px-3 py-2 text-right font-bold ${c.text}`}>₹{group.avgPrice.toFixed(2)}</td>
+                            </tr>
+                            {/* Mining row (Distributed) */}
+                            {globalMiningPerSqft > 0 && (
+                              <tr className={`border-t bg-amber-50/50`}>
+                                <td className="px-3 py-2 text-amber-800 font-medium flex items-center gap-1">
+                                  <span className="text-xs">⚒️</span> Mining (dist)
+                                </td>
+                                <td className="px-3 py-2 text-right text-amber-700 font-medium">{group.totalSqft.toFixed(2)}</td>
+                                <td className="px-3 py-2 text-right text-amber-700 font-medium">₹{formatIndianNumber(group.miningAmount)}</td>
+                                <td className="px-3 py-2 text-right font-bold text-amber-800">₹{group.miningPerSqft.toFixed(2)}</td>
+                              </tr>
+                            )}
                           </tbody>
                           <tfoot>
                             <tr className={`border-t-2 font-semibold ${c.head}`}>
-                              <td className="px-3 py-2 text-gray-700">Total</td>
-                              <td className="px-3 py-2 text-right text-gray-700">{group.totalSqft.toFixed(2)}</td>
-                              <td className="px-3 py-2 text-right text-gray-700">₹{formatIndianNumber(group.totalRevenue)}</td>
-                              <td className={`px-3 py-2 text-right font-extrabold ${c.text}`}>₹{group.avgPrice.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-gray-800 font-bold">TOTAL</td>
+                              <td className="px-3 py-2 text-right text-gray-800 font-bold">{group.totalSqft.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right text-gray-800 font-bold">₹{formatIndianNumber(group.totalWithMining)}</td>
+                              <td className={`px-3 py-2 text-right font-extrabold ${c.text}`}>₹{group.avgPriceWithMining.toFixed(2)}</td>
                             </tr>
                           </tfoot>
                         </table>
