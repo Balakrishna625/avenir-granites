@@ -45,6 +45,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: productionError.message }, { status: 500 });
     }
 
+    // Fetch line polish hours data
+    const { data: linePolishData, error: linePolishError } = await supabaseAdmin
+      .from('line_polish_reports')
+      .select('date, no_of_hours')
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true });
+
+    if (linePolishError) {
+      console.error('[Production Cost API] Line Polish error:', linePolishError);
+      return NextResponse.json({ error: linePolishError.message }, { status: 500 });
+    }
+
     // Generate list of months in range
     const months: { key: string; label: string }[] = [];
     const current = new Date(fromDate);
@@ -55,14 +68,22 @@ export async function GET(request: NextRequest) {
       current.setMonth(current.getMonth() + 1);
     }
 
-    // Separate excluded categories
-    const excludedCategories = ['raw material', 'gst challan', 'raw materials'];
+    // Separate excluded categories (cash-basis expenses to be replaced with accrual)
+    const excludedCategories = [
+      'raw material', 
+      'gst challan', 
+      'raw materials',
+      'labor & wages',  // Exclude contractor cash payments
+      'contractor payment',
+      'employee salary',
+    ];
 
     // Group data by month
     interface MonthBucket {
       totalExpenses: number;
-      adjustedExpenses: number; // Expenses excluding Raw Material & GST Challan
+      adjustedExpenses: number; // Expenses excluding Raw Material, GST Challan, and Contractor Payments
       totalSqft: number;
+      totalHours: number; // Line polish hours
     }
 
     const buckets: Record<string, MonthBucket> = {};
@@ -71,6 +92,7 @@ export async function GET(request: NextRequest) {
         totalExpenses: 0,
         adjustedExpenses: 0,
         totalSqft: 0,
+        totalHours: 0,
       };
     }
 
@@ -103,12 +125,31 @@ export async function GET(request: NextRequest) {
       buckets[key].totalSqft += Number(prod.total_sqft) || 0;
     }
 
+    // Accumulate line polish hours
+    for (const lp of linePolishData || []) {
+      const d = new Date(lp.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!buckets[key]) continue;
+
+      buckets[key].totalHours += Number(lp.no_of_hours) || 0;
+    }
+
     // Calculate cost per SFT for each month
     const result = months.map(m => {
       const b = buckets[m.key];
       
+      // Calculate accrued contractor costs
+      // Dinesh (multi-cutter): ₹6 per SFT
+      // LinePolish: ₹250 per hour
+      const dineshCost = b.totalSqft * 6;
+      const linePolishCost = b.totalHours * 250;
+      const accruedContractorCost = dineshCost + linePolishCost;
+
+      // Add accrued contractor costs to adjusted expenses
+      const finalExpenses = b.adjustedExpenses + accruedContractorCost;
+      
       const costPerSqft = b.totalSqft > 0 
-        ? Math.round((b.adjustedExpenses / b.totalSqft) * 100) / 100 
+        ? Math.round((finalExpenses / b.totalSqft) * 100) / 100 
         : null;
 
       return {
@@ -116,8 +157,10 @@ export async function GET(request: NextRequest) {
         fullMonth: m.label, // "Oct 2025"
         costPerSqft: costPerSqft,
         totalExpenses: Math.round(b.totalExpenses),
-        adjustedExpenses: Math.round(b.adjustedExpenses),
+        adjustedExpenses: Math.round(finalExpenses),
         totalSqft: Math.round(b.totalSqft),
+        totalHours: Math.round(b.totalHours * 10) / 10, // One decimal for hours
+        accruedContractorCost: Math.round(accruedContractorCost),
       };
     });
 

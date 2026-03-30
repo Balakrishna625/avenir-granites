@@ -89,14 +89,16 @@ export default function ExpenseAnalyticsPage() {
       const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0];
 
       // Parallel API calls for better performance
-      const [expensesResponse, productionResponse] = await Promise.all([
+      const [expensesResponse, productionResponse, linePolishResponse] = await Promise.all([
         fetch(`/api/expenses?from=${startDate}&to=${endDate}`),
-        fetch(`/api/multi-cutter-reports?month=${selectedMonth}&year=${selectedYear}`)
+        fetch(`/api/multi-cutter-reports?month=${selectedMonth}&year=${selectedYear}`),
+        fetch(`/api/line-polish-reports?month=${selectedMonth}&year=${selectedYear}`)
       ]);
 
-      const [expenses, productionData] = await Promise.all([
+      const [expenses, productionData, linePolishData] = await Promise.all([
         expensesResponse.json(),
-        productionResponse.json()
+        productionResponse.json(),
+        linePolishResponse.json()
       ]);
 
       if (!Array.isArray(expenses)) {
@@ -131,32 +133,66 @@ export default function ExpenseAnalyticsPage() {
         })
         .reduce((sum, exp) => sum + (exp.amount || 0), 0);
       
+      const contractorPaymentAmount = expenses
+        .filter(exp => {
+          const catName = exp.expense_categories?.name || '';
+          return catName.toLowerCase().includes('labor & wage') || 
+                 catName.toLowerCase().includes('contractor payment') ||
+                 catName.toLowerCase().includes('employee salary');
+        })
+        .reduce((sum, exp) => sum + (exp.amount || 0), 0);
+      
       // Calculate adjusted total based on exclusions
       let adjustedTotal = total;
       if (excludeRawMaterial) adjustedTotal -= rawMaterialAmount;
       if (excludeGSTChallan) adjustedTotal -= gstChallanAmount;
+      // Always exclude contractor cash payments (replacing with accrual)
+      adjustedTotal -= contractorPaymentAmount;
 
       // Calculate cost per sqft from multi-cutter production data
-      // Formula: Adjusted Total Expenses / Total Square Feet Produced
+      // Formula: (Adjusted Total Expenses + Accrued Contractor Costs) / Total Square Feet Produced
       // This updates dynamically when:
       // 1. New expenses are added/edited in Expense page
       // 2. Multi-cutter data is added/edited in Production page
-      // 3. Month/Year filter is changed
-      // 4. Exclusion filters are toggled
+      // 3. Line polish data is added/edited
+      // 4. Month/Year filter is changed
+      // 5. Exclusion filters are toggled
       const totalSqft = Array.isArray(productionData) 
         ? productionData.reduce((sum, report) => sum + (report.total_sqft || 0), 0)
         : 0;
-      const perSqft = totalSqft > 0 ? adjustedTotal / totalSqft : 0;
+      
+      const totalHours = Array.isArray(linePolishData)
+        ? linePolishData.reduce((sum, report) => sum + (report.no_of_hours || 0), 0)
+        : 0;
+      
+      // Calculate accrued contractor costs
+      // Dinesh (multi-cutter): ₹6 per SFT
+      // LinePolish: ₹250 per hour
+      const dineshCost = totalSqft * 6;
+      const linePolishCost = totalHours * 250;
+      const accruedContractorCost = dineshCost + linePolishCost;
+      
+      // Add accrued contractor costs to adjusted expenses
+      const finalExpenses = adjustedTotal + accruedContractorCost;
+      
+      const perSqft = totalSqft > 0 ? finalExpenses / totalSqft : 0;
       setCostPerSqft(perSqft);
 
       console.log(`[Cost per SFT Calculation] Month: ${selectedMonth}/${selectedYear}`);
       console.log(`  Total Expenses: ₹${total.toLocaleString()}`);
       console.log(`  Raw Material Excluded: ${excludeRawMaterial ? 'Yes' : 'No'} (₹${rawMaterialAmount.toLocaleString()})`);
       console.log(`  GST Challan Excluded: ${excludeGSTChallan ? 'Yes' : 'No'} (₹${gstChallanAmount.toLocaleString()})`);
-      console.log(`  Adjusted Expenses: ₹${adjustedTotal.toLocaleString()}`);
+      console.log(`  Contractor Payments Excluded: Always (₹${contractorPaymentAmount.toLocaleString()})`);
+      console.log(`  Adjusted Expenses (before accrual): ₹${adjustedTotal.toLocaleString()}`);
+      console.log(`  Accrued Contractor Costs:`);
+      console.log(`    - Dinesh (${totalSqft.toLocaleString()} sqft × ₹6): ₹${dineshCost.toLocaleString()}`);
+      console.log(`    - LinePolish (${totalHours.toFixed(1)} hrs × ₹250): ₹${linePolishCost.toLocaleString()}`);
+      console.log(`    - Total Accrued: ₹${accruedContractorCost.toLocaleString()}`);
+      console.log(`  Final Production Cost: ₹${finalExpenses.toLocaleString()}`);
       console.log(`  Total SFT Produced (Multi-Cutter): ${totalSqft.toLocaleString()} sqft`);
       console.log(`  Cost per SFT: ₹${perSqft.toFixed(2)}/sqft`);
       console.log(`  Multi-Cutter Reports Found: ${Array.isArray(productionData) ? productionData.length : 0}`);
+      console.log(`  Line Polish Reports Found: ${Array.isArray(linePolishData) ? linePolishData.length : 0}`);
 
       // Group by category
       const categoryMap = new Map<string, {name: string, color: string, total: number, count: number}>();
