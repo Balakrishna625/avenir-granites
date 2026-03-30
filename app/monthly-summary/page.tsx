@@ -68,6 +68,15 @@ interface CategoryAvgEntry {
   burgundySqft: number;
 }
 
+interface ProductionCostEntry {
+  month: string;
+  fullMonth: string;
+  costPerSqft: number | null;
+  totalExpenses: number;
+  adjustedExpenses: number;
+  totalSqft: number;
+}
+
 interface CustomerSqftEntry {
   id: string;
   name: string;
@@ -143,6 +152,8 @@ export default function MonthlySummaryPage() {
   const [customerSqftLoading, setCustomerSqftLoading] = useState(true);
   const [categoryAvgData, setCategoryAvgData] = useState<CategoryAvgEntry[]>([]);
   const [categoryAvgLoading, setCategoryAvgLoading] = useState(true);
+  const [productionCostData, setProductionCostData] = useState<ProductionCostEntry[]>([]);
+  const [productionCostLoading, setProductionCostLoading] = useState(true);
 
   // Default: October 2025 to current date
   const currentDate = new Date();
@@ -197,6 +208,27 @@ export default function MonthlySummaryPage() {
   useEffect(() => {
     fetchCategoryAvg();
   }, [fetchCategoryAvg]);
+
+  const fetchProductionCost = useCallback(async () => {
+    setProductionCostLoading(true);
+    try {
+      const res = await fetch(
+        `/api/monthly-summary/production-cost?fromMonth=${fromMonth}&fromYear=${fromYear}&toMonth=${toMonth}&toYear=${toYear}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setProductionCostData(data);
+      }
+    } catch (err) {
+      console.error('Error fetching production cost:', err);
+    } finally {
+      setProductionCostLoading(false);
+    }
+  }, [fromMonth, fromYear, toMonth, toYear]);
+
+  useEffect(() => {
+    fetchProductionCost();
+  }, [fetchProductionCost]);
 
   const fetchCustomerSqft = useCallback(async () => {
     setCustomerSqftLoading(true);
@@ -857,6 +889,110 @@ export default function MonthlySummaryPage() {
                         const cx = (x ?? 0) + (width ?? 0) / 2;
                         const cy = (y ?? 0) + (height ?? 0) / 2;
                         return <text x={cx} y={cy} transform={`rotate(-90,${cx},${cy})`} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={900} fill="#ffffff" stroke="rgba(0,0,0,0.75)" strokeWidth={3} paintOrder="stroke" letterSpacing={0.5}>{`₹${Math.round(value)}`}</text>;
+                      }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </Card>
+
+            {/* Production Cost per SFT Chart (Excluding Raw Material & GST Challan) */}
+            <Card className="p-4 bg-white shadow-sm border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Factory className="w-4 h-4 text-purple-600" />
+                <h2 className="text-sm font-semibold text-gray-900">Production Cost per SFT (₹/Sq.Ft)</h2>
+              </div>
+              <div className="mb-3">
+                <div className="inline-flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
+                  <span className="text-[11px] font-medium text-purple-700">Excludes: Raw Material & GST Challan</span>
+                  {(() => {
+                    const totalMonths = productionCostData.filter(d => d.costPerSqft != null).length;
+                    const avgCost = (() => {
+                      const validData = productionCostData.filter(d => d.costPerSqft != null && d.totalSqft > 0);
+                      const totalRevenue = validData.reduce((s, d) => s + (d.costPerSqft ?? 0) * d.totalSqft, 0);
+                      const totalSqft = validData.reduce((s, d) => s + d.totalSqft, 0);
+                      return totalSqft > 0 ? totalRevenue / totalSqft : null;
+                    })();
+                    return avgCost != null && (
+                      <span className="text-[12px] font-bold text-purple-900">
+                        Avg: ₹{Math.round(avgCost)}<span className="text-[10px] font-normal text-purple-600">/sft across {totalMonths} months</span>
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+              {productionCostLoading ? (
+                <div className="flex items-center justify-center h-[220px]">
+                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-purple-500"></div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={productionCostData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }} barCategoryGap="20%">
+                    <defs>
+                      <linearGradient id="productionCostGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#a855f7" stopOpacity={0.9}/>
+                        <stop offset="100%" stopColor="#7c3aed" stopOpacity={1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} axisLine={false} tickLine={false}
+                      tickFormatter={(v) => `₹${v}`} />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(168,85,247,0.08)' }}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const entry = productionCostData.find(d => d.month === label);
+                        if (!entry) return null;
+                        return (
+                          <div className="bg-white border border-purple-200 rounded-lg shadow-lg p-3 text-xs">
+                            <p className="font-semibold text-gray-900 mb-2">{entry.fullMonth}</p>
+                            {entry.costPerSqft != null && (
+                              <>
+                                <p className="mb-1 text-purple-700">
+                                  <span className="font-medium">Cost per SFT:</span>{' '}
+                                  <span className="font-bold">₹{entry.costPerSqft.toFixed(2)}/sft</span>
+                                </p>
+                                <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+                                  <p className="text-gray-600">
+                                    <span className="font-medium">Production:</span>{' '}
+                                    <span className="font-semibold">{entry.totalSqft.toLocaleString('en-IN')} sqft</span>
+                                  </p>
+                                  <p className="text-gray-600">
+                                    <span className="font-medium">Total Expenses:</span>{' '}
+                                    <span className="font-semibold">₹{entry.totalExpenses.toLocaleString('en-IN')}</span>
+                                  </p>
+                                  <p className="text-green-600">
+                                    <span className="font-medium">Adjusted Expenses:</span>{' '}
+                                    <span className="font-semibold">₹{entry.adjustedExpenses.toLocaleString('en-IN')}</span>
+                                  </p>
+                                  <p className="text-gray-500 text-[10px] italic mt-1">
+                                    (Raw Material & GST Challan excluded)
+                                  </p>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="costPerSqft" fill="url(#productionCostGradient)" name="Cost per SFT" radius={[4,4,0,0]}>
+                      <LabelList dataKey="costPerSqft" position="top" content={({ x, y, width, value }: any) => {
+                        if (!value) return null;
+                        const cx = (x ?? 0) + (width ?? 0) / 2;
+                        const labelY = (y ?? 0) - 5;
+                        return (
+                          <text 
+                            x={cx} 
+                            y={labelY} 
+                            textAnchor="middle" 
+                            fontSize={11} 
+                            fontWeight={700} 
+                            fill="#7c3aed"
+                          >
+                            ₹{Math.round(value)}
+                          </text>
+                        );
                       }} />
                     </Bar>
                   </BarChart>
