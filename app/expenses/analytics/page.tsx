@@ -41,6 +41,7 @@ interface CategorySummary {
   total_amount: number;
   expense_count: number;
   percentage: number;
+  perSqft?: number; // Cost per square foot
 }
 
 interface AccountSummary {
@@ -68,13 +69,14 @@ export default function ExpenseAnalyticsPage() {
   const [expenseCount, setExpenseCount] = useState(0);
   const [avgExpense, setAvgExpense] = useState(0);
   const [costPerSqft, setCostPerSqft] = useState(0);
+  const [totalSqft, setTotalSqft] = useState(0);
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [selectedExpenseDetails, setSelectedExpenseDetails] = useState<Expense | null>(null);
   
-  // Exclusion filters for production cost calculation
-  const [excludeRawMaterial, setExcludeRawMaterial] = useState(false);
-  const [excludeGSTChallan, setExcludeGSTChallan] = useState(false);
+  // Exclusion filters for production cost calculation (checked by default)
+  const [excludeRawMaterial, setExcludeRawMaterial] = useState(true);
+  const [excludeGSTChallan, setExcludeGSTChallan] = useState(true);
 
   useEffect(() => {
     loadAnalytics();
@@ -114,7 +116,7 @@ export default function ExpenseAnalyticsPage() {
       const count = expenses.length;
       const average = count > 0 ? total / count : 0;
 
-      setTotalExpenses(total);
+      // Note: We'll set totalExpenses to finalExpenses after calculating accrued costs
       setExpenseCount(count);
       setAvgExpense(average);
 
@@ -161,6 +163,9 @@ export default function ExpenseAnalyticsPage() {
         ? productionData.reduce((sum, report) => sum + (report.total_sqft || 0), 0)
         : 0;
       
+      // Store totalSqft in state for category per SFT calculations
+      setTotalSqft(totalSqft);
+      
       const totalHours = Array.isArray(linePolishData)
         ? linePolishData.reduce((sum, report) => sum + (report.no_of_hours || 0), 0)
         : 0;
@@ -174,6 +179,9 @@ export default function ExpenseAnalyticsPage() {
       
       // Add accrued contractor costs to adjusted expenses
       const finalExpenses = adjustedTotal + accruedContractorCost;
+      
+      // Update total expenses to include accrued contractor costs
+      setTotalExpenses(finalExpenses);
       
       const perSqft = totalSqft > 0 ? finalExpenses / totalSqft : 0;
       setCostPerSqft(perSqft);
@@ -210,6 +218,7 @@ export default function ExpenseAnalyticsPage() {
         cat.count += 1;
       });
 
+      // Map regular expense categories
       const categories = Array.from(categoryMap.values())
         .map(cat => ({
           category_name: cat.name,
@@ -217,10 +226,40 @@ export default function ExpenseAnalyticsPage() {
           total_amount: cat.total,
           expense_count: cat.count,
           percentage: total > 0 ? (cat.total / total) * 100 : 0
+        }));
+
+      // Add calculated contractor costs as synthetic categories
+      // These show accrued costs based on work done, not cash payments
+      if (dineshCost > 0) {
+        categories.push({
+          category_name: `Contractor Dinesh (Calculated: ${totalSqft.toLocaleString()} sqft × ₹6)`,
+          category_color: '#8B5CF6', // Purple for calculated
+          total_amount: dineshCost,
+          expense_count: 0, // Calculated, not actual transactions
+          percentage: finalExpenses > 0 ? (dineshCost / finalExpenses) * 100 : 0
+        });
+      }
+
+      if (linePolishCost > 0) {
+        categories.push({
+          category_name: `LinePolish (Calculated: ${totalHours.toFixed(1)} hrs × ₹250)`,
+          category_color: '#06B6D4', // Cyan for calculated
+          total_amount: linePolishCost,
+          expense_count: 0, // Calculated, not actual transactions
+          percentage: finalExpenses > 0 ? (linePolishCost / finalExpenses) * 100 : 0
+        });
+      }
+
+      // Calculate per SFT cost for each category (instead of percentage)
+      const sortedCategories = categories
+        .map(cat => ({
+          ...cat,
+          percentage: finalExpenses > 0 ? (cat.total_amount / finalExpenses) * 100 : 0, // Keep for progress bar
+          perSqft: totalSqft > 0 ? cat.total_amount / totalSqft : 0 // Cost per SFT
         }))
         .sort((a, b) => b.total_amount - a.total_amount);
 
-      setCategoryData(categories);
+      setCategoryData(sortedCategories);
 
       // Group by account
       const accountMap = new Map<string, {name: string, total: number, count: number}>();
@@ -415,6 +454,7 @@ export default function ExpenseAnalyticsPage() {
                   <p className="text-xs font-medium text-gray-600">Total Expenses</p>
                   <h3 className="text-xl font-bold text-gray-900 mt-1">{fmt(totalExpenses)}</h3>
                   <p className="text-xs text-gray-500 mt-0.5">{expenseCount} transactions</p>
+                  <p className="text-xs text-purple-600 mt-0.5">+ Calculated contractor costs</p>
                 </div>
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-red-600" />
@@ -478,8 +518,13 @@ export default function ExpenseAnalyticsPage() {
               <span className="text-xs text-gray-500">(Click to view details)</span>
             </div>
             
-            <div className="space-y-2">
-              {categoryData.map((cat, idx) => {
+            <div className="mb-3 p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-900">
+              ℹ️ Includes calculated contractor costs based on actual work done:
+              <span className="font-medium"> Dinesh @ ₹6/sqft</span> and
+              <span className="font-medium"> LinePolish @ ₹250/hr</span>
+            </div>
+            
+            <div className="space-y-2">{categoryData.map((cat, idx) => {
                 const isExpanded = expandedCategory === cat.category_name;
                 const categoryExpenses = getExpensesByCategory(cat.category_name);
                 
@@ -524,7 +569,7 @@ export default function ExpenseAnalyticsPage() {
                         
                         <div className="text-right">
                           <p className="text-base font-bold text-gray-900">{fmt(cat.total_amount)}</p>
-                          <p className="text-xs text-gray-500">{cat.percentage.toFixed(1)}%</p>
+                          <p className="text-xs text-gray-500">₹{(cat as any).perSqft?.toFixed(2) || '0.00'}/sqft</p>
                         </div>
                       </div>
                     </button>
