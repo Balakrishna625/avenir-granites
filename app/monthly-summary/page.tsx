@@ -112,6 +112,30 @@ interface LiveComparison {
   };
 }
 
+interface DowntimeEntry {
+  date: string;
+  type: 'multi-cutter' | 'line-polish-full' | 'line-polish-half';
+  details?: string;
+}
+
+interface DowntimeData {
+  multiCutter: {
+    downtimeDays: number;
+    dates: DowntimeEntry[];
+  };
+  linePolish: {
+    fullDowntimeDays: number;
+    halfDowntimeDays: number;
+    fullDowntimeDates: DowntimeEntry[];
+    halfDowntimeDates: DowntimeEntry[];
+  };
+  dateRange: {
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+  };
+}
+
 const fmt = (n: number) => (n || 0).toLocaleString('en-IN');
 
 // Format Y-axis values in Indian style (thousands/lakhs)
@@ -154,6 +178,8 @@ export default function MonthlySummaryPage() {
   const [categoryAvgLoading, setCategoryAvgLoading] = useState(true);
   const [productionCostData, setProductionCostData] = useState<ProductionCostEntry[]>([]);
   const [productionCostLoading, setProductionCostLoading] = useState(true);
+  const [downtimeData, setDowntimeData] = useState<DowntimeData | null>(null);
+  const [downtimeLoading, setDowntimeLoading] = useState(true);
   
   // Raw material costs per category (optional, user-defined)
   const [sgRawMaterialCost, setSgRawMaterialCost] = useState<number>(0);
@@ -231,9 +257,30 @@ export default function MonthlySummaryPage() {
     }
   }, [fromMonth, fromYear, toMonth, toYear]);
 
+  const fetchDowntime = useCallback(async () => {
+    setDowntimeLoading(true);
+    try {
+      const res = await fetch(
+        `/api/monthly-summary/downtime?fromMonth=${fromMonth}&fromYear=${fromYear}&toMonth=${toMonth}&toYear=${toYear}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setDowntimeData(data);
+      }
+    } catch (err) {
+      console.error('Error fetching downtime:', err);
+    } finally {
+      setDowntimeLoading(false);
+    }
+  }, [fromMonth, fromYear, toMonth, toYear]);
+
   useEffect(() => {
     fetchProductionCost();
   }, [fetchProductionCost]);
+
+  useEffect(() => {
+    fetchDowntime();
+  }, [fetchDowntime]);
 
   const fetchCustomerSqft = useCallback(async () => {
     setCustomerSqftLoading(true);
@@ -1343,6 +1390,138 @@ export default function MonthlySummaryPage() {
                       </Card>
                     );
                   })}
+                </div>
+              )}
+            </div>
+
+            {/* Downtime Analysis Widget */}
+            <div className="mt-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-5 h-5 text-red-600" />
+                <h2 className="text-base font-semibold text-gray-900">Production Downtime Analysis</h2>
+              </div>
+              {downtimeLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600"></div>
+                  <span className="ml-3 text-gray-500 text-sm">Loading downtime data...</span>
+                </div>
+              ) : !downtimeData ? (
+                <Card className="p-5 bg-white shadow-sm border border-gray-200 rounded-lg">
+                  <p className="text-center text-gray-400 text-sm py-4">No downtime data available.</p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Multi-Cutter Downtime */}
+                  <Card className="p-5 bg-white shadow-sm border border-gray-200 rounded-lg">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-1">Multi-Cutter Downtime</h3>
+                        <p className="text-xs text-gray-500">Days with zero production</p>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-2xl font-bold text-red-600">{downtimeData.multiCutter.downtimeDays}</span>
+                        <span className="text-xs text-gray-500">days</span>
+                      </div>
+                    </div>
+                    {downtimeData.multiCutter.downtimeDays > 0 && (
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        <p className="text-xs font-medium text-gray-600 mb-2">Downtime Dates:</p>
+                        {downtimeData.multiCutter.dates.map((entry, idx) => (
+                          <div key={idx} className="text-xs text-gray-700 bg-red-50 px-2 py-1 rounded">
+                            {new Date(entry.date).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Period:</span>
+                        <span className="font-medium text-gray-900">{downtimeData.dateRange.totalDays} days</span>
+                      </div>
+                      <div className="flex justify-between text-xs mt-1">
+                        <span className="text-gray-600">Utilization:</span>
+                        <span className="font-medium text-green-600">
+                          {((downtimeData.dateRange.totalDays - downtimeData.multiCutter.downtimeDays) / downtimeData.dateRange.totalDays * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Line Polish Downtime */}
+                  <Card className="p-5 bg-white shadow-sm border border-gray-200 rounded-lg">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-1">Line Polish Downtime</h3>
+                        <p className="text-xs text-gray-500">Full day & half shift downtimes</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {/* Full Day Downtime */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-700">Full Day Down</span>
+                          <span className="text-xl font-bold text-red-600">{downtimeData.linePolish.fullDowntimeDays}</span>
+                        </div>
+                        {downtimeData.linePolish.fullDowntimeDays > 0 && (
+                          <div className="space-y-1 max-h-24 overflow-y-auto">
+                            {downtimeData.linePolish.fullDowntimeDates.map((entry, idx) => (
+                              <div key={idx} className="text-xs text-gray-700 bg-red-50 px-2 py-1 rounded">
+                                {new Date(entry.date).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })} - {entry.details}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Half Shift Downtime */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-700">Half Shift Down</span>
+                          <span className="text-xl font-bold text-orange-600">{downtimeData.linePolish.halfDowntimeDays}</span>
+                        </div>
+                        {downtimeData.linePolish.halfDowntimeDays > 0 && (
+                          <div className="space-y-1 max-h-24 overflow-y-auto">
+                            {downtimeData.linePolish.halfDowntimeDates.map((entry, idx) => (
+                              <div key={idx} className="text-xs text-gray-700 bg-orange-50 px-2 py-1 rounded flex justify-between">
+                                <span>
+                                  {new Date(entry.date).toLocaleDateString('en-IN', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric'
+                                  })}
+                                </span>
+                                <span className="text-orange-700 font-medium">{entry.details}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Total Impact:</span>
+                        <span className="font-medium text-gray-900">
+                          {downtimeData.linePolish.fullDowntimeDays + (downtimeData.linePolish.halfDowntimeDays * 0.5)} days
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs mt-1">
+                        <span className="text-gray-600">Utilization:</span>
+                        <span className="font-medium text-green-600">
+                          {((downtimeData.dateRange.totalDays - downtimeData.linePolish.fullDowntimeDays - (downtimeData.linePolish.halfDowntimeDays * 0.5)) / downtimeData.dateRange.totalDays * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
               )}
             </div>
