@@ -47,10 +47,10 @@ export async function GET(request: Request) {
 
     console.log('[Downtime API] Date range:', { startDate, endDate });
 
-    // Fetch multi-cutter reports
+    // Fetch multi-cutter reports with blocks (which contain notes)
     const { data: multiCutterData, error: mcError } = await supabaseAdmin
       .from('multi_cutter_reports')
-      .select('date, total_sqft, machine')
+      .select('date, total_sqft, machine, blocks')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: true });
@@ -60,10 +60,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: mcError.message }, { status: 500 });
     }
 
-    // Fetch line-polish reports
+    // Fetch line-polish reports with remarks
     const { data: linePolishData, error: lpError } = await supabaseAdmin
       .from('line_polish_reports')
-      .select('date, shift, no_of_hours')
+      .select('date, shift, no_of_hours, remarks')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: true });
@@ -75,23 +75,43 @@ export async function GET(request: Request) {
 
     // Process multi-cutter downtime (days with 0 production across all machines)
     const multiCutterByDate: Record<string, number> = {};
+    const multiCutterNotesByDate: Record<string, string[]> = {};
     (multiCutterData || []).forEach(record => {
       const date = record.date;
       multiCutterByDate[date] = (multiCutterByDate[date] || 0) + (Number(record.total_sqft) || 0);
+      
+      // Extract notes from blocks JSONB array
+      if (record.blocks && Array.isArray(record.blocks)) {
+        const notes = record.blocks
+          .map((block: any) => block.notes)
+          .filter((note: string) => note && note.trim().length > 0);
+        if (notes.length > 0) {
+          if (!multiCutterNotesByDate[date]) {
+            multiCutterNotesByDate[date] = [];
+          }
+          multiCutterNotesByDate[date].push(...notes);
+        }
+      }
     });
 
     // Process line-polish downtime
-    const linePolishByDate: Record<string, { morningHours: number; nightHours: number }> = {};
+    const linePolishByDate: Record<string, { morningHours: number; nightHours: number; morningRemarks: string[]; nightRemarks: string[] }> = {};
     (linePolishData || []).forEach(record => {
       const date = record.date;
       const hours = Number(record.no_of_hours) || 0;
       if (!linePolishByDate[date]) {
-        linePolishByDate[date] = { morningHours: 0, nightHours: 0 };
+        linePolishByDate[date] = { morningHours: 0, nightHours: 0, morningRemarks: [], nightRemarks: [] };
       }
       if (record.shift === 'MORNING') {
         linePolishByDate[date].morningHours += hours;
+        if (record.remarks && record.remarks.trim().length > 0) {
+          linePolishByDate[date].morningRemarks.push(record.remarks);
+        }
       } else if (record.shift === 'NIGHT') {
         linePolishByDate[date].nightHours += hours;
+        if (record.remarks && record.remarks.trim().length > 0) {
+          linePolishByDate[date].nightRemarks.push(record.remarks);
+        }
       }
     });
 
@@ -127,40 +147,50 @@ export async function GET(request: Request) {
       // Multi-cutter downtime
       const totalSqft = multiCutterByDate[dateStr] || 0;
       if (totalSqft === 0) {
+        const notes = multiCutterNotesByDate[dateStr] || [];
+        const details = notes.length > 0 ? notes.join('; ') : 'No production (no notes recorded)';
         monthlyData[monthKey].multiCutterDays++;
         monthlyData[monthKey].multiCutterDates.push({
           date: dateStr,
           type: 'multi-cutter',
-          details: 'No production'
+          details
         });
       }
 
       // Line-polish downtime
-      const shifts = linePolishByDate[dateStr] || { morningHours: 0, nightHours: 0 };
+      const shifts = linePolishByDate[dateStr] || { morningHours: 0, nightHours: 0, morningRemarks: [], nightRemarks: [] };
       
       if (shifts.morningHours === 0 && shifts.nightHours === 0) {
         // Full day downtime
+        const allRemarks = [...shifts.morningRemarks, ...shifts.nightRemarks];
+        const details = allRemarks.length > 0 ? allRemarks.join('; ') : 'Both shifts down (no remarks recorded)';
         monthlyData[monthKey].linePolishFullDays++;
         monthlyData[monthKey].linePolishFullDates.push({
           date: dateStr,
           type: 'line-polish-full',
-          details: 'Both shifts down'
+          details
         });
       } else if (shifts.morningHours === 0 && shifts.nightHours > 0) {
         // Morning shift down only
+        const details = shifts.morningRemarks.length > 0 
+          ? `Morning shift: ${shifts.morningRemarks.join('; ')}`
+          : 'Morning shift down (no remarks recorded)';
         monthlyData[monthKey].linePolishHalfDays++;
         monthlyData[monthKey].linePolishHalfDates.push({
           date: dateStr,
           type: 'line-polish-half',
-          details: 'Morning shift down'
+          details
         });
       } else if (shifts.nightHours === 0 && shifts.morningHours > 0) {
         // Night shift down only
+        const details = shifts.nightRemarks.length > 0 
+          ? `Night shift: ${shifts.nightRemarks.join('; ')}`
+          : 'Night shift down (no remarks recorded)';
         monthlyData[monthKey].linePolishHalfDays++;
         monthlyData[monthKey].linePolishHalfDates.push({
           date: dateStr,
           type: 'line-polish-half',
-          details: 'Night shift down'
+          details
         });
       }
     }
