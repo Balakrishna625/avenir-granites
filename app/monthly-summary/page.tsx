@@ -118,16 +118,25 @@ interface DowntimeEntry {
   details?: string;
 }
 
+interface MonthlyDowntimeData {
+  month: string;
+  fullMonth: string;
+  multiCutterDays: number;
+  linePolishFullDays: number;
+  linePolishHalfDays: number;
+  linePolishTotalImpact: number;
+  multiCutterDates: DowntimeEntry[];
+  linePolishFullDates: DowntimeEntry[];
+  linePolishHalfDates: DowntimeEntry[];
+}
+
 interface DowntimeData {
-  multiCutter: {
-    downtimeDays: number;
-    dates: DowntimeEntry[];
-  };
-  linePolish: {
-    fullDowntimeDays: number;
-    halfDowntimeDays: number;
-    fullDowntimeDates: DowntimeEntry[];
-    halfDowntimeDates: DowntimeEntry[];
+  monthlyData: MonthlyDowntimeData[];
+  summary: {
+    totalMultiCutterDowntimeDays: number;
+    totalLinePolishFullDays: number;
+    totalLinePolishHalfDays: number;
+    totalLinePolishImpact: number;
   };
   dateRange: {
     startDate: string;
@@ -1405,125 +1414,216 @@ export default function MonthlySummaryPage() {
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600"></div>
                   <span className="ml-3 text-gray-500 text-sm">Loading downtime data...</span>
                 </div>
-              ) : !downtimeData ? (
+              ) : !downtimeData || downtimeData.monthlyData.length === 0 ? (
                 <Card className="p-5 bg-white shadow-sm border border-gray-200 rounded-lg">
                   <p className="text-center text-gray-400 text-sm py-4">No downtime data available.</p>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Multi-Cutter Downtime */}
-                  <Card className="p-5 bg-white shadow-sm border border-gray-200 rounded-lg">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900 mb-1">Multi-Cutter Downtime</h3>
-                        <p className="text-xs text-gray-500">Days with zero production</p>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-2xl font-bold text-red-600">{downtimeData.multiCutter.downtimeDays}</span>
-                        <span className="text-xs text-gray-500">days</span>
-                      </div>
-                    </div>
-                    {downtimeData.multiCutter.downtimeDays > 0 && (
-                      <div className="space-y-1 max-h-48 overflow-y-auto">
-                        <p className="text-xs font-medium text-gray-600 mb-2">Downtime Dates:</p>
-                        {downtimeData.multiCutter.dates.map((entry, idx) => (
-                          <div key={idx} className="text-xs text-gray-700 bg-red-50 px-2 py-1 rounded">
-                            {new Date(entry.date).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric'
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-gray-600">Period:</span>
-                        <span className="font-medium text-gray-900">{downtimeData.dateRange.totalDays} days</span>
-                      </div>
-                      <div className="flex justify-between text-xs mt-1">
-                        <span className="text-gray-600">Utilization:</span>
-                        <span className="font-medium text-green-600">
-                          {((downtimeData.dateRange.totalDays - downtimeData.multiCutter.downtimeDays) / downtimeData.dateRange.totalDays * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
-
-                  {/* Line Polish Downtime */}
-                  <Card className="p-5 bg-white shadow-sm border border-gray-200 rounded-lg">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900 mb-1">Line Polish Downtime</h3>
-                        <p className="text-xs text-gray-500">Full day & half shift downtimes</p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      {/* Full Day Downtime */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-gray-700">Full Day Down</span>
-                          <span className="text-xl font-bold text-red-600">{downtimeData.linePolish.fullDowntimeDays}</span>
+                <div className="space-y-6">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="p-4 bg-gradient-to-br from-red-50 to-white border border-red-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-red-600 mb-1">Multi-Cutter Downtime</p>
+                          <h3 className="text-2xl font-bold text-red-700">{downtimeData.summary.totalMultiCutterDowntimeDays}</h3>
+                          <p className="text-xs text-gray-500 mt-1">total days</p>
                         </div>
-                        {downtimeData.linePolish.fullDowntimeDays > 0 && (
-                          <div className="space-y-1 max-h-24 overflow-y-auto">
-                            {downtimeData.linePolish.fullDowntimeDates.map((entry, idx) => (
-                              <div key={idx} className="text-xs text-gray-700 bg-red-50 px-2 py-1 rounded">
-                                {new Date(entry.date).toLocaleDateString('en-IN', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric'
-                                })} - {entry.details}
+                        <Factory className="w-8 h-8 text-red-300" />
+                      </div>
+                    </Card>
+                    <Card className="p-4 bg-gradient-to-br from-orange-50 to-white border border-orange-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-orange-600 mb-1">LP Full Day Down</p>
+                          <h3 className="text-2xl font-bold text-orange-700">{downtimeData.summary.totalLinePolishFullDays}</h3>
+                          <p className="text-xs text-gray-500 mt-1">both shifts</p>
+                        </div>
+                        <Clock className="w-8 h-8 text-orange-300" />
+                      </div>
+                    </Card>
+                    <Card className="p-4 bg-gradient-to-br from-yellow-50 to-white border border-yellow-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-yellow-600 mb-1">LP Half Shift Down</p>
+                          <h3 className="text-2xl font-bold text-yellow-700">{downtimeData.summary.totalLinePolishHalfDays}</h3>
+                          <p className="text-xs text-gray-500 mt-1">single shift</p>
+                        </div>
+                        <Clock className="w-8 h-8 text-yellow-300" />
+                      </div>
+                    </Card>
+                    <Card className="p-4 bg-gradient-to-br from-blue-50 to-white border border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-blue-600 mb-1">LP Total Impact</p>
+                          <h3 className="text-2xl font-bold text-blue-700">{downtimeData.summary.totalLinePolishImpact.toFixed(1)}</h3>
+                          <p className="text-xs text-gray-500 mt-1">equivalent days</p>
+                        </div>
+                        <TrendingDown className="w-8 h-8 text-blue-300" />
+                      </div>
+                    </Card>
+                  </div>
+
+                  {/* Monthly Downtime Charts */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Multi-Cutter Downtime Chart */}
+                    <Card className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900">Multi-Cutter Downtime (Days)</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">Monthly breakdown • Zero production days</p>
+                        </div>
+                      </div>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={downtimeData.monthlyData} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis 
+                            dataKey="fullMonth" 
+                            tick={{ fontSize: 11, fill: '#666' }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={60}
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 11, fill: '#666' }}
+                            label={{ value: 'Days', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#666' } }}
+                          />
+                          <Tooltip content={<CustomTooltip suffix=" days" />} />
+                          <Bar dataKey="multiCutterDays" fill="#dc2626" radius={[6, 6, 0, 0]}>
+                            <LabelList dataKey="multiCutterDays" position="top" style={{ fontSize: 10, fill: '#666' }} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                      
+                      {/* Expandable Details */}
+                      <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
+                        {downtimeData.monthlyData.map((month, idx) => 
+                          month.multiCutterDays > 0 && (
+                            <details key={idx} className="group">
+                              <summary className="cursor-pointer text-xs font-medium text-gray-700 bg-red-50 hover:bg-red-100 px-3 py-2 rounded flex justify-between items-center">
+                                <span>{month.fullMonth}</span>
+                                <span className="text-red-600 font-semibold">{month.multiCutterDays} {month.multiCutterDays === 1 ? 'day' : 'days'}</span>
+                              </summary>
+                              <div className="mt-2 ml-3 space-y-1">
+                                {month.multiCutterDates.map((entry, dateIdx) => (
+                                  <div key={dateIdx} className="text-xs text-gray-600 flex items-center gap-2 py-1">
+                                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                                    <span className="font-medium">
+                                      {new Date(entry.date).toLocaleDateString('en-IN', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        weekday: 'short'
+                                      })}
+                                    </span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-red-600">{entry.details}</span>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
+                            </details>
+                          )
                         )}
                       </div>
+                    </Card>
 
-                      {/* Half Shift Downtime */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-gray-700">Half Shift Down</span>
-                          <span className="text-xl font-bold text-orange-600">{downtimeData.linePolish.halfDowntimeDays}</span>
+                    {/* Line Polish Downtime Chart */}
+                    <Card className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900">Line Polish Downtime (Days)</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">Monthly breakdown • Full + Half shifts</p>
                         </div>
-                        {downtimeData.linePolish.halfDowntimeDays > 0 && (
-                          <div className="space-y-1 max-h-24 overflow-y-auto">
-                            {downtimeData.linePolish.halfDowntimeDates.map((entry, idx) => (
-                              <div key={idx} className="text-xs text-gray-700 bg-orange-50 px-2 py-1 rounded flex justify-between">
-                                <span>
-                                  {new Date(entry.date).toLocaleDateString('en-IN', {
-                                    day: 'numeric',
-                                    month: 'short',
-                                    year: 'numeric'
-                                  })}
+                      </div>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={downtimeData.monthlyData} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis 
+                            dataKey="fullMonth" 
+                            tick={{ fontSize: 11, fill: '#666' }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={60}
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 11, fill: '#666' }}
+                            label={{ value: 'Days', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#666' } }}
+                          />
+                          <Tooltip content={<CustomTooltip suffix=" days" />} />
+                          <Legend 
+                            wrapperStyle={{ fontSize: '11px' }}
+                            iconType="square"
+                          />
+                          <Bar dataKey="linePolishFullDays" name="Full Day" fill="#ea580c" radius={[6, 6, 0, 0]} stackId="lp">
+                            <LabelList dataKey="linePolishFullDays" position="inside" style={{ fontSize: 10, fill: '#fff' }} />
+                          </Bar>
+                          <Bar dataKey="linePolishHalfDays" name="Half Shift" fill="#fbbf24" radius={[6, 6, 0, 0]} stackId="lp">
+                            <LabelList dataKey="linePolishHalfDays" position="inside" style={{ fontSize: 10, fill: '#333' }} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+
+                      {/* Expandable Details */}
+                      <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
+                        {downtimeData.monthlyData.map((month, idx) => 
+                          (month.linePolishFullDays > 0 || month.linePolishHalfDays > 0) && (
+                            <details key={idx} className="group">
+                              <summary className="cursor-pointer text-xs font-medium text-gray-700 bg-orange-50 hover:bg-orange-100 px-3 py-2 rounded flex justify-between items-center">
+                                <span>{month.fullMonth}</span>
+                                <span className="text-orange-600 font-semibold">
+                                  {month.linePolishTotalImpact.toFixed(1)} day impact
                                 </span>
-                                <span className="text-orange-700 font-medium">{entry.details}</span>
+                              </summary>
+                              <div className="mt-2 ml-3 space-y-2">
+                                {/* Full Day Downtimes */}
+                                {month.linePolishFullDates.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-orange-700 mb-1">Full Day ({month.linePolishFullDays}):</p>
+                                    {month.linePolishFullDates.map((entry, dateIdx) => (
+                                      <div key={dateIdx} className="text-xs text-gray-600 flex items-center gap-2 py-1 ml-2">
+                                        <span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>
+                                        <span className="font-medium">
+                                          {new Date(entry.date).toLocaleDateString('en-IN', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                            weekday: 'short'
+                                          })}
+                                        </span>
+                                        <span className="text-gray-400">•</span>
+                                        <span className="text-orange-600">{entry.details}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* Half Shift Downtimes */}
+                                {month.linePolishHalfDates.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-yellow-700 mb-1">Half Shift ({month.linePolishHalfDays}):</p>
+                                    {month.linePolishHalfDates.map((entry, dateIdx) => (
+                                      <div key={dateIdx} className="text-xs text-gray-600 flex items-center gap-2 py-1 ml-2">
+                                        <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span>
+                                        <span className="font-medium">
+                                          {new Date(entry.date).toLocaleDateString('en-IN', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                            weekday: 'short'
+                                          })}
+                                        </span>
+                                        <span className="text-gray-400">•</span>
+                                        <span className="text-yellow-700">{entry.details}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                          </div>
+                            </details>
+                          )
                         )}
                       </div>
-                    </div>
-
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-gray-600">Total Impact:</span>
-                        <span className="font-medium text-gray-900">
-                          {downtimeData.linePolish.fullDowntimeDays + (downtimeData.linePolish.halfDowntimeDays * 0.5)} days
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-xs mt-1">
-                        <span className="text-gray-600">Utilization:</span>
-                        <span className="font-medium text-green-600">
-                          {((downtimeData.dateRange.totalDays - downtimeData.linePolish.fullDowntimeDays - (downtimeData.linePolish.halfDowntimeDays * 0.5)) / downtimeData.dateRange.totalDays * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
+                    </Card>
+                  </div>
                 </div>
               )}
+            </div>
             </div>
           </>
         )}
