@@ -1624,7 +1624,6 @@ export default function MonthlySummaryPage() {
                 </div>
               )}
             </div>
-            </div>
           </>
         )}
       </div>
