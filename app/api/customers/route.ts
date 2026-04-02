@@ -77,26 +77,35 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const name = String(body?.name || "").trim();
-  const customerType = body?.customer_type || "regular"; // Default to regular
-  
-  if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
-  
-  // Validate customer_type
-  if (!["regular", "one-time"].includes(customerType)) {
-    return NextResponse.json({ error: "customer_type must be 'regular' or 'one-time'" }, { status: 400 });
-  }
-  
-  // Initialize old_due_amount to 0 for new customers
-  const { data, error } = await supabaseAdmin
-    .from("customers")
-    .insert({ name, old_due_amount: 0, customer_type: customerType })
-    .select()
-    .single();
+  try {
+    const body = await req.json();
+    const name = String(body?.name || "").trim();
+    const customerType = body?.customer_type || "regular"; // Default to regular
     
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json(data);
+    if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
+    
+    // Validate customer_type
+    if (!["regular", "one-time"].includes(customerType)) {
+      return NextResponse.json({ error: "customer_type must be 'regular' or 'one-time'" }, { status: 400 });
+    }
+    
+    // Initialize old_due_amount to 0 for new customers
+    const { data, error } = await supabaseAdmin
+      .from("customers")
+      .insert({ name, old_due_amount: 0, customer_type: customerType })
+      .select()
+      .single();
+      
+    if (error) {
+      console.error("Error creating customer:", error);
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    
+    return NextResponse.json(data, { status: 201 });
+  } catch (error) {
+    console.error("Unexpected error in POST /api/customers:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function PUT(req: Request) {

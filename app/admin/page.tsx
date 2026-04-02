@@ -65,13 +65,18 @@ export default function AdminPage() {
     }
 
     try {
+      console.log('Adding customer:', { name, customer_type });
+      
       const res = await fetch("/api/customers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, customer_type })
       });
       
+      console.log('Response status:', res.status, res.statusText);
+      
       const data = await res.json();
+      console.log('Response data:', data);
       
       if (!res.ok) {
         showToast("error", data.error || "Failed to create customer");
@@ -83,7 +88,7 @@ export default function AdminPage() {
       showToast("success", "Customer added successfully!");
     } catch (error) {
       console.error("Failed to add customer:", error);
-      showToast("error", "Failed to add customer. Please try again.");
+      showToast("error", `Failed to add customer: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -160,13 +165,18 @@ export default function AdminPage() {
     }
 
     try {
+      console.log('Adding bank account:', { name });
+      
       const res = await fetch("/api/bank-accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name })
       });
       
+      console.log('Response status:', res.status, res.statusText);
+      
       const data = await res.json();
+      console.log('Response data:', data);
       
       if (!res.ok) {
         showToast("error", data.error || "Failed to create bank account");
@@ -178,7 +188,7 @@ export default function AdminPage() {
       showToast("success", "Bank account added successfully!");
     } catch (error) {
       console.error("Failed to add bank account:", error);
-      showToast("error", "Failed to add bank account. Please try again.");
+      showToast("error", `Failed to add bank account: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
