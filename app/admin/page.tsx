@@ -55,7 +55,8 @@ export default function AdminPage() {
 
   async function addCustomer(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget; // Store form reference before async operations
+    const formData = new FormData(form);
     const name = String(formData.get("customerName") || "").trim();
     const customer_type = String(formData.get("customerType") || "regular");
     
@@ -84,7 +85,7 @@ export default function AdminPage() {
       }
       
       setCustomers(prev => [data, ...prev]);
-      e.currentTarget.reset();
+      form.reset();
       showToast("success", "Customer added successfully!");
     } catch (error) {
       console.error("Failed to add customer:", error);
@@ -156,7 +157,8 @@ export default function AdminPage() {
 
   async function addBankAccount(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget; // Store form reference before async operations
+    const formData = new FormData(form);
     const name = String(formData.get("bankAccountName") || "").trim();
     
     if (!name) {
@@ -184,7 +186,7 @@ export default function AdminPage() {
       }
       
       setBankAccounts(prev => [data, ...prev]);
-      e.currentTarget.reset();
+      form.reset();
       showToast("success", "Bank account added successfully!");
     } catch (error) {
       console.error("Failed to add bank account:", error);
