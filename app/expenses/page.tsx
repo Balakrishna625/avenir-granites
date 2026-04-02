@@ -138,6 +138,10 @@ export default function ExpensesPage() {
   const [formNotes, setFormNotes] = useState("");
   const [formPaymentStatus, setFormPaymentStatus] = useState("PAID");
   
+  // Store default account and category IDs
+  const [defaultAccountId, setDefaultAccountId] = useState<string>("");
+  const [defaultCategoryId, setDefaultCategoryId] = useState<string>("");
+  
   // Month selector - persists in session, resets to current month on new session
   const { selectedMonth, selectedYear, setSelectedMonth, setSelectedYear } = useSessionMonthYear('expenses')
 
@@ -187,6 +191,38 @@ export default function ExpensesPage() {
     loadAllBankAccounts();
     loadExpenseCategories();
   }, []);
+
+  // Set default account and category when data loads
+  useEffect(() => {
+    if (allBankAccounts.length > 0 && !defaultAccountId) {
+      const chAnjibabuAccount = allBankAccounts.find(acc => 
+        acc.name.toUpperCase().includes('CH ANJIBABU') || 
+        acc.name.toUpperCase().includes('CHANJIBABU')
+      );
+      if (chAnjibabuAccount) {
+        setDefaultAccountId(chAnjibabuAccount.id);
+        if (!formAccount) {
+          setFormAccount(chAnjibabuAccount.id);
+        }
+      }
+    }
+  }, [allBankAccounts]);
+
+  useEffect(() => {
+    if (expenseCategories.length > 0 && !defaultCategoryId) {
+      const factoryMaintenanceCategory = expenseCategories.find(cat => 
+        cat.name.toUpperCase().includes('FACTORY') && 
+        cat.name.toUpperCase().includes('GENERAL') && 
+        cat.name.toUpperCase().includes('MAINTENANCE')
+      );
+      if (factoryMaintenanceCategory) {
+        setDefaultCategoryId(factoryMaintenanceCategory.id);
+        if (!formCategory) {
+          setFormCategory(factoryMaintenanceCategory.id);
+        }
+      }
+    }
+  }, [expenseCategories]);
 
   useEffect(() => {
     loadData();
@@ -270,9 +306,11 @@ export default function ExpensesPage() {
     try {
       setLoading(true);
       
-      // Calculate date range for selected month
-      const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString().split('T')[0];
-      const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0];
+      // Calculate date range for selected month using local timezone
+      // Format: YYYY-MM-DD
+      const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+      const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+      const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
       console.log(`Loading expenses from ${startDate} to ${endDate}`);
 
@@ -346,14 +384,14 @@ export default function ExpensesPage() {
         const addedExpense = await response.json();
         console.log('Expense added successfully:', addedExpense);
         
-        // Reset form but keep date in current month
+        // Reset form but keep date in current month and restore defaults
         const year = new Date().getFullYear();
         const month = String(new Date().getMonth() + 1).padStart(2, '0');
         const day = String(new Date().getDate()).padStart(2, '0');
         setFormDate(`${year}-${month}-${day}`);
         setFormAmount("");
-        setFormAccount("");
-        setFormCategory("");
+        setFormAccount(defaultAccountId || ""); // Restore default account
+        setFormCategory(defaultCategoryId || ""); // Restore default category
         setFormNotes("");
         setFormPaymentStatus("PAID");
         
