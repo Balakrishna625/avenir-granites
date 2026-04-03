@@ -250,14 +250,39 @@ export default function ContractorPaymentsPage() {
     name: string; 
     data: ContractorPayment | null; 
     transactions: PaymentTransaction[] 
-  }) => (
-    <Card className="border-2 border-gray-200">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Users className="w-6 h-6 text-blue-600" />
-            {name}
-          </h3>
+  }) => {
+    const isDinesh = name === 'Contractor Dinesh';
+    const theme = isDinesh ? {
+      primary: 'orange',
+      border: 'border-l-orange-500',
+      bg: 'bg-gradient-to-r from-orange-50 to-amber-50',
+      icon: 'text-orange-600',
+      badge: 'bg-orange-100 text-orange-700',
+      carryForward: 'bg-orange-50 text-orange-700 border border-orange-200',
+      payable: 'bg-amber-50 text-amber-700 border border-amber-200',
+      paid: 'bg-green-50 text-green-700 border border-green-200',
+      balance: 'bg-red-50 text-red-700 border border-red-200',
+    } : {
+      primary: 'indigo',
+      border: 'border-l-indigo-500',
+      bg: 'bg-gradient-to-r from-indigo-50 to-cyan-50',
+      icon: 'text-indigo-600',
+      badge: 'bg-indigo-100 text-indigo-700',
+      carryForward: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+      payable: 'bg-cyan-50 text-cyan-700 border border-cyan-200',
+      paid: 'bg-green-50 text-green-700 border border-green-200',
+      balance: 'bg-red-50 text-red-700 border border-red-200',
+    };
+
+    return (
+      <Card className={`border-l-4 ${theme.border} shadow-lg hover:shadow-xl transition-shadow`}>
+        <div className={`h-2 ${theme.bg}`}></div>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className={`text-xl font-bold text-gray-900 flex items-center gap-2`}>
+              <Users className={`w-6 h-6 ${theme.icon}`} />
+              {name}
+            </h3>
           <div className="flex items-center gap-2">
             <Button
               onClick={() => {
@@ -267,7 +292,7 @@ export default function ContractorPaymentsPage() {
               }}
               variant="outline"
               size="sm"
-              className="text-purple-600 hover:text-purple-800"
+              className={`${isDinesh ? 'text-orange-600 hover:text-orange-800 border-orange-300' : 'text-indigo-600 hover:text-indigo-800 border-indigo-300'}`}
             >
               {isAutoCalculated ? 'Adjust Payable' : 'Set Payable'}
             </Button>
@@ -276,7 +301,7 @@ export default function ContractorPaymentsPage() {
                 onClick={() => resetToAutoCalculation(name)}
                 variant="outline"
                 size="sm"
-                className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                className={`${isDinesh ? 'text-orange-600 hover:text-orange-800 border-orange-300' : 'text-indigo-600 hover:text-indigo-800 border-indigo-300'} flex items-center gap-1`}
                 title="Reset to auto-calculated amount"
               >
                 <span className="text-lg">🔄</span>
@@ -285,52 +310,52 @@ export default function ContractorPaymentsPage() {
             )}
           </div>
         </div>
-        {isAutoCalculated && (
-          <div className="mb-3">
-            {data?.manually_adjusted ? (
-              <span className="text-xs text-orange-600 font-medium flex items-center gap-1 bg-orange-50 px-2 py-1 rounded">
-                <span>✏️</span>
-                Manually adjusted (auto-calc disabled)
-              </span>
-            ) : (
-              <span className="text-xs text-blue-600 font-medium flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
-                <span>🤖</span>
-                Auto-calculated from {name === 'Contractor Dinesh' ? 'Sales' : 'Line Polish'} data
-              </span>
-            )}
-          </div>
-        )}
+          {isAutoCalculated && (
+            <div className="mb-3">
+              {data?.manually_adjusted ? (
+                <span className="text-xs text-amber-700 font-medium flex items-center gap-1 bg-amber-100 px-3 py-1.5 rounded-full border border-amber-300">
+                  <span>✏️</span>
+                  Manually adjusted (auto-calc disabled)
+                </span>
+              ) : (
+                <span className={`text-xs font-medium flex items-center gap-1 ${theme.badge} px-3 py-1.5 rounded-full border ${isDinesh ? 'border-orange-300' : 'border-indigo-300'}`}>
+                  <span>🤖</span>
+                  Auto-calculated from {name === 'Contractor Dinesh' ? 'Sales' : 'Line Polish'} data
+                </span>
+              )}
+            </div>
+          )}
 
-        {/* Summary Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">Carry Forward</p>
-            <p className="text-lg font-bold text-blue-700">{fmt(data?.carry_forward || 0)}</p>
+          {/* Summary Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className={`${theme.carryForward} p-4 rounded-lg shadow-sm`}>
+              <p className="text-xs font-semibold uppercase mb-1">Carry Forward</p>
+              <p className="text-xl font-bold">{fmt(data?.carry_forward || 0)}</p>
+            </div>
+            <div className={`${theme.payable} p-4 rounded-lg shadow-sm`}>
+              <p className="text-xs font-semibold uppercase mb-1">Total Payable (incl. C/F)</p>
+              <p className="text-xl font-bold">{fmt((data?.carry_forward || 0) + (data?.total_payable || 0))}</p>
+              <p className="text-xs opacity-70">C/F: {fmt(data?.carry_forward || 0)} + {fmt(data?.total_payable || 0)}</p>
+              {isAutoCalculated && name === 'Contractor Dinesh' && (
+                <p className="text-xs font-medium mt-1 opacity-80">
+                  🤖 Auto: SqFt × ₹6
+                </p>
+              )}
+              {isAutoCalculated && name === 'Contractor LinePolish' && (
+                <p className="text-xs font-medium mt-1 opacity-80">
+                  🤖 Auto: Hours × ₹250
+                </p>
+              )}
+            </div>
+            <div className={`${theme.paid} p-4 rounded-lg shadow-sm`}>
+              <p className="text-xs font-semibold uppercase mb-1">Total Paid</p>
+              <p className="text-xl font-bold">{fmt(data?.total_paid || 0)}</p>
+            </div>
+            <div className={`${theme.balance} p-4 rounded-lg shadow-sm`}>
+              <p className="text-xs font-semibold uppercase mb-1">Balance Due</p>
+              <p className="text-xl font-bold">{fmt(data?.balance || 0)}</p>
+            </div>
           </div>
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">Total Payable (incl. C/F)</p>
-            <p className="text-lg font-bold text-purple-700">{fmt((data?.carry_forward || 0) + (data?.total_payable || 0))}</p>
-            <p className="text-xs text-gray-500">C/F: {fmt(data?.carry_forward || 0)} + {fmt(data?.total_payable || 0)}</p>
-            {isAutoCalculated && name === 'Contractor Dinesh' && (
-              <p className="text-xs text-blue-600 mt-1">
-                🤖 Auto: SqFt × ₹6
-              </p>
-            )}
-            {isAutoCalculated && name === 'Contractor LinePolish' && (
-              <p className="text-xs text-blue-600 mt-1">
-                🤖 Auto: Hours × ₹250
-              </p>
-            )}
-          </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">Total Paid</p>
-            <p className="text-lg font-bold text-green-700">{fmt(data?.total_paid || 0)}</p>
-          </div>
-          <div className="bg-red-50 p-4 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">Balance Due</p>
-            <p className="text-lg font-bold text-red-700">{fmt(data?.balance || 0)}</p>
-          </div>
-        </div>
 
         {/* Payments Section */}
         <div className="border-t pt-4">
@@ -381,36 +406,42 @@ export default function ContractorPaymentsPage() {
         </div>
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   return (
     <AppLayout>
-      <div className="min-h-screen w-full bg-gray-50 p-6 space-y-6">
+      <div className="min-h-screen w-full bg-gradient-to-br from-gray-50 via-white to-gray-50 p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <Users className="w-8 h-8 text-blue-600" />
-              Contractor Payments
-            </h1>
-            <p className="text-gray-600 mt-1">Track monthly payments for internal contractors</p>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-3 rounded-xl shadow-md">
+              <Users className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Contractor Payments
+              </h1>
+              <p className="text-gray-600 mt-1">Track monthly payments for internal contractors</p>
+            </div>
           </div>
         </div>
 
         {/* Month Selector */}
-        <Card>
+        <Card className="border-0 shadow-md bg-white">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <Button
                 onClick={() => changeMonth(-1)}
                 variant="outline"
                 size="sm"
+                className="hover:bg-blue-50 hover:border-blue-300"
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 px-6 py-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-full border border-blue-200">
                 <Calendar className="w-5 h-5 text-blue-600" />
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   {getMonthName(selectedMonth)}
                 </span>
               </div>
@@ -418,6 +449,7 @@ export default function ContractorPaymentsPage() {
                 onClick={() => changeMonth(1)}
                 variant="outline"
                 size="sm"
+                className="hover:bg-blue-50 hover:border-blue-300"
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -427,51 +459,59 @@ export default function ContractorPaymentsPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Carry Forward</p>
-                  <p className="text-2xl font-bold text-blue-600">{fmt(totalCarryForward)}</p>
+                  <p className="text-xs font-medium opacity-90 uppercase tracking-wide">Total Carry Forward</p>
+                  <p className="text-3xl font-bold mt-1">{fmt(totalCarryForward)}</p>
                 </div>
-                <ArrowRight className="w-8 h-8 text-blue-600" />
+                <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                  <ArrowRight className="w-6 h-6" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-purple-500 to-purple-600 text-white hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Payable (incl. C/F)</p>
-                  <p className="text-2xl font-bold text-purple-600">{fmt(totalPayableWithCarryForward)}</p>
-                  <p className="text-xs text-gray-500 mt-1">C/F: {fmt(totalCarryForward)} + Current: {fmt(totalPayable)}</p>
+                <div className="flex-1">
+                  <p className="text-xs font-medium opacity-90 uppercase tracking-wide">Total Payable (incl. C/F)</p>
+                  <p className="text-3xl font-bold mt-1">{fmt(totalPayableWithCarryForward)}</p>
+                  <p className="text-xs opacity-80 mt-1">C/F: {fmt(totalCarryForward)} + Current: {fmt(totalPayable)}</p>
                 </div>
-                <DollarSign className="w-8 h-8 text-purple-600" />
+                <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                  <DollarSign className="w-6 h-6" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-green-500 to-green-600 text-white hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Paid</p>
-                  <p className="text-2xl font-bold text-green-600">{fmt(totalPaid)}</p>
+                  <p className="text-xs font-medium opacity-90 uppercase tracking-wide">Total Paid</p>
+                  <p className="text-3xl font-bold mt-1">{fmt(totalPaid)}</p>
                 </div>
-                <TrendingUp className="w-8 h-8 text-green-600" />
+                <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                  <TrendingUp className="w-6 h-6" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-red-500 to-red-600 text-white hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Balance</p>
-                  <p className="text-2xl font-bold text-red-600">{fmt(totalBalance)}</p>
+                  <p className="text-xs font-medium opacity-90 uppercase tracking-wide">Total Balance</p>
+                  <p className="text-3xl font-bold mt-1">{fmt(totalBalance)}</p>
                 </div>
-                <Wallet className="w-8 h-8 text-red-600" />
+                <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                  <Wallet className="w-6 h-6" />
+                </div>
               </div>
             </CardContent>
           </Card>
