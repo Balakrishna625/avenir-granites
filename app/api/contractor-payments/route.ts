@@ -11,9 +11,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Month parameter is required' }, { status: 400 });
     }
 
-    // Auto-calculate payables for months >= March 2026
-    const metadata = await autoCalculatePayables(month);
-
     // Fetch data for both contractors
     const contractorNames = ['Contractor Dinesh', 'Contractor LinePolish'];
     
@@ -128,6 +125,45 @@ export async function GET(request: NextRequest) {
         };
       })
     );
+
+    // Auto-calculate payables for months >= March 2026 (after records are created)
+    const metadata = await autoCalculatePayables(month);
+
+    // Fetch updated records if auto-calculation happened
+    if (metadata && (metadata.dineshMeta || metadata.linePolishMeta)) {
+      const updatedResults = await Promise.all(
+        contractorNames.map(async (name, index) => {
+          const { data: updatedData } = await supabaseAdmin
+            .from('contractor_payments')
+            .select('*')
+            .eq('contractor_name', name)
+            .eq('month', month)
+            .single();
+
+          if (updatedData) {
+            // Recalculate balance
+            const total_paid = results[index].transactions?.reduce((sum, txn) => sum + parseFloat(txn.amount.toString()), 0) || 0;
+            const balance = (updatedData.carry_forward || 0) + (updatedData.total_payable || 0) - total_paid;
+            
+            return {
+              data: { ...updatedData, total_paid, balance },
+              transactions: results[index].transactions
+            };
+          }
+          
+          return results[index];
+        })
+      );
+
+      return NextResponse.json({
+        dinesh: updatedResults[0].data,
+        dineshTransactions: updatedResults[0].transactions,
+        linePolish: updatedResults[1].data,
+        linePolishTransactions: updatedResults[1].transactions,
+        dineshMeta: metadata?.dineshMeta || null,
+        linePolishMeta: metadata?.linePolishMeta || null
+      });
+    }
 
     return NextResponse.json({
       dinesh: results[0].data,
