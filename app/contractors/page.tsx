@@ -72,6 +72,7 @@ export default function ContractorPaymentsPage() {
   
   const [payableAmount, setPayableAmount] = useState('');
   const [autoCalculatedAmount, setAutoCalculatedAmount] = useState<{dinesh: number, linePolish: number}>({dinesh: 0, linePolish: 0});
+  const [metadata, setMetadata] = useState<{dinesh: any, linePolish: any}>({dinesh: null, linePolish: null});
 
   // Track if auto-calculation applies (>= April 2026)
   const isAutoCalculated = React.useMemo(() => {
@@ -93,9 +94,13 @@ export default function ContractorPaymentsPage() {
       
       const data = await response.json();
       setDineshData(data.dinesh);
-      setLinePolishData(data.linePolish); // Fixed: use linePolish instead of linepolish
+      setLinePolishData(data.linePolish);
       setDineshTransactions(data.dineshTransactions || []);
       setLinePolishTransactions(data.linePolishTransactions || []);
+      setMetadata({
+        dinesh: data.dineshMeta,
+        linePolish: data.linePolishMeta
+      });
       
       // Store auto-calculated amounts if available
       if (isAutoCalculated) {
@@ -252,24 +257,25 @@ export default function ContractorPaymentsPage() {
     transactions: PaymentTransaction[] 
   }) => {
     const isDinesh = name === 'Contractor Dinesh';
+    const meta = isDinesh ? metadata.dinesh : metadata.linePolish;
     const theme = isDinesh ? {
       primary: 'orange',
       border: 'border-l-orange-500',
       icon: 'text-orange-600',
       badge: 'bg-orange-50 text-orange-700',
-      carryForward: 'bg-orange-50 text-orange-700 border border-orange-200',
-      payable: 'bg-amber-50 text-amber-700 border border-amber-200',
-      paid: 'bg-green-50 text-green-700 border border-green-200',
-      balance: 'bg-red-50 text-red-700 border border-red-200',
+      carryForward: 'bg-gray-50 text-gray-700 border border-gray-200',
+      payable: 'bg-gray-50 text-gray-700 border border-gray-200',
+      paid: 'bg-gray-50 text-gray-700 border border-gray-200',
+      balance: 'bg-gray-50 text-gray-700 border border-gray-200',
     } : {
       primary: 'indigo',
       border: 'border-l-indigo-500',
       icon: 'text-indigo-600',
       badge: 'bg-indigo-50 text-indigo-700',
-      carryForward: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
-      payable: 'bg-cyan-50 text-cyan-700 border border-cyan-200',
-      paid: 'bg-green-50 text-green-700 border border-green-200',
-      balance: 'bg-red-50 text-red-700 border border-red-200',
+      carryForward: 'bg-gray-50 text-gray-700 border border-gray-200',
+      payable: 'bg-gray-50 text-gray-700 border border-gray-200',
+      paid: 'bg-gray-50 text-gray-700 border border-gray-200',
+      balance: 'bg-gray-50 text-gray-700 border border-gray-200',
     };
 
     return (
@@ -333,14 +339,14 @@ export default function ContractorPaymentsPage() {
               <p className="text-xs font-medium mb-1">Total Payable (incl. C/F)</p>
               <p className="text-lg font-bold">{fmt((data?.carry_forward || 0) + (data?.total_payable || 0))}</p>
               <p className="text-xs opacity-70">C/F: {fmt(data?.carry_forward || 0)} + {fmt(data?.total_payable || 0)}</p>
-              {isAutoCalculated && name === 'Contractor Dinesh' && (
-                <p className="text-xs font-medium mt-1 opacity-80">
-                  🤖 SqFt × ₹6
+              {isAutoCalculated && name === 'Contractor Dinesh' && meta && (
+                <p className="text-xs font-medium mt-1 opacity-70">
+                  🤖 {meta.total_sqft.toFixed(0)} SqFt × ₹{meta.rate_per_sqft}
                 </p>
               )}
-              {isAutoCalculated && name === 'Contractor LinePolish' && (
-                <p className="text-xs font-medium mt-1 opacity-80">
-                  🤖 Hours × ₹250
+              {isAutoCalculated && name === 'Contractor LinePolish' && meta && (
+                <p className="text-xs font-medium mt-1 opacity-70">
+                  🤖 {meta.total_hours} Hours × ₹{meta.rate_per_hour}
                 </p>
               )}
             </div>
@@ -619,9 +625,12 @@ export default function ContractorPaymentsPage() {
           const currentAutoAmount = selectedContractor === 'Contractor Dinesh' 
             ? autoCalculatedAmount.dinesh 
             : autoCalculatedAmount.linePolish;
+          const meta = selectedContractor === 'Contractor Dinesh'
+            ? metadata.dinesh
+            : metadata.linePolish;
           const calculationMethod = selectedContractor === 'Contractor Dinesh'
-            ? 'SqFt sold × ₹6'
-            : 'Hours worked × ₹250';
+            ? (meta ? `${meta.total_sqft.toFixed(0)} SqFt × ₹${meta.rate_per_sqft}` : 'SqFt sold × ₹6')
+            : (meta ? `${meta.total_hours} Hours × ₹${meta.rate_per_hour}` : 'Hours worked × ₹250');
           
           return (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

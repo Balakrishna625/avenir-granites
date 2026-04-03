@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Auto-calculate payables for months >= April 2026
-    await autoCalculatePayables(month);
+    const metadata = await autoCalculatePayables(month);
 
     // Fetch data for both contractors
     const contractorNames = ['Contractor Dinesh', 'Contractor LinePolish'];
@@ -133,7 +133,9 @@ export async function GET(request: NextRequest) {
       dinesh: results[0].data,
       dineshTransactions: results[0].transactions,
       linePolish: results[1].data,
-      linePolishTransactions: results[1].transactions
+      linePolishTransactions: results[1].transactions,
+      dineshMeta: metadata?.dineshMeta || null,
+      linePolishMeta: metadata?.linePolishMeta || null
     });
   } catch (error: any) {
     console.error('Error fetching contractor payments:', error);
@@ -155,7 +157,7 @@ async function autoCalculatePayables(month: string) {
 
     if (monthDate < aprilCutoff) {
       console.log(`⏭️ Skipping auto-calculation for ${month} (before April 2026)`);
-      return;
+      return { dineshMeta: null, linePolishMeta: null };
     }
 
     console.log(`🔄 Auto-calculating payables for ${month}...`);
@@ -169,9 +171,23 @@ async function autoCalculatePayables(month: string) {
     await updateContractorPayable('Contractor LinePolish', month, linePolishPayable.total_payable);
 
     console.log(`✅ Auto-calculation complete for ${month}`);
+    
+    return {
+      dineshMeta: {
+        total_sqft: dineshPayable.total_sqft,
+        rate_per_sqft: dineshPayable.rate_per_sqft,
+        sales_count: dineshPayable.sales_count
+      },
+      linePolishMeta: {
+        total_hours: linePolishPayable.total_hours,
+        rate_per_hour: linePolishPayable.rate_per_hour,
+        reports_count: linePolishPayable.reports_count
+      }
+    };
   } catch (error) {
     console.error('Error in auto-calculate:', error);
     // Don't throw - continue with normal flow even if auto-calc fails
+    return { dineshMeta: null, linePolishMeta: null };
   }
 }
 
