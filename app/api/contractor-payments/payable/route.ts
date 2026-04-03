@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
           month: month,
           total_payable: parseFloat(total_payable),
           carry_forward: carry_forward,
-          balance: carry_forward + parseFloat(total_payable) // Initial balance
+          balance: carry_forward + parseFloat(total_payable), // Initial balance
+          manually_adjusted: true // User manually set this amount
         })
         .select()
         .single();
@@ -84,7 +85,8 @@ export async function POST(request: NextRequest) {
       .from('contractor_payments')
       .update({ 
         total_payable: parseFloat(total_payable),
-        balance: new_balance
+        balance: new_balance,
+        manually_adjusted: true // User manually adjusted this amount
       })
       .eq('contractor_name', contractor_name)
       .eq('month', month)

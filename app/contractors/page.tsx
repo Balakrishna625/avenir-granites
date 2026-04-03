@@ -35,6 +35,7 @@ interface ContractorPayment {
   carry_forward: number;
   total_paid: number;
   balance: number;
+  manually_adjusted?: boolean;
 }
 
 interface PaymentTransaction {
@@ -70,6 +71,15 @@ export default function ContractorPaymentsPage() {
   });
   
   const [payableAmount, setPayableAmount] = useState('');
+  const [autoCalculatedAmount, setAutoCalculatedAmount] = useState<{dinesh: number, linePolish: number}>({dinesh: 0, linePolish: 0});
+
+  // Track if auto-calculation applies (>= April 2026)
+  const isAutoCalculated = React.useMemo(() => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const currentMonthDate = new Date(year, month - 1, 1);
+    const aprilCutoff = new Date(2026, 3, 1);
+    return currentMonthDate >= aprilCutoff;
+  }, [selectedMonth]);
 
   useEffect(() => {
     loadData();
@@ -86,6 +96,14 @@ export default function ContractorPaymentsPage() {
       setLinePolishData(data.linePolish); // Fixed: use linePolish instead of linepolish
       setDineshTransactions(data.dineshTransactions || []);
       setLinePolishTransactions(data.linePolishTransactions || []);
+      
+      // Store auto-calculated amounts if available
+      if (isAutoCalculated) {
+        setAutoCalculatedAmount({
+          dinesh: data.dinesh?.total_payable || 0,
+          linePolish: data.linePolish?.total_payable || 0
+        });
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
       showToast('error', 'Failed to load contractor data');
@@ -162,6 +180,35 @@ export default function ContractorPaymentsPage() {
       console.error('Failed to set payable:', error);
       showToast('error', error.message || 'Failed to set payable amount');
     }
+  }
+
+  async function resetToAutoCalculation(contractorName: string) {
+    if (!confirm(`Reset ${contractorName} to auto-calculated amount? This will recalculate the payable based on current ${contractorName === 'Contractor Dinesh' ? 'sales' : 'line polish'} data.`)) {
+      return;
+    }
+
+    try {
+      // Reset manually_adjusted flag to false
+      const response = await fetch('/api/contractor-payments/reset-auto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contractor_name: contractorName,
+          month: selectedMonth
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to reset to auto-calculation');
+      }
+
+      showToast('success', 'Reset to auto-calculation successfully');
+      await loadData();
+    } catch (error: any) {
+      console.error('Failed to reset:', error);
+      showToast('error', error.message || 'Failed to reset to auto-calculation');
+    }
   };
 
   const changeMonth = (offset: number) => {
@@ -211,19 +258,48 @@ export default function ContractorPaymentsPage() {
             <Users className="w-6 h-6 text-blue-600" />
             {name}
           </h3>
-          <Button
-            onClick={() => {
-              setSelectedContractor(name);
-              setPayableAmount(data?.total_payable.toString() || '');
-              setShowPayableModal(true);
-            }}
-            variant="outline"
-            size="sm"
-            className="text-purple-600 hover:text-purple-800"
-          >
-            Set Payable
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => {
+                setSelectedContractor(name);
+                setPayableAmount(data?.total_payable.toString() || '');
+                setShowPayableModal(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="text-purple-600 hover:text-purple-800"
+            >
+              {isAutoCalculated ? 'Adjust Payable' : 'Set Payable'}
+            </Button>
+            {isAutoCalculated && data?.manually_adjusted && (
+              <Button
+                onClick={() => resetToAutoCalculation(name)}
+                variant="outline"
+                size="sm"
+                className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                title="Reset to auto-calculated amount"
+              >
+                <span className="text-lg">🔄</span>
+                Reset to Auto
+              </Button>
+            )}
+          </div>
         </div>
+        {isAutoCalculated && (
+          <div className="mb-3">
+            {data?.manually_adjusted ? (
+              <span className="text-xs text-orange-600 font-medium flex items-center gap-1 bg-orange-50 px-2 py-1 rounded">
+                <span>✏️</span>
+                Manually adjusted (auto-calc disabled)
+              </span>
+            ) : (
+              <span className="text-xs text-blue-600 font-medium flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
+                <span>🤖</span>
+                Auto-calculated from {name === 'Contractor Dinesh' ? 'Sales' : 'Line Polish'} data
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Summary Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -235,6 +311,16 @@ export default function ContractorPaymentsPage() {
             <p className="text-xs text-gray-600 mb-1">Total Payable (incl. C/F)</p>
             <p className="text-lg font-bold text-purple-700">{fmt((data?.carry_forward || 0) + (data?.total_payable || 0))}</p>
             <p className="text-xs text-gray-500">C/F: {fmt(data?.carry_forward || 0)} + {fmt(data?.total_payable || 0)}</p>
+            {isAutoCalculated && name === 'Contractor Dinesh' && (
+              <p className="text-xs text-blue-600 mt-1">
+                🤖 Auto: SqFt × ₹6
+              </p>
+            )}
+            {isAutoCalculated && name === 'Contractor LinePolish' && (
+              <p className="text-xs text-blue-600 mt-1">
+                🤖 Auto: Hours × ₹250
+              </p>
+            )}
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
             <p className="text-xs text-gray-600 mb-1">Total Paid</p>
@@ -509,11 +595,22 @@ export default function ContractorPaymentsPage() {
         )}
 
         {/* Set Payable Modal */}
-        {showPayableModal && (
+        {showPayableModal && (() => {
+          const isCurrentlyAutoCalc = isAutoCalculated;
+          const currentAutoAmount = selectedContractor === 'Contractor Dinesh' 
+            ? autoCalculatedAmount.dinesh 
+            : autoCalculatedAmount.linePolish;
+          const calculationMethod = selectedContractor === 'Contractor Dinesh'
+            ? 'SqFt sold × ₹6'
+            : 'Hours worked × ₹250';
+          
+          return (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900">Set Payable Amount - {selectedContractor}</h3>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {isCurrentlyAutoCalc ? 'Adjust' : 'Set'} Payable - {selectedContractor}
+                </h3>
                 <button
                   onClick={() => {
                     setShowPayableModal(false);
@@ -526,9 +623,25 @@ export default function ContractorPaymentsPage() {
               </div>
 
               <div className="space-y-4">
+                {isCurrentlyAutoCalc && currentAutoAmount > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg">🤖</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-blue-900">Auto-Calculated Amount</p>
+                        <p className="text-2xl font-bold text-blue-700 mt-1">{fmt(currentAutoAmount)}</p>
+                        <p className="text-xs text-blue-600 mt-1">{calculationMethod}</p>
+                        <p className="text-xs text-gray-600 mt-2">
+                          You can adjust this amount below to add bonuses, deductions, or corrections.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Total Payable for {getMonthName(selectedMonth)} *
+                    {isCurrentlyAutoCalc ? 'Adjusted' : 'Total'} Payable for {getMonthName(selectedMonth)} *
                   </label>
                   <Input
                     type="number"
@@ -537,18 +650,47 @@ export default function ContractorPaymentsPage() {
                     onChange={(e) => setPayableAmount(e.target.value)}
                     placeholder="Enter payable amount"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    This is the total amount you need to pay for work done this month
-                  </p>
+                  {isCurrentlyAutoCalc ? (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Modify the auto-calculated amount if adjustments are needed
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">
+                      This is the total amount you need to pay for work done this month
+                    </p>
+                  )}
                 </div>
+
+                {/* Carry Forward Impact Notice */}
+                {payableAmount && parseFloat(payableAmount) > 0 && (() => {
+                  const currentData = selectedContractor === 'Contractor Dinesh' ? dineshData : linePolishData;
+                  const carryForward = currentData?.carry_forward || 0;
+                  const totalPaid = currentData?.total_paid || 0;
+                  const newBalance = carryForward + parseFloat(payableAmount) - totalPaid;
+                  
+                  return (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-yellow-900 mb-1">💡 Carry Forward Impact</p>
+                      <p className="text-xs text-yellow-800">
+                        This amount will be used for next month's carry forward:
+                      </p>
+                      <p className="text-sm font-bold text-yellow-900 mt-1">
+                        Balance = {fmt(carryForward)} (C/F) + {fmt(parseFloat(payableAmount))} (Payable) - {fmt(totalPaid)} (Paid) = <span className="text-yellow-700">{fmt(newBalance)}</span>
+                      </p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        → Next month's carry forward: <strong>{fmt(newBalance)}</strong>
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 <div className="flex gap-3 pt-4">
                   <Button
                     onClick={handleSetPayable}
-           variant="default"
+                    variant="default"
                     className="flex-1"
                   >
-                    Set Payable
+                    {isCurrentlyAutoCalc ? 'Save Adjustment' : 'Set Payable'}
                   </Button>
                   <Button
                     onClick={() => {
@@ -564,7 +706,8 @@ export default function ContractorPaymentsPage() {
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
     </AppLayout>
   );
