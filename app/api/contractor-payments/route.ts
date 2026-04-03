@@ -76,6 +76,30 @@ export async function GET(request: NextRequest) {
           console.log(`✓ Found existing record for ${name} in ${month}:`, contractorData);
         }
 
+        // ALWAYS check and update carry forward from previous month
+        const [year, monthNum] = month.split('-').map(Number);
+        const prevDate = new Date(year, monthNum - 2, 1);
+        const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+
+        const { data: prevData } = await supabaseAdmin
+          .from('contractor_payments')
+          .select('balance')
+          .eq('contractor_name', name)
+          .eq('month', prevMonth)
+          .single();
+
+        const correct_carry_forward = prevData?.balance || 0;
+
+        // Update carry forward if it's different from previous month's balance
+        if (contractorData && contractorData.carry_forward !== correct_carry_forward) {
+          await supabaseAdmin
+            .from('contractor_payments')
+            .update({ carry_forward: correct_carry_forward })
+            .eq('id', contractorData.id);
+          
+          contractorData.carry_forward = correct_carry_forward;
+        }
+
         // Get transactions for this month
         const { data: transactions, error: txnError } = await supabaseAdmin
           .from('contractor_payment_transactions')
@@ -88,8 +112,6 @@ export async function GET(request: NextRequest) {
         // Calculate totals
         const total_paid = transactions?.reduce((sum, txn) => sum + parseFloat(txn.amount.toString()), 0) || 0;
         const balance = (contractorData?.carry_forward || 0) + (contractorData?.total_payable || 0) - total_paid;
-
-        console.log(`${name} - Month: ${month}, Carry Forward: ₹${contractorData?.carry_forward || 0}, Payable: ₹${contractorData?.total_payable || 0}, Paid: ₹${total_paid}, Balance: ₹${balance}`);
 
         // Update balance in database
         await supabaseAdmin

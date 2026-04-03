@@ -180,6 +180,7 @@ export default function ContractorPaymentsPage() {
   const totalPaid = (dineshData?.total_paid || 0) + (linePolishData?.total_paid || 0);
   const totalBalance = (dineshData?.balance || 0) + (linePolishData?.balance || 0);
   const totalCarryForward = (dineshData?.carry_forward || 0) + (linePolishData?.carry_forward || 0);
+  const totalPayableWithCarryForward = totalPayable + totalCarryForward;
 
   if (loading) {
     return (
@@ -231,8 +232,9 @@ export default function ContractorPaymentsPage() {
             <p className="text-lg font-bold text-blue-700">{fmt(data?.carry_forward || 0)}</p>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg">
-            <p className="text-xs text-gray-600 mb-1">This Month Payable</p>
-            <p className="text-lg font-bold text-purple-700">{fmt(data?.total_payable || 0)}</p>
+            <p className="text-xs text-gray-600 mb-1">Total Payable (incl. C/F)</p>
+            <p className="text-lg font-bold text-purple-700">{fmt((data?.carry_forward || 0) + (data?.total_payable || 0))}</p>
+            <p className="text-xs text-gray-500">C/F: {fmt(data?.carry_forward || 0)} + {fmt(data?.total_payable || 0)}</p>
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
             <p className="text-xs text-gray-600 mb-1">Total Paid</p>
@@ -355,8 +357,9 @@ export default function ContractorPaymentsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Payable</p>
-                  <p className="text-2xl font-bold text-purple-600">{fmt(totalPayable)}</p>
+                  <p className="text-sm text-gray-600">Total Payable (incl. C/F)</p>
+                  <p className="text-2xl font-bold text-purple-600">{fmt(totalPayableWithCarryForward)}</p>
+                  <p className="text-xs text-gray-500 mt-1">C/F: {fmt(totalCarryForward)} + Current: {fmt(totalPayable)}</p>
                 </div>
                 <DollarSign className="w-8 h-8 text-purple-600" />
               </div>
