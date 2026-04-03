@@ -32,16 +32,22 @@ export async function GET(request: NextRequest) {
 
           console.log(`Creating new record for ${name} in ${month}, checking previous month: ${prevMonth}`);
 
-          const { data: prevData } = await supabaseAdmin
+          const { data: prevData, error: prevError } = await supabaseAdmin
             .from('contractor_payments')
-            .select('balance')
+            .select('*')
             .eq('contractor_name', name)
             .eq('month', prevMonth)
             .single();
 
+          if (prevError) {
+            console.log(`No previous month data found for ${name} in ${prevMonth}:`, prevError.message);
+          } else {
+            console.log(`Previous month data for ${name}:`, prevData);
+          }
+
           const carry_forward = prevData?.balance || 0;
           
-          console.log(`Carry forward for ${name}: ₹${carry_forward} from ${prevMonth}`);
+          console.log(`✓ Carry forward for ${name}: ₹${carry_forward} from ${prevMonth}`);
 
           // Create new record with carry forward
           const { data: newData, error: insertError } = await supabaseAdmin
@@ -57,11 +63,17 @@ export async function GET(request: NextRequest) {
             .single();
 
           if (insertError) {
+            console.error(`Failed to create record for ${name}:`, insertError);
             throw insertError;
           }
+          
+          console.log(`✓ Created new record for ${name}:`, newData);
           contractorData = newData;
         } else if (error) {
+          console.error(`Error fetching contractor data for ${name}:`, error);
           throw error;
+        } else {
+          console.log(`✓ Found existing record for ${name} in ${month}:`, contractorData);
         }
 
         // Get transactions for this month

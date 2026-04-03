@@ -27,16 +27,22 @@ export async function POST(request: NextRequest) {
 
       console.log(`Setting payable for ${contractor_name} in ${month}, checking carry forward from: ${prevMonth}`);
 
-      const { data: prevData } = await supabaseAdmin
+      const { data: prevData, error: prevError } = await supabaseAdmin
         .from('contractor_payments')
-        .select('balance')
+        .select('*')
         .eq('contractor_name', contractor_name)
         .eq('month', prevMonth)
         .single();
 
+      if (prevError) {
+        console.log(`No previous month data found for ${contractor_name} in ${prevMonth}:`, prevError.message);
+      } else {
+        console.log(`Previous month data for ${contractor_name}:`, prevData);
+      }
+
       const carry_forward = prevData?.balance || 0;
       
-      console.log(`Carry forward: ₹${carry_forward}, New payable: ₹${total_payable}, Initial balance: ₹${carry_forward + parseFloat(total_payable)}`);
+      console.log(`✓ Carry forward: ₹${carry_forward}, New payable: ₹${total_payable}, Initial balance: ₹${carry_forward + parseFloat(total_payable)}`);
 
       // Create new record with the payable amount
       const { data: newData, error: insertError } = await supabaseAdmin
@@ -52,11 +58,15 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (insertError) {
+        console.error(`Failed to create payable record:`, insertError);
         throw insertError;
       }
+      
+      console.log(`✓ Created new payable record:`, newData);
 
-      return NextResponse.json(newData);
+      return NextResponse.json(newData, { status: 201 });
     } else if (fetchError) {
+      console.error(`Error fetching contractor payment:`, fetchError);
       throw fetchError;
     }
 
