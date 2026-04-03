@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Month parameter is required' }, { status: 400 });
     }
 
-    // Auto-calculate payables for months >= April 2026
+    // Auto-calculate payables for months >= March 2026
     const metadata = await autoCalculatePayables(month);
 
     // Fetch data for both contractors
@@ -144,19 +144,19 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Auto-calculate contractor payables for months >= April 2026
+ * Auto-calculate contractor payables for months >= March 2026
  * - Contractor Dinesh: Total SqFt sold × ₹6
  * - Contractor LinePolish: Total hours worked × ₹250
  */
 async function autoCalculatePayables(month: string) {
   try {
-    // Parse month to check if >= April 2026
+    // Parse month to check if >= March 2026
     const [year, monthNum] = month.split('-').map(Number);
     const monthDate = new Date(year, monthNum - 1, 1);
-    const aprilCutoff = new Date(2026, 3, 1); // April 2026
+    const marchCutoff = new Date(2026, 2, 1); // March 2026
 
-    if (monthDate < aprilCutoff) {
-      console.log(`⏭️ Skipping auto-calculation for ${month} (before April 2026)`);
+    if (monthDate < marchCutoff) {
+      console.log(`⏭️ Skipping auto-calculation for ${month} (before March 2026)`);
       return { dineshMeta: null, linePolishMeta: null };
     }
 

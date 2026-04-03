@@ -74,12 +74,12 @@ export default function ContractorPaymentsPage() {
   const [autoCalculatedAmount, setAutoCalculatedAmount] = useState<{dinesh: number, linePolish: number}>({dinesh: 0, linePolish: 0});
   const [metadata, setMetadata] = useState<{dinesh: any, linePolish: any}>({dinesh: null, linePolish: null});
 
-  // Track if auto-calculation applies (>= April 2026)
+  // Track if auto-calculation applies (>= March 2026)
   const isAutoCalculated = React.useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);
     const currentMonthDate = new Date(year, month - 1, 1);
-    const aprilCutoff = new Date(2026, 3, 1);
-    return currentMonthDate >= aprilCutoff;
+    const marchCutoff = new Date(2026, 2, 1);
+    return currentMonthDate >= marchCutoff;
   }, [selectedMonth]);
 
   useEffect(() => {

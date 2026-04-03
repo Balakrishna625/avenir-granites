@@ -8,7 +8,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
  * - Contractor Dinesh: Total SqFt sold × ₹6 per SqFt
  * - Contractor LinePolish: Total hours worked × ₹250 per hour
  * 
- * Only applies to months from April 2026 onwards.
+ * Only applies to months from March 2026 onwards.
  */
 export async function POST(req: Request) {
   try {
@@ -19,14 +19,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Month is required' }, { status: 400 });
     }
 
-    // Parse month to check if >= April 2026
+    // Parse month to check if >= March 2026
     const [year, monthNum] = month.split('-').map(Number);
     const monthDate = new Date(year, monthNum - 1, 1);
-    const aprilCutoff = new Date(2026, 3, 1); // April 2026
+    const marchCutoff = new Date(2026, 2, 1); // March 2026
 
-    if (monthDate < aprilCutoff) {
+    if (monthDate < marchCutoff) {
       return NextResponse.json({
-        message: 'Auto-calculation only applies from April 2026 onwards',
+        message: 'Auto-calculation only applies from March 2026 onwards',
         month,
         updated: false
       });

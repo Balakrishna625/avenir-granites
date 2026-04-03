@@ -6,8 +6,8 @@ ADD COLUMN IF NOT EXISTS manually_adjusted BOOLEAN DEFAULT FALSE;
 COMMENT ON COLUMN contractor_payments.manually_adjusted IS 
   'TRUE if the payable amount was manually adjusted (overrides auto-calculation). FALSE to use auto-calculated values.';
 
--- For existing records, set manually_adjusted to TRUE for months before April 2026
+-- For existing records, set manually_adjusted to TRUE for months before March 2026
 -- (since those were manually entered)
 UPDATE contractor_payments
 SET manually_adjusted = TRUE
-WHERE month < '2026-04';
+WHERE month < '2026-03';
