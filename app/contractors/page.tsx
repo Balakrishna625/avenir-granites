@@ -83,7 +83,7 @@ export default function ContractorPaymentsPage() {
       
       const data = await response.json();
       setDineshData(data.dinesh);
-      setLinePolishData(data.linepolish);
+      setLinePolishData(data.linePolish); // Fixed: use linePolish instead of linepolish
       setDineshTransactions(data.dineshTransactions || []);
       setLinePolishTransactions(data.linePolishTransactions || []);
     } catch (error) {

@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
       const prevDate = new Date(year, monthNum - 2, 1);
       const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
 
+      console.log(`Setting payable for ${contractor_name} in ${month}, checking carry forward from: ${prevMonth}`);
+
       const { data: prevData } = await supabaseAdmin
         .from('contractor_payments')
         .select('balance')
@@ -33,6 +35,8 @@ export async function POST(request: NextRequest) {
         .single();
 
       const carry_forward = prevData?.balance || 0;
+      
+      console.log(`Carry forward: ₹${carry_forward}, New payable: ₹${total_payable}, Initial balance: ₹${carry_forward + parseFloat(total_payable)}`);
 
       // Create new record with the payable amount
       const { data: newData, error: insertError } = await supabaseAdmin
