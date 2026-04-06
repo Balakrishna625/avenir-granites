@@ -48,6 +48,10 @@ interface Expense {
   notes?: string;
   description?: string;
   payment_status?: string;
+  // Multi-month expense fields
+  is_multi_month_expense?: boolean;
+  allocated_amount?: number;
+  allocation_notes?: string;
   bank_accounts?: {
     name: string;
   };
@@ -359,6 +363,20 @@ export default function ExpensesPage() {
       return;
     }
 
+    // Validate multi-month expense allocation
+    if (isMultiMonthExpense) {
+      if (!allocatedAmount) {
+        showToast('error', 'Please enter allocated amount for multi-month expense');
+        return;
+      }
+      const totalAmt = parseFloat(formAmount);
+      const allocatedAmt = parseFloat(allocatedAmount);
+      if (allocatedAmt > totalAmt) {
+        showToast('error', `Allocated amount (₹${allocatedAmt.toLocaleString('en-IN')}) cannot exceed total amount (₹${totalAmt.toLocaleString('en-IN')})`);
+        return;
+      }
+    }
+
     try {
       // Use the selected category from the form
       const categoryId = formCategory;
@@ -595,20 +613,30 @@ export default function ExpensesPage() {
     ];
 
     // Expense details headers
-    const expenseHeaders = ['Date', 'Description', 'Amount'];
+    const expenseHeaders = ['Date', 'Description', 'Amount', 'Type'];
     summaryData.push(expenseHeaders);
 
     // Add expense rows
     filteredExpenses.forEach(expense => {
+      const expenseAmount = expense.is_multi_month_expense ? (expense.allocated_amount || expense.amount) : expense.amount;
+      const expenseType = expense.is_multi_month_expense 
+        ? `SPLIT (${expenseAmount.toLocaleString('en-IN')} of ${expense.amount.toLocaleString('en-IN')})` 
+        : 'Regular';
+      
       summaryData.push([
         formatDisplayDate(expense.date),
         expense.notes || expense.description || '-',
-        expense.amount
+        expenseAmount,
+        expenseType
       ]);
     });
 
     // Add total row
-    const totalFilteredExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    // Calculate total for filtered expenses (use allocated amount for multi-month expenses)
+    const totalFilteredExpenses = filteredExpenses.reduce((sum, exp) => {
+      const expenseAmount = exp.is_multi_month_expense ? (exp.allocated_amount || exp.amount) : exp.amount;
+      return sum + expenseAmount;
+    }, 0);
     summaryData.push(['', 'TOTAL:', totalFilteredExpenses]);
 
     // Create worksheet
@@ -616,9 +644,10 @@ export default function ExpensesPage() {
 
     // Set column widths
     ws['!cols'] = [
-      { wch: 20 },
-      { wch: 40 },
-      { wch: 15 }
+      { wch: 20 },  // Date
+      { wch: 40 },  // Description
+      { wch: 15 },  // Amount
+      { wch: 35 }   // Type
     ];
 
     // Apply styling to highlight important cells
@@ -666,8 +695,17 @@ export default function ExpensesPage() {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
-  const totalExpenses = Array.isArray(expenses) ? expenses.reduce((sum, exp) => sum + exp.amount, 0) : 0;
-  const creditExpenses = Array.isArray(expenses) ? expenses.filter(exp => exp.payment_status === 'PENDING').reduce((sum, exp) => sum + exp.amount, 0) : 0;
+  // Calculate total expenses: use allocated_amount for multi-month expenses, amount for regular expenses
+  const totalExpenses = Array.isArray(expenses) ? expenses.reduce((sum, exp) => {
+    const expenseAmount = exp.is_multi_month_expense ? (exp.allocated_amount || exp.amount) : exp.amount;
+    return sum + expenseAmount;
+  }, 0) : 0;
+  
+  const creditExpenses = Array.isArray(expenses) ? expenses.filter(exp => exp.payment_status === 'PENDING').reduce((sum, exp) => {
+    const expenseAmount = exp.is_multi_month_expense ? (exp.allocated_amount || exp.amount) : exp.amount;
+    return sum + expenseAmount;
+  }, 0) : 0;
+  
   const paidExpenses = totalExpenses - creditExpenses;
 
   return (
@@ -841,65 +879,52 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  {/* Multi-Month Expense Checkbox */}
-                  <div className="lg:col-span-2 flex items-end pb-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isMultiMonthExpense}
-                        onChange={(e) => {
-                          setIsMultiMonthExpense(e.target.checked);
-                          if (!e.target.checked) {
-                            setAllocatedAmount("");
-                            setAllocationNotes("");
-                          }
-                        }}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">
-                        Multi-Month Expense?
-                      </span>
-                      <span className="text-xs text-gray-500">(Split cost across months)</span>
-                    </label>
+                  {/* Multi-Month Expense - Compact Inline Design */}
+                  <div className="lg:col-span-4">
+                    <div className="flex items-center gap-3 h-full pb-2">
+                      <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={isMultiMonthExpense}
+                          onChange={(e) => {
+                            setIsMultiMonthExpense(e.target.checked);
+                            if (!e.target.checked) {
+                              setAllocatedAmount("");
+                              setAllocationNotes("");
+                            }
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                          Split Expense?
+                        </span>
+                      </label>
+                      
+                      {isMultiMonthExpense && (
+                        <>
+                          <div className="flex-1">
+                            <Input
+                              type="text"
+                              placeholder="Allocated this month (e.g., 30,000)"
+                              value={formatIndianNumber(allocatedAmount)}
+                              onChange={(e) => setAllocatedAmount(parseIndianNumber(e.target.value))}
+                              className="w-full text-sm bg-amber-50 border-amber-300"
+                              required={isMultiMonthExpense}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <Input
+                              type="text"
+                              placeholder="Notes (optional)"
+                              value={allocationNotes}
+                              onChange={(e) => setAllocationNotes(e.target.value)}
+                              className="w-full text-sm bg-amber-50 border-amber-300"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-
-                  {/* Conditional Allocation Fields - Only shown when Multi-Month is checked */}
-                  {isMultiMonthExpense && (
-                    <>
-                      <div className="lg:col-span-2">
-                        <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
-                          Allocated for This Month <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                          type="text"
-                          placeholder="30,000"
-                          value={formatIndianNumber(allocatedAmount)}
-                          onChange={(e) => setAllocatedAmount(parseIndianNumber(e.target.value))}
-                          className="w-full bg-yellow-50 border-yellow-300"
-                          required={isMultiMonthExpense}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Amount to use for production cost calculation this month
-                        </p>
-                      </div>
-
-                      <div className="lg:col-span-2">
-                        <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
-                          Allocation Notes
-                        </label>
-                        <Input
-                          type="text"
-                          placeholder="60% used in March, 40% in April"
-                          value={allocationNotes}
-                          onChange={(e) => setAllocationNotes(e.target.value)}
-                          className="w-full bg-yellow-50 border-yellow-300"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Explain how the expense is split across months
-                        </p>
-                      </div>
-                    </>
-                  )}
 
                   <div className="lg:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
@@ -1210,9 +1235,28 @@ export default function ExpensesPage() {
                                 className="w-full text-right"
                               />
                             ) : (
-                            <span className="text-sm font-bold text-red-600">
-                              {fmt(expense.amount)}
-                            </span>
+                            <div className="text-right">
+                              {expense.is_multi_month_expense ? (
+                                <>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">SPLIT</span>
+                                    <span className="text-sm font-bold text-red-600">
+                                      {fmt(expense.allocated_amount || expense.amount)}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-0.5">
+                                    of {fmt(expense.amount)}
+                                    {expense.allocation_notes && (
+                                      <span className="block text-xs text-gray-400 italic">{expense.allocation_notes}</span>
+                                    )}
+                                  </div>
+                                </>
+                              ) : (
+                                <span className="text-sm font-bold text-red-600">
+                                  {fmt(expense.amount)}
+                                </span>
+                              )}
+                            </div>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
