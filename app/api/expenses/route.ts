@@ -46,7 +46,11 @@ export async function POST(req: Request) {
     payment_status = "PAID",
     notes,
     tags = [],
-    items = []
+    items = [],
+    // Multi-month expense allocation fields
+    is_multi_month_expense = false,
+    allocated_amount,
+    allocation_notes
   } = body;
 
   if (!date || !category_id || !account_id || !amount || !description || !payment_method) {
@@ -77,7 +81,11 @@ export async function POST(req: Request) {
         payment_status,
         notes: notes?.trim() || null,
         tags: tags.length > 0 ? tags : null,
-        created_by: "system" // In future, get from auth
+        created_by: "system", // In future, get from auth
+        // Multi-month expense allocation fields
+        is_multi_month_expense,
+        allocated_amount: allocated_amount != null ? Number(allocated_amount) : null,
+        allocation_notes: allocation_notes?.trim() || null
       })
       .select()
       .single();

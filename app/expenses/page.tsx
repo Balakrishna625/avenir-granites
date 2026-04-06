@@ -138,6 +138,11 @@ export default function ExpensesPage() {
   const [formNotes, setFormNotes] = useState("");
   const [formPaymentStatus, setFormPaymentStatus] = useState("PAID");
   
+  // Multi-month expense allocation fields
+  const [isMultiMonthExpense, setIsMultiMonthExpense] = useState(false);
+  const [allocatedAmount, setAllocatedAmount] = useState("");
+  const [allocationNotes, setAllocationNotes] = useState("");
+  
   // Store default account and category IDs
   const [defaultAccountId, setDefaultAccountId] = useState<string>("");
   const [defaultCategoryId, setDefaultCategoryId] = useState<string>("");
@@ -369,7 +374,11 @@ export default function ExpensesPage() {
         description: formNotes || "Expense",
         payment_method: "RTGS", // Valid values: CASH, CHEQUE, RTGS, UPI, CREDIT_CARD
         payment_status: formPaymentStatus, // Use selected payment status
-        notes: formNotes
+        notes: formNotes,
+        // Multi-month expense allocation fields
+        is_multi_month_expense: isMultiMonthExpense,
+        allocated_amount: isMultiMonthExpense && allocatedAmount ? parseFloat(allocatedAmount) : parseFloat(formAmount),
+        allocation_notes: isMultiMonthExpense ? allocationNotes : null
       };
 
       console.log('Submitting expense:', expense);
@@ -394,6 +403,9 @@ export default function ExpensesPage() {
         setFormCategory(defaultCategoryId || ""); // Restore default category
         setFormNotes("");
         setFormPaymentStatus("PAID");
+        setIsMultiMonthExpense(false);
+        setAllocatedAmount("");
+        setAllocationNotes("");
         
         // Reload data (this will show updated collections minus expenses)
         await loadData();
@@ -828,6 +840,66 @@ export default function ExpensesPage() {
                       required
                     />
                   </div>
+
+                  {/* Multi-Month Expense Checkbox */}
+                  <div className="lg:col-span-2 flex items-end pb-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isMultiMonthExpense}
+                        onChange={(e) => {
+                          setIsMultiMonthExpense(e.target.checked);
+                          if (!e.target.checked) {
+                            setAllocatedAmount(\"\");
+                            setAllocationNotes(\"\");
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Multi-Month Expense?
+                      </span>
+                      <span className="text-xs text-gray-500">(Split cost across months)</span>
+                    </label>
+                  </div>
+
+                  {/* Conditional Allocation Fields - Only shown when Multi-Month is checked */}
+                  {isMultiMonthExpense && (
+                    <>
+                      <div className="lg:col-span-2">
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                          Allocated for This Month <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="30,000"
+                          value={formatIndianNumber(allocatedAmount)}
+                          onChange={(e) => setAllocatedAmount(parseIndianNumber(e.target.value))}
+                          className="w-full bg-yellow-50 border-yellow-300"
+                          required={isMultiMonthExpense}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Amount to use for production cost calculation this month
+                        </p>
+                      </div>
+
+                      <div className="lg:col-span-2">
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                          Allocation Notes
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="60% used in March, 40% in April"
+                          value={allocationNotes}
+                          onChange={(e) => setAllocationNotes(e.target.value)}
+                          className="w-full bg-yellow-50 border-yellow-300"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Explain how the expense is split across months
+                        </p>
+                      </div>
+                    </>
+                  )}
 
                   <div className="lg:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
