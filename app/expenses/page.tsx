@@ -850,8 +850,8 @@ export default function ExpensesPage() {
                         onChange={(e) => {
                           setIsMultiMonthExpense(e.target.checked);
                           if (!e.target.checked) {
-                            setAllocatedAmount(\"\");
-                            setAllocationNotes(\"\");
+                            setAllocatedAmount("");
+                            setAllocationNotes("");
                           }
                         }}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
