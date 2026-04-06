@@ -850,8 +850,9 @@ export default function ExpensesPage() {
             </div>
 
             <form onSubmit={handleAddExpense} className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
-                  <div className="lg:col-span-1">
+                {/* Row 1: Basic Info - Date, Amount, Account, Category */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Date <span className="text-red-500">*</span>
                     </label>
@@ -865,7 +866,7 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  <div className="lg:col-span-1">
+                  <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Amount <span className="text-red-500">*</span>
                     </label>
@@ -879,54 +880,7 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  {/* Multi-Month Expense - Compact Inline Design */}
-                  <div className="lg:col-span-4">
-                    <div className="flex items-center gap-3 h-full pb-2">
-                      <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          checked={isMultiMonthExpense}
-                          onChange={(e) => {
-                            setIsMultiMonthExpense(e.target.checked);
-                            if (!e.target.checked) {
-                              setAllocatedAmount("");
-                              setAllocationNotes("");
-                            }
-                          }}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                          Split Expense?
-                        </span>
-                      </label>
-                      
-                      {isMultiMonthExpense && (
-                        <>
-                          <div className="flex-1">
-                            <Input
-                              type="text"
-                              placeholder="Allocated this month (e.g., 30,000)"
-                              value={formatIndianNumber(allocatedAmount)}
-                              onChange={(e) => setAllocatedAmount(parseIndianNumber(e.target.value))}
-                              className="w-full text-sm bg-amber-50 border-amber-300"
-                              required={isMultiMonthExpense}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <Input
-                              type="text"
-                              placeholder="Notes (optional)"
-                              value={allocationNotes}
-                              onChange={(e) => setAllocationNotes(e.target.value)}
-                              className="w-full text-sm bg-amber-50 border-amber-300"
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="lg:col-span-2">
+                  <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Debited From <span className="text-red-500">*</span>
                     </label>
@@ -943,7 +897,7 @@ export default function ExpensesPage() {
                     </select>
                   </div>
 
-                  <div className="lg:col-span-2">
+                  <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Category <span className="text-red-500">*</span>
                     </label>
@@ -971,8 +925,9 @@ export default function ExpensesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                  <div className="md:col-span-2">
+                {/* Row 2: Notes, Payment Status, Split Checkbox */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Notes
                     </label>
@@ -985,7 +940,7 @@ export default function ExpensesPage() {
                     />
                   </div>
 
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                       Payment Status
                     </label>
@@ -999,12 +954,71 @@ export default function ExpensesPage() {
                     </select>
                   </div>
 
-                  <div className="md:col-span-1">
-                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700 w-full">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Expense
-                    </Button>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-2 cursor-pointer h-10">
+                      <input
+                        type="checkbox"
+                        checked={isMultiMonthExpense}
+                        onChange={(e) => {
+                          setIsMultiMonthExpense(e.target.checked);
+                          if (!e.target.checked) {
+                            setAllocatedAmount("");
+                            setAllocationNotes("");
+                          }
+                        }}
+                        className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Split Expense Across Months
+                      </span>
+                    </label>
                   </div>
+                </div>
+
+                {/* Row 3: Conditional - Split Expense Details (only shown when checkbox is checked) */}
+                {isMultiMonthExpense && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div>
+                      <label className="block text-xs font-semibold text-amber-900 mb-1.5 uppercase tracking-wide">
+                        Amount Allocated This Month <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="30,000"
+                        value={formatIndianNumber(allocatedAmount)}
+                        onChange={(e) => setAllocatedAmount(parseIndianNumber(e.target.value))}
+                        className="w-full bg-white border-amber-300"
+                        required={isMultiMonthExpense}
+                      />
+                      <p className="text-xs text-amber-700 mt-1">
+                        Amount to count for this month's production cost
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-amber-900 mb-1.5 uppercase tracking-wide">
+                        Allocation Notes
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="e.g., 60% for March, 40% for April"
+                        value={allocationNotes}
+                        onChange={(e) => setAllocationNotes(e.target.value)}
+                        className="w-full bg-white border-amber-300"
+                      />
+                      <p className="text-xs text-amber-700 mt-1">
+                        Explain how the expense is split
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit Button */}
+                <div className="flex justify-end">
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700 px-8">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Expense
+                  </Button>
                 </div>
               </form>
 
