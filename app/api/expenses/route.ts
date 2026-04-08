@@ -50,7 +50,9 @@ export async function POST(req: Request) {
     // Multi-month expense allocation fields
     is_multi_month_expense = false,
     allocated_amount,
-    allocation_notes
+    allocation_notes,
+    parent_expense_id = null, // For auto-carried forward entries
+    original_amount = null
   } = body;
 
   if (!date || !category_id || !account_id || !amount || !description || !payment_method) {
@@ -62,6 +64,8 @@ export async function POST(req: Request) {
     const { data: expenseNumber } = await supabaseAdmin.rpc('generate_expense_number');
     
     const total_amount = Number(amount) + Number(tax_amount);
+    const allocatedAmt = allocated_amount != null ? Number(allocated_amount) : total_amount;
+    const remainingAmt = is_multi_month_expense ? total_amount - allocatedAmt : 0;
 
     // Insert expense
     const { data: expense, error: expenseError } = await supabaseAdmin
@@ -84,8 +88,11 @@ export async function POST(req: Request) {
         created_by: "system", // In future, get from auth
         // Multi-month expense allocation fields
         is_multi_month_expense,
-        allocated_amount: allocated_amount != null ? Number(allocated_amount) : null,
-        allocation_notes: allocation_notes?.trim() || null
+        allocated_amount: allocatedAmt,
+        allocation_notes: allocation_notes?.trim() || null,
+        parent_expense_id: parent_expense_id || null,
+        original_amount: original_amount || total_amount,
+        remaining_amount: remainingAmt
       })
       .select()
       .single();
@@ -108,6 +115,52 @@ export async function POST(req: Request) {
         .insert(expenseItems);
 
       if (itemsError) throw itemsError;
+    }
+
+    // Auto-create next month's entry if there's remaining amount
+    if (is_multi_month_expense && remainingAmt > 0) {
+      const currentDate = new Date(date);
+      const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+      const nextMonthStr = nextMonth.toISOString().split('T')[0];
+
+      // Generate expense number for next month
+      const { data: nextExpenseNumber } = await supabaseAdmin.rpc('generate_expense_number');
+
+      // Get parent info for notes
+      const parentMonth = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const autoNotes = `Carried forward from ${parentMonth} (${expense.expense_number})`;
+
+      const { error: nextMonthError } = await supabaseAdmin
+        .from("expenses")
+        .insert({
+          expense_number: nextExpenseNumber,
+          date: nextMonthStr,
+          category_id,
+          vendor_id: vendor_id || null,
+          account_id,
+          amount: remainingAmt, // Only the remaining amount
+          tax_amount: 0,
+          total_amount: remainingAmt,
+          description: description.trim(),
+          invoice_number: invoice_number?.trim() || null,
+          payment_method,
+          payment_status: 'PAID', // Already paid in previous month
+          notes: autoNotes,
+          tags: tags.length > 0 ? tags : null,
+          created_by: "system",
+          // Multi-month tracking
+          is_multi_month_expense: true,
+          allocated_amount: remainingAmt, // Default to full remaining (user can edit)
+          allocation_notes: allocation_notes?.trim() || null,
+          parent_expense_id: expense.id,
+          original_amount: original_amount || total_amount,
+          remaining_amount: 0 // Assuming full allocation next month (user can edit to split further)
+        });
+
+      if (nextMonthError) {
+        console.error('Failed to create next month entry:', nextMonthError);
+        // Don't throw - current expense was created successfully
+      }
     }
 
     // TODO: Update account balance in future version

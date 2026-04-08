@@ -140,9 +140,17 @@ export async function GET(request: Request) {
     }
 
     // Check each date in range for downtime
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
+    
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
       const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Skip future dates - only count downtime for dates that have already passed
+      if (d > today) {
+        continue;
+      }
       
       // Multi-cutter downtime
       const totalSqft = multiCutterByDate[dateStr] || 0;

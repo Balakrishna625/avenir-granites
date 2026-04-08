@@ -51,7 +51,6 @@ export async function GET(request: NextRequest) {
         total_gross_measurement,
         purchase_cost,
         purchase_cost_rate,
-        production_cost_per_sqft,
         transport_cost,
         loading_cost,
         quarry_commission,
