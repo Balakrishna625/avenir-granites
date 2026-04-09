@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
         quarry_commission,
         other_charges,
         total_expenditure,
+        production_cost_per_sqft,
         granite_blocks (
           id,
           block_no,
@@ -217,6 +218,7 @@ export async function GET(request: NextRequest) {
         totalNetMeasurement: consignment.net_measurement || consignment.total_net_measurement,
         totalGrossMeasurement: consignment.total_gross_measurement,
         totalExpenditure: consignment.total_expenditure,
+        productionCostPerSqft: consignment.production_cost_per_sqft || 0,
         costBreakdown: {
           purchaseCost: consignment.purchase_cost,
           transportCost: consignment.transport_cost,
@@ -238,6 +240,66 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in consignment analytics:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH: Update production cost for a consignment
+export async function PATCH(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const consignmentId = searchParams.get('id')
+    const body = await request.json()
+    const { productionCostPerSqft } = body
+
+    if (!consignmentId) {
+      return NextResponse.json(
+        { error: 'Consignment ID is required' },
+        { status: 400 }
+      )
+    }
+
+    if (productionCostPerSqft === undefined || productionCostPerSqft === null) {
+      return NextResponse.json(
+        { error: 'Production cost is required' },
+        { status: 400 }
+      )
+    }
+
+    const costValue = Number(productionCostPerSqft)
+    if (isNaN(costValue) || costValue < 0) {
+      return NextResponse.json(
+        { error: 'Production cost must be a positive number' },
+        { status: 400 }
+      )
+    }
+
+    // Update production cost
+    const { data, error } = await supabaseAdmin
+      .from('granite_consignments')
+      .update({ production_cost_per_sqft: costValue })
+      .eq('id', consignmentId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating production cost:', error)
+      return NextResponse.json(
+        { error: 'Failed to update production cost' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      productionCostPerSqft: data.production_cost_per_sqft 
+    })
+
+  } catch (error) {
+    console.error('Error updating production cost:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { AppLayout } from '@/components/AppLayout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Package, TrendingUp, DollarSign, Layers, BarChart3, Target } from 'lucide-react'
+import { ArrowLeft, Package, TrendingUp, DollarSign, Layers, BarChart3, Target, Edit2, Save, X } from 'lucide-react'
 
 interface BlockProduction {
   baseBlockName: string
@@ -73,6 +73,9 @@ function ConsignmentAnalyticsContent() {
   const [analytics, setAnalytics] = useState<ConsignmentAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isEditingProductionCost, setIsEditingProductionCost] = useState(false)
+  const [productionCostInput, setProductionCostInput] = useState<string>('')
+  const [savingProductionCost, setSavingProductionCost] = useState(false)
 
   const fetchAnalytics = async () => {
     try {
@@ -102,6 +105,55 @@ function ConsignmentAnalyticsContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consignmentId])
+
+  const handleEditProductionCost = () => {
+    setProductionCostInput(analytics?.consignment.productionCostPerSqft?.toString() || '0')
+    setIsEditingProductionCost(true)
+  }
+
+  const handleSaveProductionCost = async () => {
+    const cost = parseFloat(productionCostInput)
+    if (isNaN(cost) || cost < 0) {
+      alert('Please enter a valid production cost')
+      return
+    }
+
+    try {
+      setSavingProductionCost(true)
+      const response = await fetch(`/api/consignments-new/analytics?id=${consignmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productionCostPerSqft: cost })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update production cost')
+      }
+
+      // Update local state
+      if (analytics) {
+        setAnalytics({
+          ...analytics,
+          consignment: {
+            ...analytics.consignment,
+            productionCostPerSqft: cost
+          }
+        })
+      }
+
+      setIsEditingProductionCost(false)
+    } catch (err) {
+      console.error('Error saving production cost:', err)
+      alert('Failed to save production cost')
+    } finally {
+      setSavingProductionCost(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditingProductionCost(false)
+    setProductionCostInput('')
+  }
 
   if (loading) {
     return (
@@ -263,12 +315,66 @@ function ConsignmentAnalyticsContent() {
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <p className="text-xs text-gray-600 mb-1.5 uppercase tracking-wide">Production Cost</p>
-                <p className="text-xl font-bold text-gray-900">
-                  {consignment.productionCostPerSqft > 0 ? `₹${formatIndianNumber(consignment.productionCostPerSqft)}` : 'N/A'}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {consignment.productionCostPerSqft > 0 ? 'per sqft (All quarries)' : 'Not specified'}
-                </p>
+                {isEditingProductionCost ? (
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                      <input
+                        type="number"
+                        value={productionCostInput}
+                        onChange={(e) => setProductionCostInput(e.target.value)}
+                        className="w-32 pl-7 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        autoFocus
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleSaveProductionCost}
+                      disabled={savingProductionCost}
+                      className="bg-green-600 hover:bg-green-700 text-white h-8 px-3"
+                    >
+                      {savingProductionCost ? (
+                        'Saving...'
+                      ) : (
+                        <>
+                          <Save className="w-3 h-3 mr-1" />
+                          Save
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelEdit}
+                      disabled={savingProductionCost}
+                      className="h-8 px-3"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xl font-bold text-gray-900">
+                        {consignment.productionCostPerSqft > 0 ? `₹${formatIndianNumber(consignment.productionCostPerSqft)}` : 'N/A'}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleEditProductionCost}
+                        className="h-6 w-6 p-0 hover:bg-cyan-100"
+                      >
+                        <Edit2 className="w-3 h-3 text-cyan-600" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {consignment.productionCostPerSqft > 0 ? 'per sqft (processing)' : 'Click edit to set'}
+                    </p>
+                  </>
+                )}
               </div>
               <BarChart3 className="w-8 h-8 text-cyan-500" />
             </div>
