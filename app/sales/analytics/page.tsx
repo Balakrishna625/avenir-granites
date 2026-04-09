@@ -1037,7 +1037,7 @@ export default function SalesAnalyticsPage() {
                   </tbody>
                   <tfoot className="bg-gray-100 border-t-2 font-bold">
                     <tr>
-                      <td className="px-3 py-2" colSpan={4}>Total</td>
+                      <td className="px-3 py-2" colSpan={5}>Total</td>
                       {viewMode === 'actual' ? (
                         <>
                           <td className="px-3 py-2 text-right">{totalSlabs}</td>
