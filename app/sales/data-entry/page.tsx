@@ -842,7 +842,7 @@ export default function SalesDataEntryPage() {
           </Card>
           
           <Card className="p-3 sm:p-4">
-            <div className="text-xs text-gray-600 mb-1">TOTAL AMOUNT SOLD</div>
+            <div className="text-xs text-gray-600 mb-1">TOTAL SOLD ₹</div>
             <div className="text-lg sm:text-xl font-bold text-gray-900">
               ₹{formatIndianNumber(salesStats.totalAmount)}
             </div>

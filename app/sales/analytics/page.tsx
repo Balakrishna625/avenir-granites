@@ -601,6 +601,88 @@ export default function SalesAnalyticsPage() {
             </Card>
           )}
 
+          {/* Average Sq.Ft per Slab by Category */}
+          {categoryStats.length > 0 && (
+            <Card className="p-6 mb-6">
+              <div className="flex items-center gap-2 mb-5">
+                <Layers className="w-5 h-5 text-teal-600" />
+                <h2 className="text-lg font-semibold">Average Sq.Ft per Slab by Category</h2>
+                <span className="text-xs text-gray-500 ml-1">(Total Sq.Ft / Total Slabs)</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Category</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-700">Total Slabs</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-700">Total Sq.Ft</th>
+                      <th className="px-4 py-3 text-right font-semibold text-gray-700 bg-teal-50">Avg Sq.Ft/Slab</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categoryStats.map((group, idx) => {
+                      const totalSlabsInCategory = group.rows.reduce((sum, row) => sum + row.slabs, 0)
+                      const avgSqftPerSlab = totalSlabsInCategory > 0 ? group.totalSqft / totalSlabsInCategory : 0
+                      
+                      const colorMap: Record<string, { bg: string; text: string; badge: string }> = {
+                        sg:       { bg: 'bg-slate-50',  text: 'text-slate-800',  badge: 'bg-slate-500'  },
+                        bp:       { bg: 'bg-gray-50',   text: 'text-gray-900',   badge: 'bg-gray-800'   },
+                        burgandy: { bg: 'bg-red-50',    text: 'text-red-900',    badge: 'bg-red-900'    },
+                      }
+                      const c = colorMap[group.color] || { bg: 'bg-blue-50', text: 'text-blue-900', badge: 'bg-blue-500' }
+                      
+                      return (
+                        <tr key={group.key} className={`border-t ${c.bg} hover:opacity-80 transition-opacity`}>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className={`${c.badge} text-white text-xs font-bold px-2.5 py-1 rounded-full`}>
+                                {group.label}
+                              </span>
+                              <span className="text-sm text-gray-600">({group.rows.length} material{group.rows.length !== 1 ? 's' : ''})</span>
+                            </div>
+                          </td>
+                          <td className={`px-4 py-3 text-right font-semibold ${c.text}`}>
+                            {totalSlabsInCategory.toLocaleString()}
+                          </td>
+                          <td className={`px-4 py-3 text-right font-semibold ${c.text}`}>
+                            {group.totalSqft.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right bg-teal-50">
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-xl font-bold text-teal-900">
+                                {avgSqftPerSlab.toFixed(2)}
+                              </span>
+                              <span className="text-xs text-teal-600">sqft/slab</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                    <tr>
+                      <td className="px-4 py-3 font-bold text-gray-900">OVERALL AVERAGE</td>
+                      <td className="px-4 py-3 text-right font-bold text-gray-900">
+                        {totalSlabs.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-gray-900">
+                        {totalSqft.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-right bg-teal-100">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-xl font-extrabold text-teal-900">
+                            {totalSlabs > 0 ? (totalSqft / totalSlabs).toFixed(2) : '0.00'}
+                          </span>
+                          <span className="text-xs text-teal-700 font-semibold">sqft/slab</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Card>
+          )}
+
           {/* Actual vs Official Material Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card className="p-4">
