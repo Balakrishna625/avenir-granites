@@ -361,14 +361,12 @@ function ConsignmentAnalyticsContent() {
                       <p className="text-xl font-bold text-gray-900">
                         {consignment.productionCostPerSqft > 0 ? `₹${formatIndianNumber(consignment.productionCostPerSqft)}` : 'N/A'}
                       </p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
+                      <button
                         onClick={handleEditProductionCost}
-                        className="h-6 w-6 p-0 hover:bg-cyan-100"
+                        className="h-6 w-6 p-0 rounded hover:bg-cyan-100 flex items-center justify-center transition-colors"
                       >
                         <Edit2 className="w-3 h-3 text-cyan-600" />
-                      </Button>
+                      </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
                       {consignment.productionCostPerSqft > 0 ? 'per sqft (processing)' : 'Click edit to set'}
