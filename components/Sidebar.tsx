@@ -176,6 +176,17 @@ const menuItems: MenuItem[] = [
         icon: <TrendingUp className="w-4 h-4" />
       }
     ]
+  },
+  {
+    title: 'Business Analytics',
+    icon: <TrendingUp className="w-5 h-5" />,
+    children: [
+      {
+        title: 'Customer Payment Analytics',
+        href: '/business-analytics/customer-payments',
+        icon: <BarChart3 className="w-4 h-4" />
+      }
+    ]
   }
 ];
 
@@ -186,7 +197,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Contractor Payments', 'Sales Management', 'Consignment Management', 'Production Management', 'Expense Management']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Customer Management', 'Contractor Payments', 'Sales Management', 'Consignment Management', 'Production Management', 'Expense Management', 'Business Analytics']);
 
   const toggleExpanded = (title: string) => {
     setExpandedItems(prev => 
