@@ -29,6 +29,9 @@ export async function GET() {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
+    const sixMonthsAgo = new Date(today);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
     // Calculate analytics for each customer
     const analytics = customers.map(customer => {
@@ -75,18 +78,25 @@ export async function GET() {
         ? (stdDevPaymentInterval / avgPaymentInterval) * 100
         : 0;
 
-      // Determine payment behavior cluster
+      // Determine payment behavior cluster (smarter, business-focused)
       let behaviorCluster: 'Fast Payer' | 'Regular Slow Payer' | 'Irregular Payer' | 'At-Risk' | 'No History';
       
-      if (customerTransactions.length === 0) {
+      if (customerTransactions.length === 0 || !isRegularCustomer) {
         behaviorCluster = 'No History';
-      } else if (daysSinceLastPayment !== null && avgPaymentInterval > 0 && daysSinceLastPayment > avgPaymentInterval * 2) {
+      } else if (daysSinceLastPayment !== null && avgPaymentInterval > 0 && daysSinceLastPayment > avgPaymentInterval * 2.5) {
+        // At-Risk: Payment overdue by 2.5x their normal interval
         behaviorCluster = 'At-Risk';
-      } else if (consistencyScore > 50) {
+      } else if (daysSinceLastPayment !== null && outstandingBalance > totalInvoiced * 0.5 && daysSinceLastPayment > 60) {
+        // At-Risk: Large outstanding balance (>50% of total) and no payment in 60+ days
+        behaviorCluster = 'At-Risk';
+      } else if (consistencyScore > 60) {
+        // Irregular: High variation in payment patterns
         behaviorCluster = 'Irregular Payer';
-      } else if (avgPaymentInterval > 40) {
+      } else if (avgPaymentInterval > 30) {
+        // Regular Slow: Consistent but takes 30+ days
         behaviorCluster = 'Regular Slow Payer';
       } else {
+        // Fast: Pays within 30 days consistently
         behaviorCluster = 'Fast Payer';
       }
 
@@ -94,6 +104,27 @@ export async function GET() {
       const totalInvoiced = customerConsignments.reduce((sum, c) => sum + (c.total || 0), 0);
       const totalReceived = customerTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
       const outstandingBalance = totalInvoiced - totalReceived;
+      
+      // Determine if customer is "regular" (has ongoing business relationship)
+      const lastConsignmentDate = customerConsignments.length > 0
+        ? new Date(customerConsignments[customerConsignments.length - 1].date)
+        : null;
+      
+      const hasRecentActivity = lastConsignmentDate && lastConsignmentDate >= sixMonthsAgo;
+      const hasMinimumConsignments = customerConsignments.length >= 3;
+      const hasPaymentHistory = customerTransactions.length >= 2;
+      const hasSignificantBusiness = totalInvoiced >= 50000; // At least 50k business
+      
+      // Regular customer criteria: (3+ consignments OR recent activity) AND has payment history
+      const isRegularCustomer = (hasMinimumConsignments || hasRecentActivity) && hasPaymentHistory;
+      
+      // Business value score (0-100)
+      const businessValueScore = Math.min(100, Math.round(
+        (customerConsignments.length * 10) + // Weight consignments
+        (totalInvoiced / 10000) + // Weight total business
+        (hasRecentActivity ? 20 : 0) + // Bonus for recent activity
+        (hasPaymentHistory ? 10 : 0) // Bonus for payment history
+      ));
 
       // Calculate age of outstanding receivables
       const oldestConsignmentDate = customerConsignments.length > 0
@@ -162,6 +193,13 @@ export async function GET() {
         customerId: customer.id,
         customerName: customer.name,
         
+        // Regular Customer Indicators
+        isRegularCustomer,
+        businessValueScore,
+        lastConsignmentDate: customerConsignments.length > 0 
+          ? customerConsignments[customerConsignments.length - 1].date 
+          : null,
+        
         // Payment Pattern Metrics
         paymentCount: customerTransactions.length,
         avgPaymentInterval: Math.round(avgPaymentInterval),
@@ -192,44 +230,48 @@ export async function GET() {
         consignmentCount: customerConsignments.length
       };
     });
+    
+    // Filter to only regular customers for analytics
+    const regularCustomerAnalytics = analytics.filter(a => a.isRegularCustomer);
 
-    // Calculate summary statistics
+    // Calculate summary statistics (focused on regular customers)
     const summary = {
       totalCustomers: customers.length,
-      customersWithHistory: analytics.filter(a => a.paymentCount > 0).length,
+      regularCustomers: regularCustomerAnalytics.length,
+      customersWithHistory: regularCustomerAnalytics.filter(a => a.paymentCount > 0).length,
       
       // Cluster breakdown
-      fastPayers: analytics.filter(a => a.behaviorCluster === 'Fast Payer').length,
-      regularSlowPayers: analytics.filter(a => a.behaviorCluster === 'Regular Slow Payer').length,
-      irregularPayers: analytics.filter(a => a.behaviorCluster === 'Irregular Payer').length,
-      atRiskPayers: analytics.filter(a => a.behaviorCluster === 'At-Risk').length,
-      noHistory: analytics.filter(a => a.behaviorCluster === 'No History').length,
+      fastPayers: regularCustomerAnalytics.filter(a => a.behaviorCluster === 'Fast Payer').length,
+      regularSlowPayers: regularCustomerAnalytics.filter(a => a.behaviorCluster === 'Regular Slow Payer').length,
+      irregularPayers: regularCustomerAnalytics.filter(a => a.behaviorCluster === 'Irregular Payer').length,
+      atRiskPayers: regularCustomerAnalytics.filter(a => a.behaviorCluster === 'At-Risk').length,
+      noHistory: regularCustomerAnalytics.filter(a => a.behaviorCluster === 'No History').length,
       
       // Outstanding by cluster
-      fastPayersOutstanding: analytics
+      fastPayersOutstanding: regularCustomerAnalytics
         .filter(a => a.behaviorCluster === 'Fast Payer')
         .reduce((sum, a) => sum + a.outstandingBalance, 0),
-      regularSlowOutstanding: analytics
+      regularSlowOutstanding: regularCustomerAnalytics
         .filter(a => a.behaviorCluster === 'Regular Slow Payer')
         .reduce((sum, a) => sum + a.outstandingBalance, 0),
-      irregularOutstanding: analytics
+      irregularOutstanding: regularCustomerAnalytics
         .filter(a => a.behaviorCluster === 'Irregular Payer')
         .reduce((sum, a) => sum + a.outstandingBalance, 0),
-      atRiskOutstanding: analytics
+      atRiskOutstanding: regularCustomerAnalytics
         .filter(a => a.behaviorCluster === 'At-Risk')
         .reduce((sum, a) => sum + a.outstandingBalance, 0),
       
       // Total outstanding
-      totalOutstanding: analytics.reduce((sum, a) => sum + a.outstandingBalance, 0),
+      totalOutstanding: regularCustomerAnalytics.reduce((sum, a) => sum + a.outstandingBalance, 0),
       
-      // Average metrics across all customers with history
+      // Average metrics across regular customers with history
       avgPaymentInterval: Math.round(
-        analytics.filter(a => a.paymentCount > 0).reduce((sum, a) => sum + a.avgPaymentInterval, 0) /
-        Math.max(1, analytics.filter(a => a.paymentCount > 0).length)
+        regularCustomerAnalytics.filter(a => a.paymentCount > 0).reduce((sum, a) => sum + a.avgPaymentInterval, 0) /
+        Math.max(1, regularCustomerAnalytics.filter(a => a.paymentCount > 0).length)
       ),
       
       // Predicted cash inflows (next 30 days)
-      predictedInflows30Days: analytics
+      predictedInflows30Days: regularCustomerAnalytics
         .filter(a => {
           if (!a.predictedNextPaymentDate) return false;
           const predictedDate = new Date(a.predictedNextPaymentDate);
@@ -239,13 +281,20 @@ export async function GET() {
         .reduce((sum, a) => sum + a.avgPaymentAmount, 0),
       
       // High confidence predictions
-      highConfidencePredictions: analytics.filter(
+      highConfidencePredictions: regularCustomerAnalytics.filter(
         a => a.predictionConfidence === 'HIGH' && a.predictedNextPaymentDate
-      ).length
+      ).length,
+      
+      // Business value metrics
+      avgBusinessValue: Math.round(
+        regularCustomerAnalytics.reduce((sum, a) => sum + a.totalInvoiced, 0) / 
+        Math.max(1, regularCustomerAnalytics.length)
+      ),
+      highValueCustomers: regularCustomerAnalytics.filter(a => a.totalInvoiced > 500000).length
     };
 
     return NextResponse.json({
-      analytics: analytics.filter(a => a.paymentCount > 0 || a.outstandingBalance > 0), // Only return customers with activity
+      analytics: regularCustomerAnalytics.sort((a, b) => b.businessValueScore - a.businessValueScore), // Sort by business value
       summary
     });
 

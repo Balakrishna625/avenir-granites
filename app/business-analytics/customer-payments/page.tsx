@@ -9,6 +9,11 @@ interface CustomerAnalytics {
   customerId: number;
   customerName: string;
   
+  // Regular Customer Indicators
+  isRegularCustomer: boolean;
+  businessValueScore: number;
+  lastConsignmentDate: string | null;
+  
   // Payment Pattern Metrics
   paymentCount: number;
   avgPaymentInterval: number;
@@ -41,6 +46,7 @@ interface CustomerAnalytics {
 
 interface AnalyticsSummary {
   totalCustomers: number;
+  regularCustomers: number;
   customersWithHistory: number;
   
   // Cluster breakdown
@@ -65,6 +71,10 @@ interface AnalyticsSummary {
   // Predictions
   predictedInflows30Days: number;
   highConfidencePredictions: number;
+  
+  // Business value metrics
+  avgBusinessValue: number;
+  highValueCustomers: number;
 }
 
 export default function CustomerPaymentAnalyticsPage() {
@@ -144,8 +154,13 @@ export default function CustomerPaymentAnalyticsPage() {
             Customer Payment Analytics
           </h1>
           <p className="text-gray-600 mt-1">
-            Payment behavior patterns, receivables aging, risk clusters, and cash flow forecasts
+            Payment behavior of regular customers - those with 3+ consignments or recent activity
           </p>
+          {summary && (
+            <p className="text-sm text-gray-500 mt-1">
+              Analyzing {summary.regularCustomers} regular customers (out of {summary.totalCustomers} total)
+            </p>
+          )}
         </div>
 
         {/* Summary Cards */}
@@ -163,7 +178,7 @@ export default function CustomerPaymentAnalyticsPage() {
                   {formatCurrency(summary.totalOutstanding)}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Across {summary.customersWithHistory} customers
+                  {summary.regularCustomers} regular customers
                 </p>
               </CardContent>
             </Card>
