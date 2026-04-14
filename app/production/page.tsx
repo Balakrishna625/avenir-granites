@@ -731,6 +731,7 @@ export default function ProductionPage() {
                 blockName: string;
                 blockGroup: string;
                 sortKey: string;
+                dates: Set<string>; // Track all dates when this block was processed
                 directPolish: number;
                 directPolishSqft: number;
                 grindThenPolish: number;
@@ -762,6 +763,7 @@ export default function ProductionPage() {
                         blockName: normalized,
                         blockGroup: blockGroup,
                         sortKey: sortKey,
+                        dates: new Set<string>(),
                         directPolish: 0,
                         directPolishSqft: 0,
                         grindThenPolish: 0,
@@ -778,6 +780,9 @@ export default function ProductionPage() {
                         totalProcessedSqft: 0
                       };
                     }
+
+                    // Track the date when this block was processed
+                    blockProcessing[normalized].dates.add(report.date);
 
                     const activity = act.activity;
                     const slabs = act.slabs || 0;
@@ -841,6 +846,7 @@ export default function ProductionPage() {
               // Group by block group
               const blockGroupSummary: Record<string, {
                 blockNames: string[];
+                dates: Set<string>; // Track all dates for this block group
                 sortKey: string;
                 directPolish: number;
                 directPolishSqft: number;
@@ -862,6 +868,7 @@ export default function ProductionPage() {
                 if (!blockGroupSummary[block.blockGroup]) {
                   blockGroupSummary[block.blockGroup] = {
                     blockNames: [],
+                    dates: new Set<string>(),
                     sortKey: block.sortKey,
                     directPolish: 0,
                     directPolishSqft: 0,
@@ -881,6 +888,8 @@ export default function ProductionPage() {
                 }
 
                 blockGroupSummary[block.blockGroup].blockNames.push(block.blockName);
+                // Merge dates from this block into the group
+                block.dates.forEach(date => blockGroupSummary[block.blockGroup].dates.add(date));
                 blockGroupSummary[block.blockGroup].directPolish += block.directPolish;
                 blockGroupSummary[block.blockGroup].directPolishSqft += block.directPolishSqft;
                 blockGroupSummary[block.blockGroup].grindThenPolish += block.grindThenPolish;
@@ -1019,9 +1028,14 @@ export default function ProductionPage() {
                               <span className="font-semibold text-gray-900">{blockGroup}</span>
                             </td>
                             <td className="py-3 px-4">
-                              <span className="text-xs text-gray-600">
-                                {data.blockNames.sort().join(', ')}
-                              </span>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-gray-600">
+                                  {data.blockNames.sort().join(', ')}
+                                </span>
+                                <span className="text-xs text-blue-600 font-medium">
+                                  {Array.from(data.dates).sort().map(date => formatDisplayDate(date)).join(', ')}
+                                </span>
+                              </div>
                             </td>
                             <td className="py-3 px-4 text-right">
                               {data.directPolish > 0 ? (

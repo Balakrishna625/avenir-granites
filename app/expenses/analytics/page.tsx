@@ -83,10 +83,11 @@ export default function ExpenseAnalyticsPage() {
   // Exclusion filters for production cost calculation (checked by default)
   const [excludeRawMaterial, setExcludeRawMaterial] = useState(true);
   const [excludeGSTChallan, setExcludeGSTChallan] = useState(true);
+  const [excludeOtherExpenses, setExcludeOtherExpenses] = useState(true);
 
   useEffect(() => {
     loadAnalytics();
-  }, [selectedYear, selectedMonth, excludeRawMaterial, excludeGSTChallan]);
+  }, [selectedYear, selectedMonth, excludeRawMaterial, excludeGSTChallan, excludeOtherExpenses]);
 
   async function loadAnalytics() {
     try {
@@ -150,10 +151,18 @@ export default function ExpenseAnalyticsPage() {
         })
         .reduce((sum, exp) => sum + (exp.amount || 0), 0);
       
+      const otherExpensesAmount = expenses
+        .filter(exp => {
+          const catName = exp.expense_categories?.name || '';
+          return catName.toLowerCase().includes('other expenses');
+        })
+        .reduce((sum, exp) => sum + (exp.amount || 0), 0);
+      
       // Calculate adjusted total based on exclusions
       let adjustedTotal = total;
       if (excludeRawMaterial) adjustedTotal -= rawMaterialAmount;
       if (excludeGSTChallan) adjustedTotal -= gstChallanAmount;
+      if (excludeOtherExpenses) adjustedTotal -= otherExpensesAmount;
       // Always exclude contractor cash payments (replacing with accrual)
       adjustedTotal -= contractorPaymentAmount;
 
@@ -198,6 +207,7 @@ export default function ExpenseAnalyticsPage() {
       console.log(`  Total Expenses: ₹${total.toLocaleString()}`);
       console.log(`  Raw Material Excluded: ${excludeRawMaterial ? 'Yes' : 'No'} (₹${rawMaterialAmount.toLocaleString()})`);
       console.log(`  GST Challan Excluded: ${excludeGSTChallan ? 'Yes' : 'No'} (₹${gstChallanAmount.toLocaleString()})`);
+      console.log(`  Other Expenses Excluded: ${excludeOtherExpenses ? 'Yes' : 'No'} (₹${otherExpensesAmount.toLocaleString()})`);
       console.log(`  Contractor Payments Excluded: Always (₹${contractorPaymentAmount.toLocaleString()})`);
       console.log(`  Adjusted Expenses (before accrual): ₹${adjustedTotal.toLocaleString()}`);
       console.log(`  Accrued Contractor Costs:`);
@@ -495,8 +505,19 @@ export default function ExpenseAnalyticsPage() {
                       Exclude GST Challan
                     </span>
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={excludeOtherExpenses}
+                      onChange={(e) => setExcludeOtherExpenses(e.target.checked)}
+                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 cursor-pointer"
+                    />
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-purple-700">
+                      Exclude Other expenses
+                    </span>
+                  </label>
                 </div>
-                {(excludeRawMaterial || excludeGSTChallan) && (
+                {(excludeRawMaterial || excludeGSTChallan || excludeOtherExpenses) && (
                   <div className="mt-2 text-xs text-purple-700 font-medium">
                     ✓ Filters active - Cost per SFT reflects adjusted expenses
                   </div>

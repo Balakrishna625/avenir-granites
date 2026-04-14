@@ -78,29 +78,7 @@ export async function GET() {
         ? (stdDevPaymentInterval / avgPaymentInterval) * 100
         : 0;
 
-      // Determine payment behavior cluster (smarter, business-focused)
-      let behaviorCluster: 'Fast Payer' | 'Regular Slow Payer' | 'Irregular Payer' | 'At-Risk' | 'No History';
-      
-      if (customerTransactions.length === 0 || !isRegularCustomer) {
-        behaviorCluster = 'No History';
-      } else if (daysSinceLastPayment !== null && avgPaymentInterval > 0 && daysSinceLastPayment > avgPaymentInterval * 2.5) {
-        // At-Risk: Payment overdue by 2.5x their normal interval
-        behaviorCluster = 'At-Risk';
-      } else if (daysSinceLastPayment !== null && outstandingBalance > totalInvoiced * 0.5 && daysSinceLastPayment > 60) {
-        // At-Risk: Large outstanding balance (>50% of total) and no payment in 60+ days
-        behaviorCluster = 'At-Risk';
-      } else if (consistencyScore > 60) {
-        // Irregular: High variation in payment patterns
-        behaviorCluster = 'Irregular Payer';
-      } else if (avgPaymentInterval > 30) {
-        // Regular Slow: Consistent but takes 30+ days
-        behaviorCluster = 'Regular Slow Payer';
-      } else {
-        // Fast: Pays within 30 days consistently
-        behaviorCluster = 'Fast Payer';
-      }
-
-      // Calculate outstanding balance
+      // Calculate outstanding balance (needed for behavior clustering)
       const totalInvoiced = customerConsignments.reduce((sum, c) => sum + (c.total || 0), 0);
       const totalReceived = customerTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
       const outstandingBalance = totalInvoiced - totalReceived;
@@ -125,6 +103,28 @@ export async function GET() {
         (hasRecentActivity ? 20 : 0) + // Bonus for recent activity
         (hasPaymentHistory ? 10 : 0) // Bonus for payment history
       ));
+
+      // Determine payment behavior cluster (smarter, business-focused)
+      let behaviorCluster: 'Fast Payer' | 'Regular Slow Payer' | 'Irregular Payer' | 'At-Risk' | 'No History';
+      
+      if (customerTransactions.length === 0 || !isRegularCustomer) {
+        behaviorCluster = 'No History';
+      } else if (daysSinceLastPayment !== null && avgPaymentInterval > 0 && daysSinceLastPayment > avgPaymentInterval * 2.5) {
+        // At-Risk: Payment overdue by 2.5x their normal interval
+        behaviorCluster = 'At-Risk';
+      } else if (daysSinceLastPayment !== null && outstandingBalance > totalInvoiced * 0.5 && daysSinceLastPayment > 60) {
+        // At-Risk: Large outstanding balance (>50% of total) and no payment in 60+ days
+        behaviorCluster = 'At-Risk';
+      } else if (consistencyScore > 60) {
+        // Irregular: High variation in payment patterns
+        behaviorCluster = 'Irregular Payer';
+      } else if (avgPaymentInterval > 30) {
+        // Regular Slow: Consistent but takes 30+ days
+        behaviorCluster = 'Regular Slow Payer';
+      } else {
+        // Fast: Pays within 30 days consistently
+        behaviorCluster = 'Fast Payer';
+      }
 
       // Calculate age of outstanding receivables
       const oldestConsignmentDate = customerConsignments.length > 0
