@@ -27,6 +27,23 @@ const INR = new Intl.NumberFormat("en-IN", {
 });
 const fmt = (n: number) => INR.format(n || 0);
 
+// Helper function to format numbers with Indian comma separators (without ₹ symbol)
+const formatIndianNumber = (value: string): string => {
+  if (!value) return '';
+  // Remove all non-digits
+  const numericValue = value.replace(/\D/g, '');
+  if (!numericValue) return '';
+  
+  // Format with Indian comma separators
+  const number = parseInt(numericValue);
+  return number.toLocaleString('en-IN');
+};
+
+// Helper function to parse Indian formatted number back to numeric string
+const parseIndianNumber = (value: string): string => {
+  return value.replace(/,/g, '');
+};
+
 interface ContractorPayment {
   id: string;
   contractor_name: string;
@@ -80,6 +97,13 @@ export default function ContractorPaymentsPage() {
     const currentMonthDate = new Date(year, month - 1, 1);
     const marchCutoff = new Date(2026, 2, 1);
     return currentMonthDate >= marchCutoff;
+  }, [selectedMonth]);
+
+  // Calculate previous month for display
+  const previousMonth = React.useMemo(() => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const prevDate = new Date(year, month - 2, 1);
+    return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
   }, [selectedMonth]);
 
   useEffect(() => {
@@ -188,7 +212,8 @@ export default function ContractorPaymentsPage() {
   }
 
   async function resetToAutoCalculation(contractorName: string) {
-    if (!confirm(`Reset ${contractorName} to auto-calculated amount? This will recalculate the payable based on current ${contractorName === 'Contractor Dinesh' ? 'sales' : 'line polish'} data.`)) {
+    const prevMonthName = getMonthName(previousMonth);
+    if (!confirm(`Reset ${contractorName} to auto-calculated amount? This will recalculate the payable based on ${prevMonthName} ${contractorName === 'Contractor Dinesh' ? 'sales' : 'line polish hours'} data.`)) {
       return;
     }
 
@@ -341,12 +366,12 @@ export default function ContractorPaymentsPage() {
               <p className="text-xs opacity-70">C/F: {fmt(data?.carry_forward || 0)} + {fmt(data?.total_payable || 0)}</p>
               {isAutoCalculated && name === 'Contractor Dinesh' && meta && (
                 <p className="text-xs font-medium mt-1 opacity-70">
-                  🤖 {meta.total_sqft.toFixed(0)} SqFt × ₹{meta.rate_per_sqft}
+                  🔹 {meta.source_month ? getMonthName(meta.source_month) : 'Prev'}: {meta.total_sqft.toFixed(0)} SqFt × ₹{meta.rate_per_sqft}
                 </p>
               )}
               {isAutoCalculated && name === 'Contractor LinePolish' && meta && (
                 <p className="text-xs font-medium mt-1 opacity-70">
-                  🤖 {meta.total_hours} Hours × ₹{meta.rate_per_hour}
+                  🔹 {meta.source_month ? getMonthName(meta.source_month) : 'Prev'}: {meta.total_hours} Hours × ₹{meta.rate_per_hour}
                 </p>
               )}
             </div>
@@ -381,24 +406,37 @@ export default function ContractorPaymentsPage() {
           </div>
 
           {transactions.length > 0 ? (
-            <div className="space-y-2">
-              {transactions.map((txn) => (
-                <div key={txn.id} className="bg-gray-50 p-3 rounded-lg flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{fmt(txn.amount)}</p>
-                    <div className="flex gap-3 text-xs text-gray-600 mt-1">
-                      <span>{new Date(txn.payment_date).toLocaleDateString('en-GB')}</span>
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
-                        {txn.payment_mode}
-                      </span>
-                    </div>
-                    {txn.notes && (
-                      <p className="text-xs text-gray-500 mt-1">{txn.notes}</p>
-                    )}
-                  </div>
-                  <Wallet className="w-5 h-5 text-green-600" />
-                </div>
-              ))}
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100 border-b">
+                  <tr>
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700">Date</th>
+                    <th className="text-right py-2 px-3 font-semibold text-gray-700">Amount</th>
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700">Mode</th>
+                    <th className="text-left py-2 px-3 font-semibold text-gray-700">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {transactions.map((txn) => (
+                    <tr key={txn.id} className="hover:bg-gray-50">
+                      <td className="py-2.5 px-3 text-gray-600">
+                        {new Date(txn.payment_date).toLocaleDateString('en-GB')}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-medium text-gray-900">
+                        {fmt(txn.amount)}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                          {txn.payment_mode}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-gray-600 text-xs">
+                        {txn.notes || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="text-center py-6 bg-gray-50 rounded-lg">
@@ -555,12 +593,18 @@ export default function ContractorPaymentsPage() {
                     Amount *
                   </label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    value={paymentForm.amount}
-                    onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                    type="text"
+                    inputMode="numeric"
+                    value={formatIndianNumber(paymentForm.amount)}
+                    onChange={(e) => {
+                      const rawValue = parseIndianNumber(e.target.value);
+                      setPaymentForm({...paymentForm, amount: rawValue});
+                    }}
                     placeholder="Enter amount"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {paymentForm.amount && `₹${formatIndianNumber(paymentForm.amount)}`}
+                  </p>
                 </div>
 
                 <div>
@@ -657,6 +701,7 @@ export default function ContractorPaymentsPage() {
                       <span className="text-lg">🤖</span>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-blue-900">Auto-Calculated Amount</p>
+                        <p className="text-xs text-blue-600 mb-1">Based on {getMonthName(previousMonth)} data</p>
                         <p className="text-2xl font-bold text-blue-700 mt-1">{fmt(currentAutoAmount)}</p>
                         <p className="text-xs text-blue-600 mt-1">{calculationMethod}</p>
                         <p className="text-xs text-gray-600 mt-2">
@@ -672,19 +717,25 @@ export default function ContractorPaymentsPage() {
                     {isCurrentlyAutoCalc ? 'Adjusted' : 'Total'} Payable for {getMonthName(selectedMonth)} *
                   </label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    value={payableAmount}
-                    onChange={(e) => setPayableAmount(e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    value={formatIndianNumber(payableAmount)}
+                    onChange={(e) => {
+                      const rawValue = parseIndianNumber(e.target.value);
+                      setPayableAmount(rawValue);
+                    }}
                     placeholder="Enter payable amount"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {payableAmount && `₹${formatIndianNumber(payableAmount)}`}
+                  </p>
                   {isCurrentlyAutoCalc ? (
                     <p className="text-xs text-gray-500 mt-1">
-                      Modify the auto-calculated amount if adjustments are needed
+                      Payment for {getMonthName(previousMonth)} work - modify if adjustments needed
                     </p>
                   ) : (
                     <p className="text-xs text-gray-500 mt-1">
-                      This is the total amount you need to pay for work done this month
+                      This is the total amount to pay for last month's work
                     </p>
                   )}
                 </div>

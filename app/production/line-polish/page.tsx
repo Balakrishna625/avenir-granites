@@ -493,8 +493,39 @@ export default function LinePolishPage() {
             // Map material + process to ActivityType
             let activityType: ActivityType = 'S/G Polishing'; // default
             
-            // Normalize material
-            const normalizedMaterial = material.toUpperCase().replace(/\s+/g, '');
+            // Auto-detect material from block name if needed
+            const detectMaterialFromBlockName = (blockName: string): string => {
+              const normalized = blockName.toUpperCase().trim();
+              
+              // SJ, SL, VR, AVG → S/G
+              if (normalized.startsWith('SJ') || normalized.startsWith('SL') || 
+                  normalized.startsWith('VR') || normalized.startsWith('AVG')) {
+                return 'S/G';
+              }
+              
+              // GK → B/P
+              if (normalized.startsWith('GK')) {
+                return 'B/P';
+              }
+              
+              // BG → Burgandy
+              if (normalized.startsWith('BG')) {
+                return 'BURG';
+              }
+              
+              // Default to S/G
+              return 'S/G';
+            };
+            
+            // Normalize material - use detected material if original is unclear
+            let normalizedMaterial = material.toUpperCase().replace(/\s+/g, '');
+            
+            // If material column is unclear or missing, detect from block name
+            if (!normalizedMaterial || normalizedMaterial === '—' || 
+                normalizedMaterial === '-' || normalizedMaterial === '--') {
+              normalizedMaterial = detectMaterialFromBlockName(blockName);
+            }
+            
             const normalizedProcess = process.toLowerCase().trim();
 
             // Helper: matches both spellings — "lapotra" (report spelling) and "laputra" (legacy)
@@ -534,8 +565,32 @@ export default function LinePolishPage() {
                 activityType = 'Burgandy Grinding';
               }
             } else {
-              // Unknown material, default to S/G Polishing but warn
-              warnings.push(`Unknown material type "${material}", defaulting to S/G Polishing`);
+              // Material not recognized, already auto-detected from block name
+              // Default to S/G with appropriate process
+              if (normalizedProcess.includes('polish')) {
+                activityType = 'S/G Polishing';
+              } else if (normalizedProcess.includes('grind')) {
+                activityType = 'S/G Grinding';
+              }
+            }
+
+            // Parse grade from remarks (only for polishing activities)
+            let grade: string | undefined = undefined;
+            if (activityType.includes('Polishing') && notes && notes.trim()) {
+              const normalizedNotes = notes.trim().toLowerCase();
+              
+              // Map remarks to grade values
+              if (normalizedNotes.includes('black') || normalizedNotes.includes('blackline')) {
+                grade = 'Blackline';
+              } else if (normalizedNotes.includes('white') || normalizedNotes.includes('whiteline')) {
+                grade = 'White line';
+              } else if (normalizedNotes.includes('fresh')) {
+                grade = 'Fresh';
+              } else if (normalizedNotes.includes('patch')) {
+                grade = 'Patch';
+              } else if (normalizedNotes.includes('variation')) {
+                grade = 'Variation';
+              }
             }
 
             newFormData[currentShift].activityRows.push({
@@ -543,7 +598,8 @@ export default function LinePolishPage() {
               block_name: blockName,
               activity: activityType,
               number_of_slabs: qty,
-              total_sqft: sft
+              total_sqft: sft,
+              ...(grade && { grade }) // Only include grade if it was parsed from remarks
             });
 
             lineProcessed = true;

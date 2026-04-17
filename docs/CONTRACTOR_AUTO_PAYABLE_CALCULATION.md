@@ -1,21 +1,43 @@
 # Contractor Auto-Payable Calculation Feature
 
 ## Overview
-Automatic calculation of contractor payables based on their work output for months starting from **April 2026 onwards**, with the ability to **manually adjust** amounts when needed.
+Automatic calculation of contractor payables based on their **PREVIOUS month's work output** for months starting from **March 2026 onwards** (based on February 2026 data), with the ability to **manually adjust** amounts when needed.
+
+## Payment Timeline Logic
+
+The contractor payment system follows a **previous month payment model**:
+- **February 2026 sales/hours** → **Paid in March 2026**
+- **March 2026 sales/hours** → **Paid in April 2026**
+- **April 2026 sales/hours** → **Paid in May 2026**
+
+This ensures contractors receive payment for their work in the following month.
 
 ## Calculation Rules
 
 ### Contractor Dinesh
-- **Formula**: Total Square Feet Sold × ₹6 per SqFt
-- **Data Source**: Sales records from `sales` table
+- **Formula**: Previous Month's Total Square Feet Sold × ₹6 per SqFt
+- **Data Source**: Sales records from `sales` table (previous month)
 - **Rate**: ₹6 per square foot
-- **Example**: If 3,005 SqFt sold in April 2026 → Payable = 3,005 × 6 = ₹18,030
+- **Example**: 
+  - March 2026 payable = February 2026 sales
+  - If 2,500 SqFt sold in Feb 2026 → March 2026 Payable = 2,500 × 6 = ₹15,000
+  - If 3,005 SqFt sold in March 2026 → April 2026 Payable = 3,005 × 6 = ₹18,030
 
 ### Contractor LinePolish
-- **Formula**: Total Hours Worked × ₹250 per hour
-- **Data Source**: Line polish reports from `line_polish_reports` table
+- **Formula**: Previous Month's Total Hours Worked × ₹250 per hour
+- **Data Source**: Line polish reports from `line_polish_reports` table (previous month)
 - **Rate**: ₹250 per hour
-- **Example**: If 40 hours worked in April 2026 → Payable = 40 × 250 = ₹10,000
+- **Example**: 
+  - March 2026 payable = February 2026 hours
+  - If 35 hours worked in Feb 2026 → March 2026 Payable = 35 × 250 = ₹8,750
+  - If 40 hours worked in March 2026 → April 2026 Payable = 40 × 250 = ₹10,000
+
+### Carry Forward Balance
+Any unpaid balance from the previous month is automatically carried forward:
+- **Example for April 2026**:
+  - Carry Forward from March: ₹7,000
+  - April Payable (based on March data): ₹18,030
+  - Total Due: ₹7,000 + ₹18,030 = ₹25,030
 
 ## Manual Adjustments (New Feature!)
 
@@ -32,8 +54,8 @@ While auto-calculation provides accurate base amounts, you may need to adjust fo
 
 **Example:**
 ```
-April 2026:
-  Auto-calculated: ₹18,030 (3,005 SqFt × ₹6)
+April 2026 (payable based on March 2026 data):
+  Auto-calculated: ₹18,030 (3,005 SqFt sold in March × ₹6)
   You adjust to: ₹20,000 (added bonus)
   Carry forward from March: ₹100,000
   Paid: ₹0
@@ -61,14 +83,15 @@ Balance = ₹100,000 (C/F) + ₹20,000 (Payable) - ₹0 (Paid) = ₹120,000
 ### How to Adjust
 
 1. **View Auto-Calculated Amount**
-   - When you open the Contractors page for April 2026 or later
+   - When you open the Contractors page for March 2026 or later
    - You'll see a badge: "🤖 Auto-calculated from Sales/Line Polish data"
-   - The payable amount shown is automatically calculated
+   - The payable amount shown is automatically calculated from **previous month's** sales/hours
+   - Example: April 2026 shows payable based on March 2026 data
 
 2. **Make an Adjustment**
    - Click **"Adjust Payable"** button
-   - A modal opens showing:
-     - **Auto-Calculated Amount**: The base amount (e.g., ₹18,030)
+   - A modal opens showing:based on previous month (e.g., ₹18,030 from March sales)
+     - **Calculation Formula**: How it was calculated (March ., ₹18,030)
      - **Calculation Formula**: How it was calculated (SqFt × ₹6)
      - **Input Field**: Pre-filled with auto-calculated amount
    - Modify the amount as needed (add bonuses, apply deductions, etc.)
@@ -82,16 +105,18 @@ Balance = ₹100,000 (C/F) + ₹20,000 (Payable) - ₹0 (Paid) = ₹120,000
 4. **Reset to Auto-Calculation**
    - If you want to go back to automatic calculation
    - Click **"🔄 Reset to Auto"** button (appears only when manually adjusted)
-   - Confirm the reset
+   - Confirm the reset**previous month's** 
    - System recalculates based on current sales/hours data
    - Badge returns to: "🤖 Auto-calculated from Sales/Line Polish data"
 
 ## Implementation Details
 
 ### When Auto-Calculation Applies
-- **Start Date**: April 2026 (2026-04) and onwards
-- **Previous Months**: March 2026 and earlier use manual "Set Payable" function
-- **Reason**: Previous months' accounts are already settled
+- **Start Date**: March 2026 (2026-03) and onwards
+  - March 2026 payable = February 2026 sales/hours
+  - April 2026 payable = March 2026 sales/hours
+- **Previous Months**: February 2026 and earlier use manual "Set Payable" function
+- **Reason**: Previous months' accounts are already settled; auto-calculation starts from March 2026
 
 ### Database Schema
 
@@ -106,10 +131,11 @@ ADD COLUMN manually_adjusted BOOLEAN DEFAULT FALSE;
 
 ### How It Works
 
-#### Backend Logic (Automatic)
-1. **Page Load**: API checks if current month >= April 2026
+#### Backend Logic (Automatic)March 2026
 2. **Auto-Calculate**: 
-   - Queries sales/line polish data
+   - Queries **previous month's** sales/line polish data
+   - March 2026 → looks at February 2026 data
+   - April 2026 → looks at March 2026 data
    - Calculates payable amounts
    - **Only updates if `manually_adjusted = FALSE`**
 3. **Manual Override**:
@@ -119,6 +145,7 @@ ADD COLUMN manually_adjusted BOOLEAN DEFAULT FALSE;
 4. **Reset to Auto**:
    - When user clicks "Reset to Auto"
    - Sets `manually_adjusted = FALSE`
+   - Next page load recalculates amount from previous month's data
    - Next page load recalculates amount
 
 #### Frontend UI States
@@ -132,7 +159,7 @@ ADD COLUMN manually_adjusted BOOLEAN DEFAULT FALSE;
 **State 2: Manually Adjusted**
 ```
 ✏️ Manually adjusted (auto-calc disabled)
-[Adjust Payable] [🔄 Reset to Auto]
+[Adjust PayableMarch Reset to Auto]
 ```
 
 **State 3: Pre-April 2026**

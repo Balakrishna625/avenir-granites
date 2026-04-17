@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { AppLayout } from '@/components/AppLayout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Package, TrendingUp, DollarSign, Layers, BarChart3, Target, Edit2, Save, X } from 'lucide-react'
+import { ArrowLeft, Package, TrendingUp, DollarSign, Layers, BarChart3, Target, Edit2, Save, X, Sparkles } from 'lucide-react'
 
 interface BlockProduction {
   baseBlockName: string
@@ -472,11 +472,22 @@ function ConsignmentAnalyticsContent() {
                 return (
                   <div key={block.baseBlockName} className="border rounded-lg p-5 bg-gray-50">
                     <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{block.baseBlockName}</h3>
-                        <p className="text-sm text-gray-600">
-                          Original: {formatIndianNumber(block.originalMeasurement)} m (Gross)
-                        </p>
+                      <div className="flex items-center gap-3 flex-1">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">{block.baseBlockName}</h3>
+                          <p className="text-sm text-gray-600">
+                            Original: {formatIndianNumber(block.originalMeasurement)} m (Gross)
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/consignments/polish-analytics?id=${consignmentId}&blockName=${encodeURIComponent(block.baseBlockName)}`)}
+                          className="text-amber-600 hover:text-amber-800 hover:bg-amber-50"
+                          title="View Polish Analytics"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                        </Button>
                       </div>
                       <div className="text-right">
                         {hasData ? (

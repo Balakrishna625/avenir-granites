@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const consignmentId = searchParams.get('id')
+    const blockNameFilter = searchParams.get('blockName') // Optional: filter to specific block
 
     if (!consignmentId) {
       return NextResponse.json(
@@ -172,25 +173,16 @@ export async function GET(request: NextRequest) {
           linePolishToConsignmentMap[mcBlockName.toUpperCase()] = matchingConsignmentBlock
           
           if (mcNotes && mcNotes !== '') {
-            // The notes contain quarry owner's serial - this is what line polish workers use!
+            // The notes contain quarry owner's serial - map ONLY the exact note, not variations
+            // This prevents AVG-1331A from incorrectly matching AVG-1331C
             linePolishToConsignmentMap[mcNotes.toUpperCase()] = matchingConsignmentBlock
-            // Also map base without trailing letter (AVG-1329 -> AVG-1329A/B)
-            const base = mcNotes.replace(/[A-Z]$/i, '')
-            if (base && base !== mcNotes) {
-              linePolishToConsignmentMap[base.toUpperCase()] = matchingConsignmentBlock
-            }
           }
           
-          // Also create a fallback mapping by stripping the quarry code
+          // Also create a fallback mapping by stripping the quarry code (EXACT match only)
           // E.g., AVG-GK-1A → AVG-1A (in case line polish uses this format)
           const withoutQuarryCode = mcBlockName.replace(/^(AVG)-(SL|GK|SJ)-/i, '$1-')
           if (withoutQuarryCode !== mcBlockName) {
             linePolishToConsignmentMap[withoutQuarryCode.toUpperCase()] = matchingConsignmentBlock
-          }
-          // And map base without trailing letter
-          const mcBase = mcBlockName.replace(/[A-Z]$/i, '')
-          if (mcBase && mcBase !== mcBlockName) {
-            linePolishToConsignmentMap[mcBase.toUpperCase()] = matchingConsignmentBlock
           }
         }
       })
@@ -223,6 +215,7 @@ export async function GET(request: NextRequest) {
         polishType: 'polished' | 'laputra'
         activityDetail: string
         date?: string
+        grade?: string
       }>
       totalSlabs: number
       totalSqft: number
@@ -258,15 +251,10 @@ export async function GET(request: NextRequest) {
         if (!lpBlockName) return
 
         // Look up which consignment block this line polish activity belongs to
-        // Using the mapping we built from multi-cutter data
+        // Using the mapping we built from multi-cutter data (EXACT matches only)
         let matchingConsignmentBlock = linePolishToConsignmentMap[lpBlockName.toUpperCase()]
         if (!matchingConsignmentBlock) {
-          // Try base without trailing letter (AVG-1329)
-          const base = lpBlockName.replace(/[A-Z]$/i, '').toUpperCase()
-          matchingConsignmentBlock = linePolishToConsignmentMap[base]
-        }
-        if (!matchingConsignmentBlock) {
-          // Try stripping quarry code (AVG-1A)
+          // Try stripping quarry code for exact match (AVG-SL-1A → AVG-1A)
           const withoutQuarry = lpBlockName.replace(/^(AVG)-(SL|GK|SJ)-/i, '$1-').toUpperCase()
           matchingConsignmentBlock = linePolishToConsignmentMap[withoutQuarry]
         }
@@ -292,6 +280,7 @@ export async function GET(request: NextRequest) {
 
             const slabs = Number(activity.slabs) || 0
             const sqft = Number(activity.sqft) || 0
+            const grade = activity.grade || undefined // Extract grade if available
 
             polishByBlock[matchingConsignmentBlock].parts.push({
               partName: lpBlockName, // Show the actual line polish block name
@@ -299,7 +288,8 @@ export async function GET(request: NextRequest) {
               sqft,
               polishType: polishCategory,
               activityDetail: activity.activity,
-              date: report.date
+              date: report.date,
+              grade // Add grade to response
             })
 
             polishByBlock[matchingConsignmentBlock].totalSlabs += slabs
@@ -318,7 +308,15 @@ export async function GET(request: NextRequest) {
     })
 
     // 7. Calculate totals
-    const blockDetails = Object.values(polishByBlock).filter(block => block.parts.length > 0)
+    let blockDetails = Object.values(polishByBlock).filter(block => block.parts.length > 0)
+    
+    // Filter to specific block if requested
+    if (blockNameFilter) {
+      const normalizedFilter = normalizeBlockName(blockNameFilter)
+      blockDetails = blockDetails.filter(block => 
+        normalizeBlockName(block.baseBlockName) === normalizedFilter
+      )
+    }
     
     let totalSlabs = 0
     let totalSqft = 0

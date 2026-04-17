@@ -14,6 +14,7 @@ interface PolishPart {
   polishType: 'polished' | 'laputra'
   activityDetail: string
   date?: string
+  grade?: string // Add grade field
 }
 
 interface BlockPolishDetail {
@@ -71,6 +72,7 @@ function PolishAnalyticsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const consignmentId = searchParams.get('id')
+  const blockName = searchParams.get('blockName') // Get optional block filter
 
   const [analytics, setAnalytics] = useState<PolishAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
@@ -79,7 +81,11 @@ function PolishAnalyticsContent() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/consignments-new/polish-analytics?id=${consignmentId}`)
+      let url = `/api/consignments-new/polish-analytics?id=${consignmentId}`
+      if (blockName) {
+        url += `&blockName=${encodeURIComponent(blockName)}`
+      }
+      const response = await fetch(url)
       
       if (!response.ok) {
         throw new Error('Failed to fetch polish analytics')
@@ -153,7 +159,9 @@ function PolishAnalyticsContent() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Polish Analytics</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                Polish Analytics{blockName ? ` - ${blockName}` : ''}
+              </h1>
             </div>
             <p className="text-base sm:text-lg">
               <span className="text-gray-600">{consignment.consignmentNumber}</span>
@@ -360,6 +368,7 @@ function PolishAnalyticsContent() {
                             <tr>
                               <th className="text-left py-2 px-3 font-semibold text-gray-700">Part Name</th>
                               <th className="text-left py-2 px-3 font-semibold text-gray-700">Polish Type</th>
+                              <th className="text-left py-2 px-3 font-semibold text-gray-700">Grade</th>
                               <th className="text-right py-2 px-3 font-semibold text-gray-700">Slabs</th>
                               <th className="text-right py-2 px-3 font-semibold text-gray-700">Sq Ft</th>
                               <th className="text-left py-2 px-3 font-semibold text-gray-700">Activity</th>
@@ -378,6 +387,22 @@ function PolishAnalyticsContent() {
                                     {part.polishType === 'polished' ? 'Polished' : 'Laputra'}
                                   </span>
                                 </td>
+                                <td className="py-2 px-3">
+                                  {part.grade ? (
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                      part.grade === 'Blackline' ? 'bg-gray-800 text-white' :
+                                      part.grade === 'White line' ? 'bg-gray-200 text-gray-800' :
+                                      part.grade === 'Fresh' ? 'bg-green-100 text-green-800' :
+                                      part.grade === 'Patch' ? 'bg-yellow-100 text-yellow-800' :
+                                      part.grade === 'Variation' ? 'bg-purple-100 text-purple-800' :
+                                      'bg-blue-100 text-blue-800'
+                                    }`}>
+                                      {part.grade}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">-</span>
+                                  )}
+                                </td>
                                 <td className="py-2 px-3 text-right font-semibold text-gray-900">{part.slabs}</td>
                                 <td className="py-2 px-3 text-right font-semibold text-gray-900">{formatIndianNumber(part.sqft)}</td>
                                 <td className="py-2 px-3 text-gray-600 text-xs">{part.activityDetail}</td>
@@ -387,6 +412,7 @@ function PolishAnalyticsContent() {
                           <tfoot className="bg-gray-100 font-semibold">
                             <tr>
                               <td className="py-2 px-3 text-gray-700">Total</td>
+                              <td className="py-2 px-3"></td>
                               <td className="py-2 px-3"></td>
                               <td className="py-2 px-3 text-right text-indigo-600">{block.totalSlabs}</td>
                               <td className="py-2 px-3 text-right text-indigo-600">{formatIndianNumber(block.totalSqft)}</td>

@@ -86,6 +86,7 @@ interface LinePolishReport {
     activity: string;
     slabs: number;
     sqft: number;
+    grade?: string; // Optional: Blackline, White line, Fresh, Patch, Variation
   }>;
   no_of_workers: number;
   number_of_slabs: number;
@@ -678,6 +679,205 @@ export default function ProductionPage() {
               </tbody>
             </table>
           </div>
+        </Card>
+
+        {/* ========== GRADE-WISE BREAKDOWN ========== */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Award className="w-5 h-5 text-amber-600 mr-2" />
+              <h3 className="text-lg font-semibold text-gray-900">Quality Grade Breakdown</h3>
+            </div>
+          </div>
+          <p className="text-sm text-gray-600 mb-6">Polished slabs categorized by material type and quality grade</p>
+          
+          {(() => {
+            // Helper function to determine material type from block name
+            const getMaterialType = (blockName: string): 'S/G' | 'B/P' | 'Burgandy' => {
+              if (!blockName) return 'S/G'; // Default to S/G
+              
+              const normalized = blockName.toUpperCase().trim();
+              
+              // Check for specific prefixes
+              if (normalized.startsWith('SJ') || normalized.startsWith('SL') || 
+                  normalized.startsWith('VR') || normalized.startsWith('AVG')) {
+                return 'S/G';
+              }
+              
+              if (normalized.startsWith('GK')) {
+                return 'B/P';
+              }
+              
+              if (normalized.startsWith('BG')) {
+                return 'Burgandy';
+              }
+              
+              // Default to S/G if no match
+              return 'S/G';
+            };
+
+            // Calculate grade-wise statistics grouped by material type
+            interface GradeStats {
+              grade: string;
+              material: string;
+              totalSlabs: number;
+              totalSqft: number;
+              blocks: Map<string, { slabs: number; sqft: number }>;
+              color: string;
+              bgColor: string;
+            }
+
+            const gradeStatsMap = new Map<string, GradeStats>(); // Key: "material-grade"
+            
+            // Define grade colors
+            const gradeColors: Record<string, { color: string; bgColor: string }> = {
+              'Blackline': { color: 'text-gray-900', bgColor: 'bg-gray-100' },
+              'White line': { color: 'text-blue-900', bgColor: 'bg-blue-100' },
+              'Fresh': { color: 'text-green-900', bgColor: 'bg-green-100' },
+              'Patch': { color: 'text-orange-900', bgColor: 'bg-orange-100' },
+              'Variation': { color: 'text-purple-900', bgColor: 'bg-purple-100' }
+            };
+
+            // Process all line polish reports to extract grade data
+            linePolishReports.forEach(report => {
+              if (report.activities && Array.isArray(report.activities)) {
+                report.activities.forEach(activity => {
+                  // Only process polishing activities with grade
+                  if (activity.grade && activity.activity.toLowerCase().includes('polish')) {
+                    const grade = activity.grade;
+                    const material = getMaterialType(activity.block_name || '');
+                    const key = `${material}-${grade}`;
+                    
+                    if (!gradeStatsMap.has(key)) {
+                      gradeStatsMap.set(key, {
+                        grade,
+                        material,
+                        totalSlabs: 0,
+                        totalSqft: 0,
+                        blocks: new Map(),
+                        color: gradeColors[grade]?.color || 'text-gray-900',
+                        bgColor: gradeColors[grade]?.bgColor || 'bg-gray-100'
+                      });
+                    }
+
+                    const gradeStats = gradeStatsMap.get(key)!;
+                    gradeStats.totalSlabs += activity.slabs || 0;
+                    gradeStats.totalSqft += activity.sqft || 0;
+
+                    // Track block-level data
+                    if (activity.block_name) {
+                      const blockName = activity.block_name;
+                      if (!gradeStats.blocks.has(blockName)) {
+                        gradeStats.blocks.set(blockName, { slabs: 0, sqft: 0 });
+                      }
+                      const blockData = gradeStats.blocks.get(blockName)!;
+                      blockData.slabs += activity.slabs || 0;
+                      blockData.sqft += activity.sqft || 0;
+                    }
+                  }
+                });
+              }
+            });
+
+            // Group by material type
+            const materialGroups = new Map<string, GradeStats[]>();
+            Array.from(gradeStatsMap.values()).forEach(gradeStats => {
+              if (!materialGroups.has(gradeStats.material)) {
+                materialGroups.set(gradeStats.material, []);
+              }
+              materialGroups.get(gradeStats.material)!.push(gradeStats);
+            });
+
+            // Sort each material group by sqft descending
+            materialGroups.forEach(grades => {
+              grades.sort((a, b) => b.totalSqft - a.totalSqft);
+            });
+
+            if (gradeStatsMap.size === 0) {
+              return (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <Award className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No graded polishing data available for the selected period</p>
+                </div>
+              );
+            }
+
+            // Define material order and display names
+            const materialOrder: Array<{ key: 'S/G' | 'B/P' | 'Burgandy'; label: string }> = [
+              { key: 'S/G', label: 'Steel Grey' },
+              { key: 'B/P', label: 'Black Pearl' },
+              { key: 'Burgandy', label: 'Burgandy' }
+            ];
+
+            return (
+              <div className="space-y-6">
+                {materialOrder.map(({ key, label }) => {
+                  const grades = materialGroups.get(key);
+                  if (!grades || grades.length === 0) return null;
+
+                  return (
+                    <div key={key}>
+                      <h4 className="text-md font-bold text-gray-800 mb-3">
+                        {label}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {grades.map(gradeStats => {
+                          // Sort blocks by sqft descending
+                          const sortedBlocks = Array.from(gradeStats.blocks.entries())
+                            .sort((a, b) => b[1].sqft - a[1].sqft);
+
+                          return (
+                            <Card key={`${key}-${gradeStats.grade}`} className={`p-4 border-l-4 ${gradeStats.bgColor.replace('bg-', 'border-l-')}`}>
+                              <div className="flex items-center justify-between mb-3">
+                                <h5 className={`text-lg font-bold ${gradeStats.color}`}>
+                                  {gradeStats.grade}
+                                </h5>
+                                <Award className={`w-5 h-5 ${gradeStats.color}`} />
+                              </div>
+                              
+                              <div className="space-y-2 mb-4">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-600">Total Slabs:</span>
+                                  <span className="text-lg font-bold text-gray-900">{gradeStats.totalSlabs}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-600">Total Sq Ft:</span>
+                                  <span className="text-lg font-bold text-gray-900">{gradeStats.totalSqft.toLocaleString('en-IN')}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-600">Blocks:</span>
+                                  <span className="text-sm font-semibold text-gray-900">{gradeStats.blocks.size}</span>
+                                </div>
+                              </div>
+
+                              {sortedBlocks.length > 0 && (
+                                <div className="border-t pt-3">
+                                  <p className="text-xs font-semibold text-gray-700 mb-2">Block Details:</p>
+                                  <div className="max-h-48 overflow-y-auto">
+                                    <table className="w-full text-xs">
+                                      <tbody>
+                                        {sortedBlocks.map(([blockName, blockData]) => (
+                                          <tr key={blockName} className="border-b border-gray-100 last:border-0">
+                                            <td className="py-1.5 font-medium text-gray-700 text-left">{blockName}</td>
+                                            <td className="py-1.5 text-gray-600 text-center w-20">{blockData.slabs} slabs</td>
+                                            <td className="py-1.5 text-gray-900 font-medium text-right w-28">{blockData.sqft.toLocaleString('en-IN')} sqft</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </Card>
 
         {/* ========== SLAB PROCESSING FLOW ANALYSIS ========== */}

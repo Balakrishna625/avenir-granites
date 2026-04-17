@@ -181,8 +181,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * Auto-calculate contractor payables for months >= March 2026
- * - Contractor Dinesh: Total SqFt sold × ₹6
- * - Contractor LinePolish: Total hours worked × ₹250
+ * - Contractor Dinesh: PREVIOUS month's Total SqFt sold × ₹6 (Feb sales → March payable)
+ * - Contractor LinePolish: PREVIOUS month's Total hours worked × ₹250 (Feb hours → March payable)
  */
 async function autoCalculatePayables(month: string) {
   try {
@@ -228,12 +228,19 @@ async function autoCalculatePayables(month: string) {
 }
 
 /**
- * Calculate Dinesh's payable: Total SqFt sold × ₹6
+ * Calculate Dinesh's payable: PREVIOUS month's Total SqFt sold × ₹6
+ * Example: April 2026 payable is based on March 2026 sales
  */
 async function calculateDineshPayable(month: string) {
-  const [year, monthNum] = month.split('-');
+  const [year, monthNum] = month.split('-').map(Number);
   
-  // Get all sales for this month
+  // Calculate PREVIOUS month
+  const prevDate = new Date(year, monthNum - 2, 1); // -2 because monthNum is 1-indexed
+  const prevYear = prevDate.getFullYear();
+  const prevMonthNum = prevDate.getMonth() + 1; // getMonth() returns 0-indexed
+  const prevMonthStr = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}`;
+  
+  // Get all sales for PREVIOUS month
   const { data: sales, error } = await supabaseAdmin
     .from('sales')
     .select(`
@@ -241,8 +248,8 @@ async function calculateDineshPayable(month: string) {
       sale_date,
       total_sqft
     `)
-    .gte('sale_date', `${year}-${monthNum.padStart(2, '0')}-01`)
-    .lt('sale_date', getNextMonthStart(year, monthNum))
+    .gte('sale_date', `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-01`)
+    .lt('sale_date', getNextMonthStart(String(prevYear), String(prevMonthNum)))
     .order('sale_date', { ascending: true });
 
   if (error) {
@@ -257,28 +264,42 @@ async function calculateDineshPayable(month: string) {
   const rate_per_sqft = 6;
   const total_payable = total_sqft * rate_per_sqft;
 
-  console.log(`  💰 Dinesh: ${total_sqft} sqft × ₹${rate_per_sqft} = ₹${total_payable} (${sales?.length || 0} sales)`);
+  console.log(`  💰 Dinesh (${month} based on ${prevMonthStr} sales): ${total_sqft} sqft × ₹${rate_per_sqft} = ₹${total_payable} (${sales?.length || 0} sales)`);
 
   return {
     total_sqft,
     rate_per_sqft,
     total_payable,
-    sales_count: sales?.length || 0
+    sales_count: sales?.length || 0,
+    source_month: prevMonthStr
   };
 }
 
 /**
- * Calculate LinePolish's payable: Total hours worked × ₹250
+ * Calculate LinePolish's payable: PREVIOUS month's Total hours worked × ₹250
+ * Example: April 2026 payable is based on March 2026 hours
+ * Uses same query logic as line polish analytics API
  */
 async function calculateLinePolishPayable(month: string) {
-  const [year, monthNum] = month.split('-');
+  const [year, monthNum] = month.split('-').map(Number);
   
-  // Get all line polish reports for this month
+  // Calculate PREVIOUS month
+  const prevDate = new Date(year, monthNum - 2, 1); // -2 because monthNum is 1-indexed
+  const prevYear = prevDate.getFullYear();
+  const prevMonthNum = prevDate.getMonth() + 1; // getMonth() returns 0-indexed
+  const prevMonthStr = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}`;
+  
+  // Use SAME query logic as analytics API (inclusive end date)
+  const startDate = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-01`;
+  const lastDay = new Date(prevYear, prevMonthNum, 0).getDate();
+  const endDate = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
+  
+  // Get all line polish reports for PREVIOUS month
   const { data: reports, error } = await supabaseAdmin
     .from('line_polish_reports')
     .select('*')
-    .gte('date', `${year}-${monthNum.padStart(2, '0')}-01`)
-    .lt('date', getNextMonthStart(year, monthNum))
+    .gte('date', startDate)
+    .lte('date', endDate)  // Use .lte() like analytics API instead of .lt()
     .order('date', { ascending: true });
 
   if (error) {
@@ -286,20 +307,33 @@ async function calculateLinePolishPayable(month: string) {
     throw error;
   }
 
-  // Calculate total hours worked
-  const total_hours = reports?.reduce((sum, report) => sum + (parseFloat(report.no_of_hours?.toString() || '0')), 0) || 0;
+  // Calculate total hours worked (same as analytics API)
+  console.log(`\n📊 LinePolish Detailed Calculation for ${month} (based on ${prevMonthStr}):`);
+  console.log(`   Date Range: ${startDate} to ${endDate} (inclusive)`);
+  console.log(`   Reports Found: ${reports?.length || 0}`);
+  
+  const total_hours = reports?.reduce((sum, report, index) => {
+    const hours = parseFloat(report.no_of_hours?.toString() || '0');
+    if (index < 5 || hours === 0) { // Log first 5 and any zero-hour entries
+      console.log(`   Report ${index + 1}: Date=${report.date}, Hours=${hours}`);
+    }
+    return sum + hours;
+  }, 0) || 0;
+  
+  console.log(`   Total Hours: ${total_hours}`);
   
   // Rate: ₹250 per hour
   const rate_per_hour = 250;
   const total_payable = total_hours * rate_per_hour;
 
-  console.log(`  ⏱️ LinePolish: ${total_hours} hrs × ₹${rate_per_hour} = ₹${total_payable} (${reports?.length || 0} reports)`);
+  console.log(`  ⏱️ LinePolish (${month} based on ${prevMonthStr} hours): ${total_hours} hrs × ₹${rate_per_hour} = ₹${total_payable} (${reports?.length || 0} reports)\n`);
 
   return {
     total_hours,
     rate_per_hour,
     total_payable,
-    reports_count: reports?.length || 0
+    reports_count: reports?.length || 0,
+    source_month: prevMonthStr
   };
 }
 
