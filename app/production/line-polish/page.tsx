@@ -487,14 +487,16 @@ export default function LinePolishPage() {
           no_of_hours: '',
           rate_per_hour: '250',
           remarks: '',
-          activityRows: []
+          activityRows: [],
+          toolUsageRows: []
         },
         evening: {
           no_of_workers: '3',
           no_of_hours: '',
           rate_per_hour: '250',
           remarks: '',
-          activityRows: []
+          activityRows: [],
+          toolUsageRows: []
         }
       };
 
