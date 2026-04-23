@@ -99,7 +99,8 @@ export async function POST(request: Request) {
       remarks = '',
       createConsignment = true, // Default to true for backward compatibility
       onlyBill = false, // Only bill mode - no actual sale
-      jobWork = false // Job work mode - polishing service
+      jobWork = false, // Job work mode - polishing service
+      externalPurchase = false // External purchase - bought from outside, excluded from factory stats
     } = body;
 
     // Validation - different rules for onlyBill and jobWork modes
@@ -208,7 +209,8 @@ export async function POST(request: Request) {
         cash_expected: Number(cash_expected),
         remarks,
         only_bill: onlyBill,
-        job_work: jobWork
+        job_work: jobWork,
+        external_purchase: externalPurchase
       })
       .select()
       .single();

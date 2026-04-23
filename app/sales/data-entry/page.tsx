@@ -51,6 +51,7 @@ interface Sale {
   remarks: string
   only_bill?: boolean
   job_work?: boolean
+  external_purchase?: boolean
   factory_mining_rate?: number
   factory_mining_amount?: number
   factory_gst_amount?: number
@@ -108,6 +109,7 @@ interface FormData {
   createConsignment: boolean
   onlyBill: boolean
   entryType: 'sales' | 'onlyBill' | 'jobWork'
+  externalPurchase: boolean
 }
 
 function formatIndianNumber(num: number): string {
@@ -170,7 +172,8 @@ export default function SalesDataEntryPage() {
     remarks: '',
     createConsignment: true,
     onlyBill: false,
-    entryType: 'sales'
+    entryType: 'sales',
+    externalPurchase: false
   }), [])
 
   const [formData, setFormData] = useState<FormData>(initialFormData)
@@ -552,7 +555,8 @@ export default function SalesDataEntryPage() {
           remarks: formData.remarks,
           createConsignment: isOnlyBill ? false : (isJobWork ? true : formData.createConsignment),
           onlyBill: isOnlyBill,
-          jobWork: isJobWork
+          jobWork: isJobWork,
+          externalPurchase: formData.externalPurchase
         })
       })
 
@@ -661,7 +665,8 @@ export default function SalesDataEntryPage() {
         cash_expected: saleDetails.cash_expected.toString(),
         remarks: saleDetails.remarks || '',
         createConsignment: true, // Default to true when editing
-        entryType: saleDetails.job_work ? 'jobWork' : (saleDetails.only_bill ? 'onlyBill' : 'sales')
+        entryType: saleDetails.job_work ? 'jobWork' : (saleDetails.only_bill ? 'onlyBill' : 'sales'),
+        externalPurchase: saleDetails.external_purchase || false
       })
       
       setIsEditing(true)
@@ -707,8 +712,8 @@ export default function SalesDataEntryPage() {
   // CRITICAL: Exclude job_work entries - they are NOT sales, just service tracking
   const salesStats = useMemo(() => {
     const salesToCalculate = filterCustomerId === 'all' ? sales : sales.filter(s => s.customer_id === filterCustomerId)
-    // Filter out job_work entries - they should NOT be counted in sales statistics
-    const actualSales = salesToCalculate.filter(s => !s.job_work)
+    // Filter out job_work and external_purchase entries - they should NOT be counted in factory sales statistics
+    const actualSales = salesToCalculate.filter(s => !s.job_work && !s.external_purchase)
     // Calculate factory money from Only Bill sales (factory mining + factory GST)
     const onlyBillSales = actualSales.filter(s => s.only_bill)
     const factoryFromOnlyBill = onlyBillSales.reduce((sum, sale) => {
@@ -922,6 +927,20 @@ export default function SalesDataEntryPage() {
                 )}
                 {formData.entryType === 'jobWork' && (
                   <p className="text-xs text-purple-600 mt-1">Service tracking - NOT a sale</p>
+                )}
+                {formData.entryType === 'sales' && (
+                  <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.externalPurchase}
+                      onChange={(e) => handleInputChange('externalPurchase', e.target.checked)}
+                      className="w-4 h-4 accent-orange-500"
+                    />
+                    <span className="text-xs text-orange-700 font-medium">External Purchase</span>
+                  </label>
+                )}
+                {formData.externalPurchase && (
+                  <p className="text-xs text-orange-600 mt-0.5">Excluded from factory stats &amp; contractor payable</p>
                 )}
               </div>
 
@@ -1665,7 +1684,7 @@ export default function SalesDataEntryPage() {
                   
                   return (
                     <>
-                    <tr key={sale.id} className={`border-t hover:bg-gray-50 ${sale.job_work ? 'bg-purple-50/40' : ''}`}>
+                    <tr key={sale.id} className={`border-t hover:bg-gray-50 ${sale.job_work ? 'bg-purple-50/40' : sale.external_purchase ? 'bg-orange-50/40' : ''}`}>
                       <td className="px-3 py-2 text-center text-gray-600 font-medium">{index + 1}</td>
                       <td className="px-3 py-2 text-center">
                         <button
@@ -1700,6 +1719,11 @@ export default function SalesDataEntryPage() {
                           {sale.only_bill && (
                             <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
                               Only Bill
+                            </span>
+                          )}
+                          {sale.external_purchase && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 rounded">
+                              Ext. Purchase
                             </span>
                           )}
                         </div>

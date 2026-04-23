@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     // Fetch Sales Data
     const { data: salesData, error: salesError } = await supabaseAdmin
       .from('sales')
-      .select('sale_date, total_sqft, gross_total')
+      .select('sale_date, total_sqft, gross_total, external_purchase')
       .gte('sale_date', startDate)
       .lte('sale_date', endDate);
 
@@ -142,8 +142,10 @@ function aggregateMonthlyData(
       const date = new Date(record.sale_date);
       return date.getMonth() + 1 === month && date.getFullYear() === year;
     });
-    const salesSqft = salesFiltered.reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
-    const salesRevenue = salesFiltered.reduce((sum, r) => sum + (Number(r.gross_total) || 0), 0);
+    // Exclude external purchases from factory sales stats
+    const factorySales = salesFiltered.filter(r => !r.external_purchase);
+    const salesSqft = factorySales.reduce((sum, r) => sum + (Number(r.total_sqft) || 0), 0);
+    const salesRevenue = factorySales.reduce((sum, r) => sum + (Number(r.gross_total) || 0), 0);
 
     // Line Polish Worker Hours for this month
     const lpFiltered = linePolishData.filter(record => {

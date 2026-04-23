@@ -80,7 +80,8 @@ export async function PUT(
       rtgs_expected = 0,
       cash_expected = 0,
       remarks = '',
-      onlyBill = false // Only bill mode
+      onlyBill = false, // Only bill mode
+      externalPurchase = false // External purchase - excluded from factory stats
     } = body;
 
     // Validation - different rules for onlyBill mode
@@ -165,6 +166,7 @@ export async function PUT(
         cash_expected: Number(cash_expected),
         remarks,
         only_bill: onlyBill,
+        external_purchase: externalPurchase,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)

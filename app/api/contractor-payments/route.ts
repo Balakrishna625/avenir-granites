@@ -240,7 +240,7 @@ async function calculateDineshPayable(month: string) {
   const prevMonthNum = prevDate.getMonth() + 1; // getMonth() returns 0-indexed
   const prevMonthStr = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}`;
   
-  // Get all sales for PREVIOUS month
+  // Get all factory sales for PREVIOUS month (exclude external purchases)
   const { data: sales, error } = await supabaseAdmin
     .from('sales')
     .select(`
@@ -250,6 +250,7 @@ async function calculateDineshPayable(month: string) {
     `)
     .gte('sale_date', `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-01`)
     .lt('sale_date', getNextMonthStart(String(prevYear), String(prevMonthNum)))
+    .neq('external_purchase', true)
     .order('sale_date', { ascending: true });
 
   if (error) {
