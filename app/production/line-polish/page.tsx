@@ -87,6 +87,19 @@ interface LinePolishPreviousDue {
   created_at: string;
 }
 
+// Tool type → allowed grades mapping (outside component to avoid re-init)
+const TOOL_GRADES: Record<string, string[]> = {
+  resin_bond: ['100', '200', '400', '800', '1500', '3000', 'Final Lux', 'Apr 100', 'Apr 200'],
+  lapotra: ['16', '24', '36', '46', '60', '120', '240', '500', '1000', '1200'],
+  iron: ['60', '80', '150', '200'],
+};
+
+const TOOL_TYPE_LABELS: Record<string, string> = {
+  resin_bond: 'Resin Bond (R/B)',
+  lapotra: 'Lapotra',
+  iron: 'Iron',
+};
+
 // Activity detail row for grouped entries
 interface ActivityRow {
   id: string; // Temporary ID for React keys
@@ -97,12 +110,37 @@ interface ActivityRow {
   grade?: string; // Optional: Blackline, White line, Fresh, Patch, Variation
 }
 
+// Tool change row — one row per tool installed in a shift
+interface ToolUsageRow {
+  id: string;
+  tool_type: 'resin_bond' | 'lapotra' | 'iron';
+  grade: string;
+  brand: string;
+  sqft_produced: string;
+  notes: string;
+}
+
+// Fetched tool usage (from DB)
+interface LinePolishToolUsage {
+  id: string;
+  report_id: string;
+  shift: 'MORNING' | 'NIGHT';
+  tool_type: 'resin_bond' | 'lapotra' | 'iron';
+  grade: string;
+  brand?: string;
+  sqft_produced: number;
+  notes?: string;
+  created_at: string;
+  line_polish_reports?: { date: string; shift: string };
+}
+
 interface ShiftFormData {
   no_of_workers: string;
   no_of_hours: string;
   rate_per_hour: string;
   remarks: string;
   activityRows: ActivityRow[]; // Multiple activity rows
+  toolUsageRows: ToolUsageRow[]; // Tool changes for this shift
 }
 
 interface FormData {
@@ -119,6 +157,7 @@ const fmt = (value: string | number): string => {
 export default function LinePolishPage() {
   const { showToast } = useToast();
   const [reports, setReports] = useState<LinePolishReport[]>([]);
+  const [toolUsages, setToolUsages] = useState<LinePolishToolUsage[]>([]);
   const [payments, setPayments] = useState<LinePolishPayment[]>([]);
   const [previousDues, setPreviousDues] = useState<LinePolishPreviousDue[]>([]);
   const [monthlyBalance, setMonthlyBalance] = useState<MonthlyBalance | null>(null);
@@ -158,7 +197,8 @@ export default function LinePolishPage() {
           number_of_slabs: '',
           total_sqft: ''
         }
-      ]
+      ],
+      toolUsageRows: []
     },
     evening: {
       no_of_workers: '3', // Prefilled with 3
@@ -173,7 +213,8 @@ export default function LinePolishPage() {
           number_of_slabs: '',
           total_sqft: ''
         }
-      ]
+      ],
+      toolUsageRows: []
     }
   }), []); // Empty dependency array - only create once
 
@@ -200,6 +241,7 @@ export default function LinePolishPage() {
   useEffect(() => {
     fetchReports();
     fetchPayments();
+    fetchToolUsages();
   }, []);
 
   useEffect(() => {
@@ -242,6 +284,18 @@ export default function LinePolishPage() {
       }
     } catch (error) {
       console.error('Error fetching payments:', error);
+    }
+  };
+
+  const fetchToolUsages = async () => {
+    try {
+      const response = await fetch('/api/line-polish-tool-usage');
+      if (response.ok) {
+        const data = await response.json();
+        setToolUsages(data);
+      }
+    } catch (error) {
+      console.error('Error fetching tool usages:', error);
     }
   };
 
@@ -336,6 +390,60 @@ export default function LinePolishPage() {
       [shift]: {
         ...prev[shift],
         activityRows: prev[shift].activityRows.filter(row => row.id !== rowId)
+      }
+    }));
+  };
+
+  const addToolUsageRow = (shift: 'morning' | 'evening') => {
+    setFormData(prev => ({
+      ...prev,
+      [shift]: {
+        ...prev[shift],
+        toolUsageRows: [
+          ...prev[shift].toolUsageRows,
+          {
+            id: crypto.randomUUID(),
+            tool_type: 'resin_bond',
+            grade: '',
+            brand: '',
+            sqft_produced: '',
+            notes: ''
+          }
+        ]
+      }
+    }));
+  };
+
+  const removeToolUsageRow = (shift: 'morning' | 'evening', rowId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [shift]: {
+        ...prev[shift],
+        toolUsageRows: prev[shift].toolUsageRows.filter(row => row.id !== rowId)
+      }
+    }));
+  };
+
+  const handleToolUsageRowChange = (
+    shift: 'morning' | 'evening',
+    rowId: string,
+    field: keyof ToolUsageRow,
+    value: string
+  ) => {
+    setFormData(prev => ({
+      ...prev,
+      [shift]: {
+        ...prev[shift],
+        toolUsageRows: prev[shift].toolUsageRows.map(row =>
+          row.id === rowId
+            ? {
+                ...row,
+                [field]: value,
+                // Reset grade when tool type changes
+                ...(field === 'tool_type' ? { grade: '' } : {})
+              }
+            : row
+        )
       }
     }));
   };
@@ -763,9 +871,10 @@ export default function LinePolishPage() {
         });
       }
 
-      // Submit all entries (one or two shifts)
+      // Submit all entries (one or two shifts) and their tool usages
       let allSuccess = true;
       for (const entry of entries) {
+        const shiftKey = entry.shift === 'MORNING' ? 'morning' : 'evening';
         const response = await fetch('/api/line-polish-reports', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -779,6 +888,29 @@ export default function LinePolishPage() {
           allSuccess = false;
           break;
         }
+
+        // Save tool usages for this shift (if any)
+        const savedReport = await response.json();
+        const toolRows = formData[shiftKey].toolUsageRows.filter(
+          r => r.tool_type && r.grade && parseFloat(r.sqft_produced) > 0
+        );
+        if (toolRows.length > 0) {
+          await fetch('/api/line-polish-tool-usage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              report_id: savedReport.id,
+              shift: entry.shift,
+              usages: toolRows.map(r => ({
+                tool_type: r.tool_type,
+                grade: r.grade,
+                brand: r.brand,
+                sqft_produced: r.sqft_produced,
+                notes: r.notes,
+              }))
+            })
+          });
+        }
       }
 
       if (allSuccess) {
@@ -787,6 +919,7 @@ export default function LinePolishPage() {
         setInitialFormState(freshFormData);
         allowNavigation(); // Clear unsaved changes warning
         await fetchReports();
+        await fetchToolUsages();
         
         // Update monthly balance for the report's month
         const reportMonth = formData.date.slice(0, 7);
@@ -1690,6 +1823,90 @@ export default function LinePolishPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Morning Tool Changes */}
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold text-orange-900 flex items-center gap-1">
+                          🔧 Tool Changes (Morning)
+                          <span className="font-normal text-orange-600 ml-1">— track each bit/segment installed this shift</span>
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => addToolUsageRow('morning')}
+                          className="text-xs px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                        >
+                          + Add Tool
+                        </button>
+                      </div>
+                      {formData.morning.toolUsageRows.length === 0 ? (
+                        <p className="text-xs text-orange-400 italic">No tool changes recorded — click "Add Tool" to track.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {formData.morning.toolUsageRows.map((row, idx) => (
+                            <div key={row.id} className="grid grid-cols-12 gap-1 items-center bg-white border border-orange-100 rounded p-1">
+                              <div className="col-span-1 text-xs text-orange-500 font-bold text-center">#{idx + 1}</div>
+                              <div className="col-span-3">
+                                <select
+                                  value={row.tool_type}
+                                  onChange={(e) => handleToolUsageRowChange('morning', row.id, 'tool_type', e.target.value)}
+                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+                                >
+                                  <option value="resin_bond">Resin Bond (R/B)</option>
+                                  <option value="lapotra">Lapotra</option>
+                                  <option value="iron">Iron</option>
+                                </select>
+                              </div>
+                              <div className="col-span-2">
+                                <select
+                                  value={row.grade}
+                                  onChange={(e) => handleToolUsageRowChange('morning', row.id, 'grade', e.target.value)}
+                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+                                >
+                                  <option value="">Grade</option>
+                                  {(TOOL_GRADES[row.tool_type] || []).map(g => (
+                                    <option key={g} value={g}>{g}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="col-span-2">
+                                <input
+                                  type="text"
+                                  placeholder="Brand"
+                                  value={row.brand}
+                                  onChange={(e) => handleToolUsageRowChange('morning', row.id, 'brand', e.target.value)}
+                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                />
+                              </div>
+                              <div className="col-span-3">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="SFT produced"
+                                  value={row.sqft_produced}
+                                  onChange={(e) => handleToolUsageRowChange('morning', row.id, 'sqft_produced', e.target.value)}
+                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                />
+                              </div>
+                              <div className="col-span-1 flex justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeToolUsageRow('morning', row.id)}
+                                  className="text-red-500 hover:text-red-700"
+                                  title="Remove"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          <p className="text-xs text-orange-500 mt-1">
+                            Total SFT tracked: <strong>{formData.morning.toolUsageRows.reduce((s, r) => s + (parseFloat(r.sqft_produced) || 0), 0).toFixed(2)}</strong>
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1881,6 +2098,90 @@ export default function LinePolishPage() {
                           <span className="ml-2 font-semibold text-indigo-700">{fmt(calculateShiftTotals('evening').totalAmount)}</span>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Evening Tool Changes */}
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold text-orange-900 flex items-center gap-1">
+                          🔧 Tool Changes (Evening)
+                          <span className="font-normal text-orange-600 ml-1">— track each bit/segment installed this shift</span>
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => addToolUsageRow('evening')}
+                          className="text-xs px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                        >
+                          + Add Tool
+                        </button>
+                      </div>
+                      {formData.evening.toolUsageRows.length === 0 ? (
+                        <p className="text-xs text-orange-400 italic">No tool changes recorded — click "Add Tool" to track.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {formData.evening.toolUsageRows.map((row, idx) => (
+                            <div key={row.id} className="grid grid-cols-12 gap-1 items-center bg-white border border-orange-100 rounded p-1">
+                              <div className="col-span-1 text-xs text-orange-500 font-bold text-center">#{idx + 1}</div>
+                              <div className="col-span-3">
+                                <select
+                                  value={row.tool_type}
+                                  onChange={(e) => handleToolUsageRowChange('evening', row.id, 'tool_type', e.target.value)}
+                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+                                >
+                                  <option value="resin_bond">Resin Bond (R/B)</option>
+                                  <option value="lapotra">Lapotra</option>
+                                  <option value="iron">Iron</option>
+                                </select>
+                              </div>
+                              <div className="col-span-2">
+                                <select
+                                  value={row.grade}
+                                  onChange={(e) => handleToolUsageRowChange('evening', row.id, 'grade', e.target.value)}
+                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+                                >
+                                  <option value="">Grade</option>
+                                  {(TOOL_GRADES[row.tool_type] || []).map(g => (
+                                    <option key={g} value={g}>{g}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="col-span-2">
+                                <input
+                                  type="text"
+                                  placeholder="Brand"
+                                  value={row.brand}
+                                  onChange={(e) => handleToolUsageRowChange('evening', row.id, 'brand', e.target.value)}
+                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                />
+                              </div>
+                              <div className="col-span-3">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="SFT produced"
+                                  value={row.sqft_produced}
+                                  onChange={(e) => handleToolUsageRowChange('evening', row.id, 'sqft_produced', e.target.value)}
+                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                />
+                              </div>
+                              <div className="col-span-1 flex justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeToolUsageRow('evening', row.id)}
+                                  className="text-red-500 hover:text-red-700"
+                                  title="Remove"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          <p className="text-xs text-orange-500 mt-1">
+                            Total SFT tracked: <strong>{formData.evening.toolUsageRows.reduce((s, r) => s + (parseFloat(r.sqft_produced) || 0), 0).toFixed(2)}</strong>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2527,6 +2828,179 @@ export default function LinePolishPage() {
               })()}
             </div>
           </div>
+
+          {/* ─── Tool Usage Analytics ─── */}
+          {(() => {
+            // Filter tool usages to the selected month via their linked report's date
+            const monthToolUsages = toolUsages.filter(tu => {
+              if (showAllRecords) return true;
+              const linkedReport = reports.find(r => r.id === tu.report_id);
+              return linkedReport && linkedReport.date.slice(0, 7) === selectedMonth;
+            });
+
+            if (monthToolUsages.length === 0) return null;
+
+            // Aggregate: per tool_type → grade → { total_sqft, count, brands }
+            type ToolStat = { tool_type: string; grade: string; total_sqft: number; count: number; brands: string[] };
+            const statsMap: Record<string, ToolStat> = {};
+            monthToolUsages.forEach(tu => {
+              const key = `${tu.tool_type}|${tu.grade}`;
+              if (!statsMap[key]) {
+                statsMap[key] = { tool_type: tu.tool_type, grade: tu.grade, total_sqft: 0, count: 0, brands: [] };
+              }
+              statsMap[key].total_sqft += Number(tu.sqft_produced) || 0;
+              statsMap[key].count += 1;
+              if (tu.brand && !statsMap[key].brands.includes(tu.brand)) {
+                statsMap[key].brands.push(tu.brand);
+              }
+            });
+
+            const allStats = Object.values(statsMap).sort((a, b) => b.total_sqft - a.total_sqft);
+
+            // Per tool type totals
+            const typeTotals: Record<string, number> = { resin_bond: 0, lapotra: 0, iron: 0 };
+            monthToolUsages.forEach(tu => {
+              typeTotals[tu.tool_type] = (typeTotals[tu.tool_type] || 0) + (Number(tu.sqft_produced) || 0);
+            });
+
+            // Best performing grade (highest avg SFT per use)
+            const best = allStats.length > 0
+              ? allStats.reduce((top, s) =>
+                  (s.total_sqft / s.count) > (top.total_sqft / top.count) ? s : top
+                )
+              : null;
+
+            return (
+              <div className="bg-white rounded-lg shadow-sm border">
+                <div className="px-6 py-4 border-b bg-orange-50">
+                  <h3 className="text-lg font-semibold text-orange-900 flex items-center gap-2">
+                    🔧 Tool Usage Analytics
+                  </h3>
+                  <p className="text-sm text-orange-600 mt-1">
+                    SFT produced per consumable tool — {showAllRecords ? 'All time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+
+                <div className="p-4 space-y-4">
+                  {/* Summary cards per tool type */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                      { key: 'resin_bond', label: 'Resin Bond (R/B)', color: 'blue' },
+                      { key: 'lapotra',    label: 'Lapotra',          color: 'green' },
+                      { key: 'iron',       label: 'Iron Segments',    color: 'gray' },
+                    ].map(({ key, label, color }) => {
+                      const sqft = typeTotals[key] || 0;
+                      const uses = monthToolUsages.filter(t => t.tool_type === key).length;
+                      if (sqft === 0) return null;
+                      return (
+                        <div key={key} className={`rounded-lg border p-4 bg-${color}-50 border-${color}-200`}>
+                          <p className={`text-sm font-semibold text-${color}-800`}>{label}</p>
+                          <p className={`text-2xl font-bold text-${color}-700 mt-1`}>
+                            {sqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })} SFT
+                          </p>
+                          <p className={`text-xs text-${color}-600 mt-1`}>
+                            {uses} tool use{uses !== 1 ? 's' : ''} · avg {uses > 0 ? (sqft / uses).toFixed(0) : 0} SFT/use
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {best && (
+                    <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-4 py-2 text-sm text-yellow-900">
+                      🏆 <strong>Best performing:</strong> {TOOL_TYPE_LABELS[best.tool_type]} Grade <strong>{best.grade}</strong>
+                      {best.brands.length > 0 && <> ({best.brands.join(', ')})</>}
+                      {' '}— avg <strong>{(best.total_sqft / best.count).toFixed(0)} SFT/use</strong>
+                    </div>
+                  )}
+
+                  {/* Detailed breakdown table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-orange-50">
+                          <th className="text-left py-2 px-3 font-medium text-gray-700">Tool Type</th>
+                          <th className="text-left py-2 px-3 font-medium text-gray-700">Grade</th>
+                          <th className="text-left py-2 px-3 font-medium text-gray-700">Brand(s)</th>
+                          <th className="text-right py-2 px-3 font-medium text-gray-700">Uses</th>
+                          <th className="text-right py-2 px-3 font-medium text-gray-700">Total SFT</th>
+                          <th className="text-right py-2 px-3 font-medium text-gray-700">Avg SFT / Use</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allStats.map(stat => (
+                          <tr key={`${stat.tool_type}|${stat.grade}`} className="border-b hover:bg-orange-50">
+                            <td className="py-2 px-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                stat.tool_type === 'resin_bond' ? 'bg-blue-100 text-blue-800' :
+                                stat.tool_type === 'lapotra'    ? 'bg-green-100 text-green-800' :
+                                                                   'bg-gray-100 text-gray-800'
+                              }`}>
+                                {TOOL_TYPE_LABELS[stat.tool_type]}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 font-semibold text-gray-900">{stat.grade}</td>
+                            <td className="py-2 px-3 text-gray-600">{stat.brands.join(', ') || '—'}</td>
+                            <td className="py-2 px-3 text-right text-gray-700">{stat.count}</td>
+                            <td className="py-2 px-3 text-right font-bold text-orange-700">
+                              {stat.total_sqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2 px-3 text-right text-gray-700">
+                              {(stat.total_sqft / stat.count).toFixed(0)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Per-use history */}
+                  <details className="group">
+                    <summary className="cursor-pointer text-sm font-medium text-orange-700 hover:text-orange-900 select-none">
+                      ▶ Show all tool change entries ({monthToolUsages.length})
+                    </summary>
+                    <div className="mt-2 overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b bg-gray-50">
+                            <th className="text-left py-2 px-3 font-medium text-gray-600">Date</th>
+                            <th className="text-left py-2 px-3 font-medium text-gray-600">Shift</th>
+                            <th className="text-left py-2 px-3 font-medium text-gray-600">Tool</th>
+                            <th className="text-left py-2 px-3 font-medium text-gray-600">Grade</th>
+                            <th className="text-left py-2 px-3 font-medium text-gray-600">Brand</th>
+                            <th className="text-right py-2 px-3 font-medium text-gray-600">SFT Produced</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...monthToolUsages]
+                            .sort((a, b) => {
+                              const da = reports.find(r => r.id === a.report_id)?.date || '';
+                              const db = reports.find(r => r.id === b.report_id)?.date || '';
+                              return db.localeCompare(da);
+                            })
+                            .map(tu => {
+                              const report = reports.find(r => r.id === tu.report_id);
+                              return (
+                                <tr key={tu.id} className="border-b hover:bg-orange-50">
+                                  <td className="py-1.5 px-3">{report ? formatDisplayDate(report.date) : '—'}</td>
+                                  <td className="py-1.5 px-3">{tu.shift === 'MORNING' ? 'Morning' : 'Night'}</td>
+                                  <td className="py-1.5 px-3">{TOOL_TYPE_LABELS[tu.tool_type]}</td>
+                                  <td className="py-1.5 px-3 font-medium">{tu.grade}</td>
+                                  <td className="py-1.5 px-3 text-gray-600">{tu.brand || '—'}</td>
+                                  <td className="py-1.5 px-3 text-right font-semibold text-orange-700">
+                                    {Number(tu.sqft_produced).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                </div>
+              </div>
+            );
+          })()}
 
       </div>
     </AppLayout>
