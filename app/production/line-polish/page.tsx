@@ -506,6 +506,52 @@ export default function LinePolishPage() {
         }
       };
 
+      // ── Helper: parse a tool-change bullet like "* 400 Cherukuru R/B → …" ──
+      function parseToolBullet(bulletLine: string): { tool_type: 'resin_bond'|'lapotra'|'iron'; grade: string; brand: string } | null {
+        // Strip bullet marker and everything from → onwards
+        let t = bulletLine.replace(/^[\*\-\•]\s*/, '').replace(/\s*→.*$/, '').trim();
+
+        // Detect tool type and strip keyword from remaining text
+        let tool_type: 'resin_bond'|'lapotra'|'iron'|null = null;
+        if (/R\/B|Resin\s*Bond|Resin/i.test(t)) {
+          tool_type = 'resin_bond';
+          t = t.replace(/R\/B|Resin\s*Bond|Resin/gi, '').trim();
+        } else if (/Lapotra|Laputra/i.test(t)) {
+          tool_type = 'lapotra';
+          t = t.replace(/Lapotra|Laputra/gi, '').trim();
+        } else if (/\bIron\b/i.test(t)) {
+          tool_type = 'iron';
+          t = t.replace(/\bIron\b/gi, '').trim();
+        }
+        if (!tool_type) return null;
+
+        // Match grade from known TOOL_GRADES (longest first to handle multi-word grades)
+        const knownGrades = TOOL_GRADES[tool_type];
+        let matchedGrade = '';
+        const sortedGrades = [...knownGrades].sort((a, b) => b.length - a.length);
+        for (const g of sortedGrades) {
+          const escaped = g.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+          const rx = new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`, 'i');
+          if (rx.test(t)) {
+            matchedGrade = g;
+            t = t.replace(new RegExp(escaped, 'i'), '').trim();
+            break;
+          }
+        }
+        // Fallback: any 2-4 digit number as grade
+        if (!matchedGrade) {
+          const numMatch = t.match(/\b(\d{2,4})\b/);
+          if (numMatch) {
+            matchedGrade = numMatch[1];
+            t = t.replace(numMatch[0], '').trim();
+          }
+        }
+
+        // Remaining text (cleaned) is the brand
+        const brand = t.replace(/^[,\s]+|[,\s]+$/g, '').trim();
+        return { tool_type, grade: matchedGrade, brand };
+      }
+
       let currentShift: 'morning' | 'evening' | null = null;
       let inTableSection = false;
       let inNotesSection = false;
@@ -567,6 +613,25 @@ export default function LinePolishPage() {
         // Skip horizontal separators (but exit notes section)
         else if (line.match(/^[-=*_]{3,}$/)) {
           inNotesSection = false;
+          lineProcessed = true;
+        }
+        // Skip tool-change section headers (### 🔄 Tool Change / Tracking)
+        else if (line.match(/###.*(?:Tool\s*Change|Tracking|🔄)/i)) {
+          lineProcessed = true;
+        }
+        // Parse tool-change bullet points: "* 400 Cherukuru R/B → …"
+        else if (currentShift && line.match(/^[\*\-\•]\s+/) &&
+                 /R\/B|Resin\s*Bond|Resin|Lapotra|Laputra|\bIron\b/i.test(line)) {
+          const parsed = parseToolBullet(line);
+          if (parsed && parsed.grade) {
+            newFormData[currentShift].toolUsageRows.push({
+              id: crypto.randomUUID(),
+              tool_type: parsed.tool_type,
+              grade: parsed.grade,
+              brand: parsed.brand,
+              notes: ''
+            });
+          }
           lineProcessed = true;
         }
         // Collect notes if in notes section
