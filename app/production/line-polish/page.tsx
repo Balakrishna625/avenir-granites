@@ -116,7 +116,6 @@ interface ToolUsageRow {
   tool_type: 'resin_bond' | 'lapotra' | 'iron';
   grade: string;
   brand: string;
-  sqft_produced: string;
   notes: string;
 }
 
@@ -158,6 +157,9 @@ export default function LinePolishPage() {
   const { showToast } = useToast();
   const [reports, setReports] = useState<LinePolishReport[]>([]);
   const [toolUsages, setToolUsages] = useState<LinePolishToolUsage[]>([]);
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [addingBrandFor, setAddingBrandFor] = useState<string | null>(null);
+  const [newBrandText, setNewBrandText] = useState('');
   const [payments, setPayments] = useState<LinePolishPayment[]>([]);
   const [previousDues, setPreviousDues] = useState<LinePolishPreviousDue[]>([]);
   const [monthlyBalance, setMonthlyBalance] = useState<MonthlyBalance | null>(null);
@@ -293,6 +295,11 @@ export default function LinePolishPage() {
       if (response.ok) {
         const data = await response.json();
         setToolUsages(data);
+        const brands = [...new Set(
+          data.filter((t: LinePolishToolUsage) => t.brand)
+              .map((t: LinePolishToolUsage) => t.brand as string)
+        )] as string[];
+        setAvailableBrands(prev => [...new Set([...prev, ...brands])]);
       }
     } catch (error) {
       console.error('Error fetching tool usages:', error);
@@ -406,7 +413,6 @@ export default function LinePolishPage() {
             tool_type: 'resin_bond',
             grade: '',
             brand: '',
-            sqft_produced: '',
             notes: ''
           }
         ]
@@ -894,7 +900,7 @@ export default function LinePolishPage() {
         // Save tool usages for this shift (if any)
         const savedReport = await response.json();
         const toolRows = formData[shiftKey].toolUsageRows.filter(
-          r => r.tool_type && r.grade && parseFloat(r.sqft_produced) > 0
+          r => r.tool_type && r.grade
         );
         if (toolRows.length > 0) {
           await fetch('/api/line-polish-tool-usage', {
@@ -907,7 +913,7 @@ export default function LinePolishPage() {
                 tool_type: r.tool_type,
                 grade: r.grade,
                 brand: r.brand,
-                sqft_produced: r.sqft_produced,
+                sqft_produced: 0,
                 notes: r.notes,
               }))
             })
@@ -1829,10 +1835,7 @@ export default function LinePolishPage() {
                     {/* Morning Tool Changes */}
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 space-y-2">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-semibold text-orange-900 flex items-center gap-1">
-                          🔧 Tool Changes (Morning)
-                          <span className="font-normal text-orange-600 ml-1">— track each bit/segment installed this shift</span>
-                        </h4>
+                        <h4 className="text-xs font-semibold text-orange-900">🔧 Tool Changes (Morning)</h4>
                         <button
                           type="button"
                           onClick={() => addToolUsageRow('morning')}
@@ -1842,7 +1845,7 @@ export default function LinePolishPage() {
                         </button>
                       </div>
                       {formData.morning.toolUsageRows.length === 0 ? (
-                        <p className="text-xs text-orange-400 italic">No tool changes recorded — click "Add Tool" to track.</p>
+                        <p className="text-xs text-orange-400 italic">No tool changes recorded — click "+ Add Tool" to track.</p>
                       ) : (
                         <div className="space-y-1">
                           {formData.morning.toolUsageRows.map((row, idx) => (
@@ -1859,7 +1862,7 @@ export default function LinePolishPage() {
                                   <option value="iron">Iron</option>
                                 </select>
                               </div>
-                              <div className="col-span-2">
+                              <div className="col-span-3">
                                 <select
                                   value={row.grade}
                                   onChange={(e) => handleToolUsageRowChange('morning', row.id, 'grade', e.target.value)}
@@ -1871,25 +1874,52 @@ export default function LinePolishPage() {
                                   ))}
                                 </select>
                               </div>
-                              <div className="col-span-2">
-                                <input
-                                  type="text"
-                                  placeholder="Brand"
-                                  value={row.brand}
-                                  onChange={(e) => handleToolUsageRowChange('morning', row.id, 'brand', e.target.value)}
-                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
-                                />
-                              </div>
-                              <div className="col-span-3">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="SFT produced"
-                                  value={row.sqft_produced}
-                                  onChange={(e) => handleToolUsageRowChange('morning', row.id, 'sqft_produced', e.target.value)}
-                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
-                                />
+                              <div className="col-span-4">
+                                {addingBrandFor === row.id ? (
+                                  <div className="flex gap-1 items-center">
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      placeholder="New brand name"
+                                      value={newBrandText}
+                                      onChange={(e) => setNewBrandText(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && newBrandText.trim()) {
+                                          const b = newBrandText.trim();
+                                          setAvailableBrands(prev => [...new Set([...prev, b])]);
+                                          handleToolUsageRowChange('morning', row.id, 'brand', b);
+                                          setAddingBrandFor(null); setNewBrandText('');
+                                        } else if (e.key === 'Escape') {
+                                          setAddingBrandFor(null); setNewBrandText('');
+                                        }
+                                      }}
+                                      className="flex-1 min-w-0 px-1 py-1 border border-orange-400 rounded text-xs focus:outline-none"
+                                    />
+                                    <button type="button" onClick={() => {
+                                      const b = newBrandText.trim();
+                                      if (b) {
+                                        setAvailableBrands(prev => [...new Set([...prev, b])]);
+                                        handleToolUsageRowChange('morning', row.id, 'brand', b);
+                                      }
+                                      setAddingBrandFor(null); setNewBrandText('');
+                                    }} className="text-green-600 hover:text-green-800 font-bold text-xs">✓</button>
+                                    <button type="button" onClick={() => { setAddingBrandFor(null); setNewBrandText(''); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                                  </div>
+                                ) : (
+                                  <div className="flex gap-1 items-center">
+                                    <select
+                                      value={row.brand}
+                                      onChange={(e) => handleToolUsageRowChange('morning', row.id, 'brand', e.target.value)}
+                                      className="flex-1 min-w-0 px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+                                    >
+                                      <option value="">Brand</option>
+                                      {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </select>
+                                    <button type="button" onClick={() => { setAddingBrandFor(row.id); setNewBrandText(''); }}
+                                      className="text-orange-600 hover:text-orange-800 font-bold text-xs border border-orange-300 rounded px-1 py-0.5 bg-white"
+                                      title="Add new brand">+</button>
+                                  </div>
+                                )}
                               </div>
                               <div className="col-span-1 flex justify-center">
                                 <button
@@ -1903,9 +1933,6 @@ export default function LinePolishPage() {
                               </div>
                             </div>
                           ))}
-                          <p className="text-xs text-orange-500 mt-1">
-                            Total SFT tracked: <strong>{formData.morning.toolUsageRows.reduce((s, r) => s + (parseFloat(r.sqft_produced) || 0), 0).toFixed(2)}</strong>
-                          </p>
                         </div>
                       )}
                     </div>
@@ -2105,10 +2132,7 @@ export default function LinePolishPage() {
                     {/* Evening Tool Changes */}
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 space-y-2">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-semibold text-orange-900 flex items-center gap-1">
-                          🔧 Tool Changes (Evening)
-                          <span className="font-normal text-orange-600 ml-1">— track each bit/segment installed this shift</span>
-                        </h4>
+                        <h4 className="text-xs font-semibold text-orange-900">🔧 Tool Changes (Evening)</h4>
                         <button
                           type="button"
                           onClick={() => addToolUsageRow('evening')}
@@ -2118,7 +2142,7 @@ export default function LinePolishPage() {
                         </button>
                       </div>
                       {formData.evening.toolUsageRows.length === 0 ? (
-                        <p className="text-xs text-orange-400 italic">No tool changes recorded — click "Add Tool" to track.</p>
+                        <p className="text-xs text-orange-400 italic">No tool changes recorded — click "+ Add Tool" to track.</p>
                       ) : (
                         <div className="space-y-1">
                           {formData.evening.toolUsageRows.map((row, idx) => (
@@ -2135,7 +2159,7 @@ export default function LinePolishPage() {
                                   <option value="iron">Iron</option>
                                 </select>
                               </div>
-                              <div className="col-span-2">
+                              <div className="col-span-3">
                                 <select
                                   value={row.grade}
                                   onChange={(e) => handleToolUsageRowChange('evening', row.id, 'grade', e.target.value)}
@@ -2147,25 +2171,52 @@ export default function LinePolishPage() {
                                   ))}
                                 </select>
                               </div>
-                              <div className="col-span-2">
-                                <input
-                                  type="text"
-                                  placeholder="Brand"
-                                  value={row.brand}
-                                  onChange={(e) => handleToolUsageRowChange('evening', row.id, 'brand', e.target.value)}
-                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
-                                />
-                              </div>
-                              <div className="col-span-3">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="SFT produced"
-                                  value={row.sqft_produced}
-                                  onChange={(e) => handleToolUsageRowChange('evening', row.id, 'sqft_produced', e.target.value)}
-                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
-                                />
+                              <div className="col-span-4">
+                                {addingBrandFor === row.id ? (
+                                  <div className="flex gap-1 items-center">
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      placeholder="New brand name"
+                                      value={newBrandText}
+                                      onChange={(e) => setNewBrandText(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && newBrandText.trim()) {
+                                          const b = newBrandText.trim();
+                                          setAvailableBrands(prev => [...new Set([...prev, b])]);
+                                          handleToolUsageRowChange('evening', row.id, 'brand', b);
+                                          setAddingBrandFor(null); setNewBrandText('');
+                                        } else if (e.key === 'Escape') {
+                                          setAddingBrandFor(null); setNewBrandText('');
+                                        }
+                                      }}
+                                      className="flex-1 min-w-0 px-1 py-1 border border-orange-400 rounded text-xs focus:outline-none"
+                                    />
+                                    <button type="button" onClick={() => {
+                                      const b = newBrandText.trim();
+                                      if (b) {
+                                        setAvailableBrands(prev => [...new Set([...prev, b])]);
+                                        handleToolUsageRowChange('evening', row.id, 'brand', b);
+                                      }
+                                      setAddingBrandFor(null); setNewBrandText('');
+                                    }} className="text-green-600 hover:text-green-800 font-bold text-xs">✓</button>
+                                    <button type="button" onClick={() => { setAddingBrandFor(null); setNewBrandText(''); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                                  </div>
+                                ) : (
+                                  <div className="flex gap-1 items-center">
+                                    <select
+                                      value={row.brand}
+                                      onChange={(e) => handleToolUsageRowChange('evening', row.id, 'brand', e.target.value)}
+                                      className="flex-1 min-w-0 px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+                                    >
+                                      <option value="">Brand</option>
+                                      {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </select>
+                                    <button type="button" onClick={() => { setAddingBrandFor(row.id); setNewBrandText(''); }}
+                                      className="text-orange-600 hover:text-orange-800 font-bold text-xs border border-orange-300 rounded px-1 py-0.5 bg-white"
+                                      title="Add new brand">+</button>
+                                  </div>
+                                )}
                               </div>
                               <div className="col-span-1 flex justify-center">
                                 <button
@@ -2179,9 +2230,6 @@ export default function LinePolishPage() {
                               </div>
                             </div>
                           ))}
-                          <p className="text-xs text-orange-500 mt-1">
-                            Total SFT tracked: <strong>{formData.evening.toolUsageRows.reduce((s, r) => s + (parseFloat(r.sqft_produced) || 0), 0).toFixed(2)}</strong>
-                          </p>
                         </div>
                       )}
                     </div>
@@ -2833,90 +2881,119 @@ export default function LinePolishPage() {
 
           {/* ─── Tool Usage Analytics ─── */}
           {(() => {
-            // Filter tool usages to the selected month via their linked report's date
-            const monthToolUsages = toolUsages.filter(tu => {
-              if (showAllRecords) return true;
-              const linkedReport = reports.find(r => r.id === tu.report_id);
-              return linkedReport && linkedReport.date.slice(0, 7) === selectedMonth;
+            if (toolUsages.length === 0) return null;
+
+            // ── Compute lifetime SFT for each tool_usage record ──────────────
+            // For each tool_type, sort usages by report date (ascending).
+            // Tool[i]'s lifetime SFT = sum of report.total_sqft for all reports
+            // where report.date >= tool[i]'s date AND report.date < tool[i+1]'s date.
+            // (Last tool: no upper bound.)
+
+            // Build a map: report_id → date
+            const reportDateMap: Record<string, string> = {};
+            reports.forEach(r => { reportDateMap[r.id] = r.date; });
+
+            // Attach a computed date to each tool_usage for sorting
+            type TuWithDate = LinePolishToolUsage & { _date: string; _lifetimeSqft: number };
+
+            const withDates: TuWithDate[] = toolUsages
+              .map(tu => ({ ...tu, _date: reportDateMap[tu.report_id] || '', _lifetimeSqft: 0 }))
+              .filter(tu => tu._date !== '');
+
+            // For each tool_type, sort and compute lifetime sqft
+            const toolTypes: Array<'resin_bond' | 'lapotra' | 'iron'> = ['resin_bond', 'lapotra', 'iron'];
+            toolTypes.forEach(tt => {
+              const group = withDates
+                .filter(tu => tu.tool_type === tt)
+                .sort((a, b) => a._date.localeCompare(b._date));
+
+              group.forEach((tu, i) => {
+                const fromDate = tu._date;
+                const toDate = i + 1 < group.length ? group[i + 1]._date : null;
+
+                tu._lifetimeSqft = reports.reduce((sum, r) => {
+                  if (r.date < fromDate) return sum;
+                  if (toDate && r.date >= toDate) return sum;
+                  return sum + (Number(r.total_sqft) || 0);
+                }, 0);
+              });
             });
 
-            if (monthToolUsages.length === 0) return null;
+            // Filter for display: respect selectedMonth / showAllRecords
+            const displayUsages = showAllRecords
+              ? withDates
+              : withDates.filter(tu => tu._date.slice(0, 7) === selectedMonth);
 
-            // Aggregate: per tool_type → grade → { total_sqft, count, brands }
-            type ToolStat = { tool_type: string; grade: string; total_sqft: number; count: number; brands: string[] };
-            const statsMap: Record<string, ToolStat> = {};
-            monthToolUsages.forEach(tu => {
+            if (displayUsages.length === 0) return null;
+
+            // Per tool-type summary
+            const typeSummary: Record<string, { totalSqft: number; count: number }> = {};
+            displayUsages.forEach(tu => {
+              if (!typeSummary[tu.tool_type]) typeSummary[tu.tool_type] = { totalSqft: 0, count: 0 };
+              typeSummary[tu.tool_type].totalSqft += tu._lifetimeSqft;
+              typeSummary[tu.tool_type].count += 1;
+            });
+
+            // Per grade breakdown
+            type GradeStat = { tool_type: string; grade: string; brands: string[]; count: number; totalSqft: number };
+            const gradeMap: Record<string, GradeStat> = {};
+            displayUsages.forEach(tu => {
               const key = `${tu.tool_type}|${tu.grade}`;
-              if (!statsMap[key]) {
-                statsMap[key] = { tool_type: tu.tool_type, grade: tu.grade, total_sqft: 0, count: 0, brands: [] };
-              }
-              statsMap[key].total_sqft += Number(tu.sqft_produced) || 0;
-              statsMap[key].count += 1;
-              if (tu.brand && !statsMap[key].brands.includes(tu.brand)) {
-                statsMap[key].brands.push(tu.brand);
-              }
+              if (!gradeMap[key]) gradeMap[key] = { tool_type: tu.tool_type, grade: tu.grade, brands: [], count: 0, totalSqft: 0 };
+              gradeMap[key].count += 1;
+              gradeMap[key].totalSqft += tu._lifetimeSqft;
+              if (tu.brand && !gradeMap[key].brands.includes(tu.brand)) gradeMap[key].brands.push(tu.brand);
             });
+            const gradeStats = Object.values(gradeMap).sort((a, b) => b.totalSqft - a.totalSqft);
 
-            const allStats = Object.values(statsMap).sort((a, b) => b.total_sqft - a.total_sqft);
-
-            // Per tool type totals
-            const typeTotals: Record<string, number> = { resin_bond: 0, lapotra: 0, iron: 0 };
-            monthToolUsages.forEach(tu => {
-              typeTotals[tu.tool_type] = (typeTotals[tu.tool_type] || 0) + (Number(tu.sqft_produced) || 0);
-            });
-
-            // Best performing grade (highest avg SFT per use)
-            const best = allStats.length > 0
-              ? allStats.reduce((top, s) =>
-                  (s.total_sqft / s.count) > (top.total_sqft / top.count) ? s : top
+            const best = gradeStats.length > 0
+              ? gradeStats.reduce((top, s) =>
+                  (s.count > 0 && s.totalSqft / s.count) > (top.count > 0 ? top.totalSqft / top.count : 0) ? s : top
                 )
               : null;
 
             return (
               <div className="bg-white rounded-lg shadow-sm border">
                 <div className="px-6 py-4 border-b bg-orange-50">
-                  <h3 className="text-lg font-semibold text-orange-900 flex items-center gap-2">
-                    🔧 Tool Usage Analytics
-                  </h3>
+                  <h3 className="text-lg font-semibold text-orange-900">🔧 Tool Usage Analytics</h3>
                   <p className="text-sm text-orange-600 mt-1">
-                    SFT produced per consumable tool — {showAllRecords ? 'All time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                    SFT produced per tool lifetime — {showAllRecords ? 'All time' : new Date(selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
                   </p>
                 </div>
 
                 <div className="p-4 space-y-4">
                   {/* Summary cards per tool type */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {[
-                      { key: 'resin_bond', label: 'Resin Bond (R/B)', color: 'blue' },
-                      { key: 'lapotra',    label: 'Lapotra',          color: 'green' },
-                      { key: 'iron',       label: 'Iron Segments',    color: 'gray' },
-                    ].map(({ key, label, color }) => {
-                      const sqft = typeTotals[key] || 0;
-                      const uses = monthToolUsages.filter(t => t.tool_type === key).length;
-                      if (sqft === 0) return null;
+                    {([
+                      { key: 'resin_bond', label: 'Resin Bond (R/B)', colorCard: 'bg-blue-50 border-blue-200', colorText: 'text-blue-800', colorVal: 'text-blue-700', colorSub: 'text-blue-600' },
+                      { key: 'lapotra',    label: 'Lapotra',           colorCard: 'bg-green-50 border-green-200', colorText: 'text-green-800', colorVal: 'text-green-700', colorSub: 'text-green-600' },
+                      { key: 'iron',       label: 'Iron Segments',     colorCard: 'bg-gray-50 border-gray-200', colorText: 'text-gray-800', colorVal: 'text-gray-700', colorSub: 'text-gray-600' },
+                    ] as const).map(({ key, label, colorCard, colorText, colorVal, colorSub }) => {
+                      const s = typeSummary[key];
+                      if (!s || s.count === 0) return null;
                       return (
-                        <div key={key} className={`rounded-lg border p-4 bg-${color}-50 border-${color}-200`}>
-                          <p className={`text-sm font-semibold text-${color}-800`}>{label}</p>
-                          <p className={`text-2xl font-bold text-${color}-700 mt-1`}>
-                            {sqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })} SFT
+                        <div key={key} className={`rounded-lg border p-4 ${colorCard}`}>
+                          <p className={`text-sm font-semibold ${colorText}`}>{label}</p>
+                          <p className={`text-2xl font-bold ${colorVal} mt-1`}>
+                            {s.totalSqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })} SFT
                           </p>
-                          <p className={`text-xs text-${color}-600 mt-1`}>
-                            {uses} tool use{uses !== 1 ? 's' : ''} · avg {uses > 0 ? (sqft / uses).toFixed(0) : 0} SFT/use
+                          <p className={`text-xs ${colorSub} mt-1`}>
+                            {s.count} change{s.count !== 1 ? 's' : ''} · avg {(s.totalSqft / s.count).toFixed(0)} SFT/tool
                           </p>
                         </div>
                       );
                     })}
                   </div>
 
-                  {best && (
+                  {best && best.count > 0 && (
                     <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-4 py-2 text-sm text-yellow-900">
                       🏆 <strong>Best performing:</strong> {TOOL_TYPE_LABELS[best.tool_type]} Grade <strong>{best.grade}</strong>
                       {best.brands.length > 0 && <> ({best.brands.join(', ')})</>}
-                      {' '}— avg <strong>{(best.total_sqft / best.count).toFixed(0)} SFT/use</strong>
+                      {' '}— avg <strong>{(best.totalSqft / best.count).toFixed(0)} SFT/tool lifetime</strong>
                     </div>
                   )}
 
-                  {/* Detailed breakdown table */}
+                  {/* Grade breakdown table */}
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -2924,13 +3001,13 @@ export default function LinePolishPage() {
                           <th className="text-left py-2 px-3 font-medium text-gray-700">Tool Type</th>
                           <th className="text-left py-2 px-3 font-medium text-gray-700">Grade</th>
                           <th className="text-left py-2 px-3 font-medium text-gray-700">Brand(s)</th>
-                          <th className="text-right py-2 px-3 font-medium text-gray-700">Uses</th>
-                          <th className="text-right py-2 px-3 font-medium text-gray-700">Total SFT</th>
-                          <th className="text-right py-2 px-3 font-medium text-gray-700">Avg SFT / Use</th>
+                          <th className="text-right py-2 px-3 font-medium text-gray-700">Times Used</th>
+                          <th className="text-right py-2 px-3 font-medium text-gray-700">Total Lifetime SFT</th>
+                          <th className="text-right py-2 px-3 font-medium text-gray-700">Avg SFT / Tool</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {allStats.map(stat => (
+                        {gradeStats.map(stat => (
                           <tr key={`${stat.tool_type}|${stat.grade}`} className="border-b hover:bg-orange-50">
                             <td className="py-2 px-3">
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -2945,10 +3022,10 @@ export default function LinePolishPage() {
                             <td className="py-2 px-3 text-gray-600">{stat.brands.join(', ') || '—'}</td>
                             <td className="py-2 px-3 text-right text-gray-700">{stat.count}</td>
                             <td className="py-2 px-3 text-right font-bold text-orange-700">
-                              {stat.total_sqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                              {stat.totalSqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                             </td>
                             <td className="py-2 px-3 text-right text-gray-700">
-                              {(stat.total_sqft / stat.count).toFixed(0)}
+                              {stat.count > 0 ? (stat.totalSqft / stat.count).toFixed(0) : '—'}
                             </td>
                           </tr>
                         ))}
@@ -2959,38 +3036,42 @@ export default function LinePolishPage() {
                   {/* Per-use history */}
                   <details className="group">
                     <summary className="cursor-pointer text-sm font-medium text-orange-700 hover:text-orange-900 select-none">
-                      ▶ Show all tool change entries ({monthToolUsages.length})
+                      ▶ Show individual tool change history ({displayUsages.length})
                     </summary>
                     <div className="mt-2 overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b bg-gray-50">
-                            <th className="text-left py-2 px-3 font-medium text-gray-600">Date</th>
+                            <th className="text-left py-2 px-3 font-medium text-gray-600">Date Installed</th>
                             <th className="text-left py-2 px-3 font-medium text-gray-600">Shift</th>
                             <th className="text-left py-2 px-3 font-medium text-gray-600">Tool</th>
                             <th className="text-left py-2 px-3 font-medium text-gray-600">Grade</th>
                             <th className="text-left py-2 px-3 font-medium text-gray-600">Brand</th>
-                            <th className="text-right py-2 px-3 font-medium text-gray-600">SFT Produced</th>
+                            <th className="text-right py-2 px-3 font-medium text-gray-600">Lifetime SFT</th>
+                            <th className="text-right py-2 px-3 font-medium text-gray-600">Active Until</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {[...monthToolUsages]
-                            .sort((a, b) => {
-                              const da = reports.find(r => r.id === a.report_id)?.date || '';
-                              const db = reports.find(r => r.id === b.report_id)?.date || '';
-                              return db.localeCompare(da);
-                            })
+                          {[...displayUsages]
+                            .sort((a, b) => b._date.localeCompare(a._date))
                             .map(tu => {
-                              const report = reports.find(r => r.id === tu.report_id);
+                              // Find next tool of same type for "active until"
+                              const sameType = withDates
+                                .filter(x => x.tool_type === tu.tool_type && x._date > tu._date)
+                                .sort((a, b) => a._date.localeCompare(b._date));
+                              const nextDate = sameType[0]?._date;
                               return (
                                 <tr key={tu.id} className="border-b hover:bg-orange-50">
-                                  <td className="py-1.5 px-3">{report ? formatDisplayDate(report.date) : '—'}</td>
+                                  <td className="py-1.5 px-3">{formatDisplayDate(tu._date)}</td>
                                   <td className="py-1.5 px-3">{tu.shift === 'MORNING' ? 'Morning' : 'Night'}</td>
                                   <td className="py-1.5 px-3">{TOOL_TYPE_LABELS[tu.tool_type]}</td>
                                   <td className="py-1.5 px-3 font-medium">{tu.grade}</td>
                                   <td className="py-1.5 px-3 text-gray-600">{tu.brand || '—'}</td>
                                   <td className="py-1.5 px-3 text-right font-semibold text-orange-700">
-                                    {Number(tu.sqft_produced).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                    {tu._lifetimeSqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="py-1.5 px-3 text-right text-gray-500">
+                                    {nextDate ? formatDisplayDate(nextDate) : <span className="text-green-600">Active</span>}
                                   </td>
                                 </tr>
                               );
