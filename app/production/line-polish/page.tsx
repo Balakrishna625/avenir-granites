@@ -160,6 +160,13 @@ export default function LinePolishPage() {
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   const [addingBrandFor, setAddingBrandFor] = useState<string | null>(null);
   const [newBrandText, setNewBrandText] = useState('');
+
+  // ── Retroactive tool-change modal state ──
+  const [toolModalReport, setToolModalReport] = useState<LinePolishReport | null>(null);
+  const [toolModalRows, setToolModalRows] = useState<ToolUsageRow[]>([]);
+  const [toolModalSaving, setToolModalSaving] = useState(false);
+  const [toolModalAddingBrandFor, setToolModalAddingBrandFor] = useState<string | null>(null);
+  const [toolModalNewBrand, setToolModalNewBrand] = useState('');
   const [payments, setPayments] = useState<LinePolishPayment[]>([]);
   const [previousDues, setPreviousDues] = useState<LinePolishPreviousDue[]>([]);
   const [monthlyBalance, setMonthlyBalance] = useState<MonthlyBalance | null>(null);
@@ -790,7 +797,10 @@ export default function LinePolishPage() {
         // Track unparsed lines (skip headers and formatting)
         if (!lineProcessed && line.length > 0 && 
             !line.match(/^[#*_\-=]+/) && // Skip markdown headers/formatting
-            !line.match(/^📅|🟢|🌙/) // Skip emoji headers
+            !line.match(/^📅|🟢|🌙/) && // Skip emoji headers
+            !line.match(/^Notes?\s*:/i) && // Skip bare "Notes:" labels
+            !line.match(/^Total\s+SFT/i) && // Skip total SFT lines
+            !line.match(/^\|\s*[-:]+/) // Skip table separator rows
            ) {
           unparsedLines.push(line);
         }
@@ -1036,6 +1046,71 @@ export default function LinePolishPage() {
       }
     } catch (error) {
       console.error('Error deleting report:', error);
+    }
+  };
+
+  // ── Retroactive tool-change modal handlers ────────────────────────────────
+  const openToolModal = async (report: LinePolishReport) => {
+    setToolModalReport(report);
+    setToolModalRows([]);
+    setToolModalSaving(false);
+    // Load existing tool usages for this report
+    try {
+      const res = await fetch(`/api/line-polish-tool-usage?report_id=${report.id}`);
+      if (res.ok) {
+        const data: LinePolishToolUsage[] = await res.json();
+        if (data.length > 0) {
+          setToolModalRows(data.map(tu => ({
+            id: tu.id,
+            tool_type: tu.tool_type,
+            grade: tu.grade,
+            brand: tu.brand || '',
+            notes: tu.notes || ''
+          })));
+        }
+      }
+    } catch { /* start with empty rows */ }
+  };
+
+  const closeToolModal = () => {
+    setToolModalReport(null);
+    setToolModalRows([]);
+    setToolModalAddingBrandFor(null);
+    setToolModalNewBrand('');
+  };
+
+  const saveToolModal = async () => {
+    if (!toolModalReport) return;
+    const validRows = toolModalRows.filter(r => r.tool_type && r.grade);
+    setToolModalSaving(true);
+    try {
+      // Delete existing then re-insert (idempotent replace)
+      await fetch(`/api/line-polish-tool-usage?report_id=${toolModalReport.id}`, { method: 'DELETE' });
+      if (validRows.length > 0) {
+        const res = await fetch('/api/line-polish-tool-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report_id: toolModalReport.id,
+            shift: toolModalReport.shift,
+            usages: validRows.map(r => ({
+              tool_type: r.tool_type,
+              grade: r.grade,
+              brand: r.brand || null,
+              sqft_produced: 0,
+              notes: r.notes || null
+            }))
+          })
+        });
+        if (!res.ok) throw new Error('Save failed');
+      }
+      await fetchToolUsages();
+      showToast('success', `Tool changes saved for ${formatDisplayDate(toolModalReport.date)} ${toolModalReport.shift === 'MORNING' ? 'Morning' : 'Night'}`);
+      closeToolModal();
+    } catch {
+      showToast('error', 'Failed to save tool changes');
+    } finally {
+      setToolModalSaving(false);
     }
   };
 
@@ -2625,6 +2700,15 @@ export default function LinePolishPage() {
                               <Edit3 className="w-4 h-4" />
                             </Button>
                             <Button
+                              onClick={() => openToolModal(report)}
+                              size="sm"
+                              variant="outline"
+                              className="text-orange-600 hover:text-orange-800"
+                              title="Add / edit tool changes"
+                            >
+                              🔧
+                            </Button>
+                            <Button
                               onClick={() => handleDelete(report.id)}
                               size="sm"
                               variant="outline"
@@ -3151,6 +3235,137 @@ export default function LinePolishPage() {
           })()}
 
       </div>
+
+      {/* ── Retroactive Tool Changes Modal ─────────────────────────────── */}
+      {toolModalReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b bg-orange-50 rounded-t-xl flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-orange-900">🔧 Tool Changes</h3>
+                <p className="text-sm text-orange-600 mt-0.5">
+                  {formatDisplayDate(toolModalReport.date)} · {toolModalReport.shift === 'MORNING' ? 'Morning Shift' : 'Night Shift'}
+                </p>
+              </div>
+              <button onClick={closeToolModal} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">✕</button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-3">
+              {toolModalRows.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">No tool changes recorded. Click "+ Add Tool Change" below.</p>
+              )}
+              {toolModalRows.map((row, idx) => (
+                <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
+                  <span className="col-span-1 text-xs text-gray-400 text-center">{idx + 1}</span>
+                  {/* Tool Type */}
+                  <select
+                    className="col-span-3 text-sm border rounded px-2 py-1.5"
+                    value={row.tool_type}
+                    onChange={e => {
+                      const tt = e.target.value as ToolUsageRow['tool_type'];
+                      setToolModalRows(prev => prev.map(r => r.id === row.id ? { ...r, tool_type: tt, grade: '' } : r));
+                    }}
+                  >
+                    <option value="resin_bond">Resin Bond (R/B)</option>
+                    <option value="lapotra">Lapotra</option>
+                    <option value="iron">Iron</option>
+                  </select>
+                  {/* Grade */}
+                  <select
+                    className="col-span-3 text-sm border rounded px-2 py-1.5"
+                    value={row.grade}
+                    onChange={e => setToolModalRows(prev => prev.map(r => r.id === row.id ? { ...r, grade: e.target.value } : r))}
+                  >
+                    <option value="">Grade</option>
+                    {(TOOL_GRADES[row.tool_type] || []).map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                  {/* Brand */}
+                  <div className="col-span-4 flex items-center gap-1">
+                    {toolModalAddingBrandFor === row.id ? (
+                      <>
+                        <input
+                          autoFocus
+                          type="text"
+                          className="flex-1 text-sm border rounded px-2 py-1.5"
+                          placeholder="Brand name"
+                          value={toolModalNewBrand}
+                          onChange={e => setToolModalNewBrand(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              const b = toolModalNewBrand.trim();
+                              if (b) {
+                                setAvailableBrands(prev => prev.includes(b) ? prev : [...prev, b]);
+                                setToolModalRows(prev => prev.map(r => r.id === row.id ? { ...r, brand: b } : r));
+                              }
+                              setToolModalAddingBrandFor(null); setToolModalNewBrand('');
+                            } else if (e.key === 'Escape') {
+                              setToolModalAddingBrandFor(null); setToolModalNewBrand('');
+                            }
+                          }}
+                        />
+                        <button onClick={() => {
+                          const b = toolModalNewBrand.trim();
+                          if (b) {
+                            setAvailableBrands(prev => prev.includes(b) ? prev : [...prev, b]);
+                            setToolModalRows(prev => prev.map(r => r.id === row.id ? { ...r, brand: b } : r));
+                          }
+                          setToolModalAddingBrandFor(null); setToolModalNewBrand('');
+                        }} className="text-green-600 hover:text-green-800 font-bold text-base">✓</button>
+                        <button onClick={() => { setToolModalAddingBrandFor(null); setToolModalNewBrand(''); }} className="text-red-400 hover:text-red-600 font-bold text-base">✕</button>
+                      </>
+                    ) : (
+                      <>
+                        <select
+                          className="flex-1 text-sm border rounded px-2 py-1.5"
+                          value={row.brand}
+                          onChange={e => setToolModalRows(prev => prev.map(r => r.id === row.id ? { ...r, brand: e.target.value } : r))}
+                        >
+                          <option value="">Brand (opt)</option>
+                          {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                        <button
+                          onClick={() => { setToolModalAddingBrandFor(row.id); setToolModalNewBrand(''); }}
+                          className="w-7 h-7 rounded-full bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold text-sm flex items-center justify-center"
+                          title="Add new brand"
+                        >+</button>
+                      </>
+                    )}
+                  </div>
+                  {/* Delete row */}
+                  <button
+                    onClick={() => setToolModalRows(prev => prev.filter(r => r.id !== row.id))}
+                    className="col-span-1 text-red-400 hover:text-red-600 text-center"
+                  >✕</button>
+                </div>
+              ))}
+
+              <button
+                onClick={() => setToolModalRows(prev => [...prev, { id: crypto.randomUUID(), tool_type: 'resin_bond', grade: '', brand: '', notes: '' }])}
+                className="w-full mt-2 py-2 text-sm text-orange-700 border border-dashed border-orange-300 rounded-lg hover:bg-orange-50"
+              >
+                + Add Tool Change
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t flex justify-end gap-3">
+              <button onClick={closeToolModal} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border rounded-lg">Cancel</button>
+              <button
+                onClick={saveToolModal}
+                disabled={toolModalSaving}
+                className="px-5 py-2 text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white rounded-lg disabled:opacity-50"
+              >
+                {toolModalSaving ? 'Saving…' : 'Save Tool Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </AppLayout>
   );
 }
