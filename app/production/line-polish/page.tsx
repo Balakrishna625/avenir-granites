@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { useTableSort } from '@/hooks/useTableSort';
 import { SortButton } from '@/components/ui/SortButton';
@@ -117,6 +117,7 @@ interface ToolUsageRow {
   grade: string;
   brand: string;
   notes: string;
+  after_row_index: number; // -1 = start of shift, 0 = after row 0, etc.
 }
 
 // Fetched tool usage (from DB)
@@ -130,6 +131,7 @@ interface LinePolishToolUsage {
   sqft_produced: number;
   notes?: string;
   created_at: string;
+  after_row_index?: number;
   line_polish_reports?: { date: string; shift: string };
 }
 
@@ -399,16 +401,24 @@ export default function LinePolishPage() {
       alert('At least one activity is required');
       return;
     }
+    const removedIdx = formData[shift].activityRows.findIndex(r => r.id === rowId);
     setFormData(prev => ({
       ...prev,
       [shift]: {
         ...prev[shift],
-        activityRows: prev[shift].activityRows.filter(row => row.id !== rowId)
+        activityRows: prev[shift].activityRows.filter(row => row.id !== rowId),
+        // Shift tool change positions when a row is deleted
+        toolUsageRows: prev[shift].toolUsageRows.map(tc => ({
+          ...tc,
+          after_row_index: tc.after_row_index >= removedIdx
+            ? Math.max(tc.after_row_index - 1, -1)
+            : tc.after_row_index
+        }))
       }
     }));
   };
 
-  const addToolUsageRow = (shift: 'morning' | 'evening') => {
+  const addToolUsageRow = (shift: 'morning' | 'evening', afterRowIndex: number = -1) => {
     setFormData(prev => ({
       ...prev,
       [shift]: {
@@ -420,7 +430,8 @@ export default function LinePolishPage() {
             tool_type: 'resin_bond',
             grade: '',
             brand: '',
-            notes: ''
+            notes: '',
+            after_row_index: afterRowIndex
           }
         ]
       }
@@ -474,6 +485,92 @@ export default function LinePolishPage() {
     const totalAmount = (parseFloat(shiftData.no_of_hours) || 0) * (parseFloat(shiftData.rate_per_hour) || 0);
     
     return { totalSlabs, totalSqft, totalAmount };
+  };
+
+  // Render inline tool-change <tr> rows at a given position within an activity table
+  const renderInlineToolRows = (shift: 'morning' | 'evening', afterIdx: number) => {
+    const toolsHere = formData[shift].toolUsageRows.filter(tc => tc.after_row_index === afterIdx);
+    if (toolsHere.length === 0) return null;
+    return (
+      <>
+        {toolsHere.map(tc => (
+          <tr key={tc.id} className="bg-orange-50">
+            <td colSpan={6} className="p-0">
+              <div className="flex items-center gap-1.5 px-3 py-1 border-l-4 border-orange-400 text-xs flex-wrap">
+                <span className="text-orange-500 font-semibold shrink-0">🔧 New tool:</span>
+                <select
+                  value={tc.tool_type}
+                  onChange={(e) => handleToolUsageRowChange(shift, tc.id, 'tool_type', e.target.value)}
+                  className="px-1 py-0.5 border border-orange-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+                >
+                  <option value="resin_bond">Resin Bond (R/B)</option>
+                  <option value="lapotra">Lapotra</option>
+                  <option value="iron">Iron</option>
+                </select>
+                <select
+                  value={tc.grade}
+                  onChange={(e) => handleToolUsageRowChange(shift, tc.id, 'grade', e.target.value)}
+                  className="px-1 py-0.5 border border-orange-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+                >
+                  <option value="">Grade</option>
+                  {(TOOL_GRADES[tc.tool_type] || []).map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+                {addingBrandFor === tc.id ? (
+                  <>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newBrandText}
+                      onChange={(e) => setNewBrandText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const b = newBrandText.trim();
+                          if (b) { setAvailableBrands(prev => [...new Set([...prev, b])]); handleToolUsageRowChange(shift, tc.id, 'brand', b); }
+                          setAddingBrandFor(null); setNewBrandText('');
+                        } else if (e.key === 'Escape') { setAddingBrandFor(null); setNewBrandText(''); }
+                      }}
+                      placeholder="Brand name"
+                      className="w-24 px-1 py-0.5 border border-orange-400 rounded text-xs focus:outline-none"
+                    />
+                    <button type="button" onClick={() => {
+                      const b = newBrandText.trim();
+                      if (b) { setAvailableBrands(prev => [...new Set([...prev, b])]); handleToolUsageRowChange(shift, tc.id, 'brand', b); }
+                      setAddingBrandFor(null); setNewBrandText('');
+                    }} className="text-green-600 hover:text-green-800 font-bold text-xs">✓</button>
+                    <button type="button" onClick={() => { setAddingBrandFor(null); setNewBrandText(''); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                  </>
+                ) : (
+                  <>
+                    <select
+                      value={tc.brand}
+                      onChange={(e) => handleToolUsageRowChange(shift, tc.id, 'brand', e.target.value)}
+                      className="px-1 py-0.5 border border-orange-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
+                    >
+                      <option value="">Brand</option>
+                      {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => { setAddingBrandFor(tc.id); setNewBrandText(''); }}
+                      className="w-5 h-5 rounded-full bg-orange-200 hover:bg-orange-300 text-orange-700 font-bold text-xs flex items-center justify-center shrink-0"
+                      title="Add new brand"
+                    >+</button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeToolUsageRow(shift, tc.id)}
+                  className="ml-auto text-red-400 hover:text-red-600 font-bold text-xs shrink-0"
+                  title="Remove tool change"
+                >✕</button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </>
+    );
   };
 
   // Parse markdown message and auto-fill form
@@ -636,7 +733,8 @@ export default function LinePolishPage() {
               tool_type: parsed.tool_type,
               grade: parsed.grade,
               brand: parsed.brand,
-              notes: ''
+              notes: '',
+              after_row_index: -1
             });
           }
           lineProcessed = true;
@@ -990,6 +1088,7 @@ export default function LinePolishPage() {
                 brand: r.brand,
                 sqft_produced: 0,
                 notes: r.notes,
+                after_row_index: r.after_row_index ?? -1,
               }))
             })
           });
@@ -1065,7 +1164,8 @@ export default function LinePolishPage() {
             tool_type: tu.tool_type,
             grade: tu.grade,
             brand: tu.brand || '',
-            notes: tu.notes || ''
+            notes: tu.notes || '',
+            after_row_index: tu.after_row_index ?? -1,
           })));
         }
       }
@@ -1098,7 +1198,8 @@ export default function LinePolishPage() {
               grade: r.grade,
               brand: r.brand || null,
               sqft_produced: 0,
-              notes: r.notes || null
+              notes: r.notes || null,
+              after_row_index: r.after_row_index ?? -1,
             }))
           })
         });
@@ -1835,7 +1936,7 @@ export default function LinePolishPage() {
                     </div>
                   </div>
 
-                  {/* Morning Activity Rows */}
+                  {/* Morning Activity Rows with Inline Tool Changes */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-semibold text-gray-900">Activity Details</h4>
@@ -1864,91 +1965,105 @@ export default function LinePolishPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {formData.morning.activityRows.map((row) => (
-                            <tr key={row.id} className="hover:bg-amber-50">
-                              <td className="px-2 py-1">
-                                <Input
-                                  type="text"
-                                  placeholder="e.g., AVG-1A"
-                                  value={row.block_name}
-                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'block_name', e.target.value)}
-                                  className="text-xs h-7"
-                                />
-                              </td>
-                              <td className="px-2 py-1">
-                                <select
-                                  value={row.activity}
-                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'activity', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                                >
-                                  <optgroup label="S/G (Steel Grey)">
-                                    <option value="S/G Polishing">S/G Polishing</option>
-                                    <option value="S/G Laputra">S/G Laputra</option>
-                                    <option value="S/G Grinding">S/G Grinding</option>
-                                    <option value="S/G Polish Grinding">S/G Polish Grinding</option>
-                                    <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
-                                  </optgroup>
-                                  <optgroup label="B/P (Black Pearl)">
-                                    <option value="B/P Polishing">B/P Polishing</option>
-                                    <option value="B/P Laputra">B/P Laputra</option>
-                                    <option value="B/P Grinding">B/P Grinding</option>
-                                    <option value="B/P Polish Grinding">B/P Polish Grinding</option>
-                                    <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
-                                  </optgroup>
-                                  <optgroup label="Burgandy">
-                                    <option value="Burgandy Polishing">Burgandy Polishing</option>
-                                    <option value="Burgandy Grinding">Burgandy Grinding</option>
-                                    <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
-                                  </optgroup>
-                                </select>
-                              </td>
-                              <td className="px-2 py-1">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  placeholder="14"
-                                  value={row.number_of_slabs}
-                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'number_of_slabs', e.target.value)}
-                                  className="text-xs h-7"
-                                />
-                              </td>
-                              <td className="px-2 py-1">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="1234.50"
-                                  value={row.total_sqft}
-                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'total_sqft', e.target.value)}
-                                  className="text-xs h-7"
-                                />
-                              </td>
-                              <td className="px-2 py-1">
-                                <select
-                                  value={row.grade || ''}
-                                  onChange={(e) => handleActivityRowChange('morning', row.id, 'grade', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                                >
-                                  <option value="">-- Select Grade --</option>
-                                  <option value="Blackline">Blackline</option>
-                                  <option value="White line">White line</option>
-                                  <option value="Fresh">Fresh</option>
-                                  <option value="Patch">Patch</option>
-                                  <option value="Variation">Variation</option>
-                                </select>
-                              </td>
-                              <td className="px-2 py-1 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => removeActivityRow('morning', row.id)}
-                                  disabled={formData.morning.activityRows.length === 1}
-                                  className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                  title="Remove activity"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </td>
-                            </tr>
+                          {/* Tools installed at start of shift (before any activity row) */}
+                          {renderInlineToolRows('morning', -1)}
+                          {formData.morning.activityRows.map((row, idx) => (
+                            <Fragment key={row.id}>
+                              <tr className="hover:bg-amber-50">
+                                <td className="px-2 py-1">
+                                  <Input
+                                    type="text"
+                                    placeholder="e.g., AVG-1A"
+                                    value={row.block_name}
+                                    onChange={(e) => handleActivityRowChange('morning', row.id, 'block_name', e.target.value)}
+                                    className="text-xs h-7"
+                                  />
+                                </td>
+                                <td className="px-2 py-1">
+                                  <select
+                                    value={row.activity}
+                                    onChange={(e) => handleActivityRowChange('morning', row.id, 'activity', e.target.value)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                                  >
+                                    <optgroup label="S/G (Steel Grey)">
+                                      <option value="S/G Polishing">S/G Polishing</option>
+                                      <option value="S/G Laputra">S/G Laputra</option>
+                                      <option value="S/G Grinding">S/G Grinding</option>
+                                      <option value="S/G Polish Grinding">S/G Polish Grinding</option>
+                                      <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
+                                    </optgroup>
+                                    <optgroup label="B/P (Black Pearl)">
+                                      <option value="B/P Polishing">B/P Polishing</option>
+                                      <option value="B/P Laputra">B/P Laputra</option>
+                                      <option value="B/P Grinding">B/P Grinding</option>
+                                      <option value="B/P Polish Grinding">B/P Polish Grinding</option>
+                                      <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
+                                    </optgroup>
+                                    <optgroup label="Burgandy">
+                                      <option value="Burgandy Polishing">Burgandy Polishing</option>
+                                      <option value="Burgandy Grinding">Burgandy Grinding</option>
+                                      <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
+                                    </optgroup>
+                                  </select>
+                                </td>
+                                <td className="px-2 py-1">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="14"
+                                    value={row.number_of_slabs}
+                                    onChange={(e) => handleActivityRowChange('morning', row.id, 'number_of_slabs', e.target.value)}
+                                    className="text-xs h-7"
+                                  />
+                                </td>
+                                <td className="px-2 py-1">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="1234.50"
+                                    value={row.total_sqft}
+                                    onChange={(e) => handleActivityRowChange('morning', row.id, 'total_sqft', e.target.value)}
+                                    className="text-xs h-7"
+                                  />
+                                </td>
+                                <td className="px-2 py-1">
+                                  <select
+                                    value={row.grade || ''}
+                                    onChange={(e) => handleActivityRowChange('morning', row.id, 'grade', e.target.value)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                                  >
+                                    <option value="">-- Select Grade --</option>
+                                    <option value="Blackline">Blackline</option>
+                                    <option value="White line">White line</option>
+                                    <option value="Fresh">Fresh</option>
+                                    <option value="Patch">Patch</option>
+                                    <option value="Variation">Variation</option>
+                                  </select>
+                                </td>
+                                <td className="px-2 py-1 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeActivityRow('morning', row.id)}
+                                      disabled={formData.morning.activityRows.length === 1}
+                                      className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                      title="Remove activity"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => addToolUsageRow('morning', idx)}
+                                      className="text-orange-500 hover:text-orange-700"
+                                      title="Add tool change after this row"
+                                    >🔧</button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {/* Inline tool change rows after this activity row */}
+                              {renderInlineToolRows('morning', idx)}
+                            </Fragment>
                           ))}
                         </tbody>
                       </table>
@@ -1970,111 +2085,6 @@ export default function LinePolishPage() {
                           <span className="ml-2 font-semibold text-amber-700">{fmt(calculateShiftTotals('morning').totalAmount)}</span>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Morning Tool Changes */}
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-semibold text-orange-900">🔧 Tool Changes (Morning)</h4>
-                        <button
-                          type="button"
-                          onClick={() => addToolUsageRow('morning')}
-                          className="text-xs px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
-                        >
-                          + Add Tool
-                        </button>
-                      </div>
-                      {formData.morning.toolUsageRows.length === 0 ? (
-                        <p className="text-xs text-orange-400 italic">No tool changes recorded — click "+ Add Tool" to track.</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {formData.morning.toolUsageRows.map((row, idx) => (
-                            <div key={row.id} className="grid grid-cols-12 gap-1 items-center bg-white border border-orange-100 rounded p-1">
-                              <div className="col-span-1 text-xs text-orange-500 font-bold text-center">#{idx + 1}</div>
-                              <div className="col-span-3">
-                                <select
-                                  value={row.tool_type}
-                                  onChange={(e) => handleToolUsageRowChange('morning', row.id, 'tool_type', e.target.value)}
-                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
-                                >
-                                  <option value="resin_bond">Resin Bond (R/B)</option>
-                                  <option value="lapotra">Lapotra</option>
-                                  <option value="iron">Iron</option>
-                                </select>
-                              </div>
-                              <div className="col-span-3">
-                                <select
-                                  value={row.grade}
-                                  onChange={(e) => handleToolUsageRowChange('morning', row.id, 'grade', e.target.value)}
-                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
-                                >
-                                  <option value="">Grade</option>
-                                  {(TOOL_GRADES[row.tool_type] || []).map(g => (
-                                    <option key={g} value={g}>{g}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="col-span-4">
-                                {addingBrandFor === row.id ? (
-                                  <div className="flex gap-1 items-center">
-                                    <input
-                                      type="text"
-                                      autoFocus
-                                      placeholder="New brand name"
-                                      value={newBrandText}
-                                      onChange={(e) => setNewBrandText(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && newBrandText.trim()) {
-                                          const b = newBrandText.trim();
-                                          setAvailableBrands(prev => [...new Set([...prev, b])]);
-                                          handleToolUsageRowChange('morning', row.id, 'brand', b);
-                                          setAddingBrandFor(null); setNewBrandText('');
-                                        } else if (e.key === 'Escape') {
-                                          setAddingBrandFor(null); setNewBrandText('');
-                                        }
-                                      }}
-                                      className="flex-1 min-w-0 px-1 py-1 border border-orange-400 rounded text-xs focus:outline-none"
-                                    />
-                                    <button type="button" onClick={() => {
-                                      const b = newBrandText.trim();
-                                      if (b) {
-                                        setAvailableBrands(prev => [...new Set([...prev, b])]);
-                                        handleToolUsageRowChange('morning', row.id, 'brand', b);
-                                      }
-                                      setAddingBrandFor(null); setNewBrandText('');
-                                    }} className="text-green-600 hover:text-green-800 font-bold text-xs">✓</button>
-                                    <button type="button" onClick={() => { setAddingBrandFor(null); setNewBrandText(''); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
-                                  </div>
-                                ) : (
-                                  <div className="flex gap-1 items-center">
-                                    <select
-                                      value={row.brand}
-                                      onChange={(e) => handleToolUsageRowChange('morning', row.id, 'brand', e.target.value)}
-                                      className="flex-1 min-w-0 px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
-                                    >
-                                      <option value="">Brand</option>
-                                      {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                                    </select>
-                                    <button type="button" onClick={() => { setAddingBrandFor(row.id); setNewBrandText(''); }}
-                                      className="text-orange-600 hover:text-orange-800 font-bold text-xs border border-orange-300 rounded px-1 py-0.5 bg-white"
-                                      title="Add new brand">+</button>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="col-span-1 flex justify-center">
-                                <button
-                                  type="button"
-                                  onClick={() => removeToolUsageRow('morning', row.id)}
-                                  className="text-red-500 hover:text-red-700"
-                                  title="Remove"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -2132,7 +2142,7 @@ export default function LinePolishPage() {
                     </div>
                   </div>
 
-                  {/* Evening Activity Rows */}
+                  {/* Evening Activity Rows with Inline Tool Changes */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-semibold text-gray-900">Activity Details</h4>
@@ -2161,91 +2171,105 @@ export default function LinePolishPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {formData.evening.activityRows.map((row) => (
-                            <tr key={row.id} className="hover:bg-indigo-50">
-                              <td className="px-2 py-1">
-                                <Input
-                                  type="text"
-                                  placeholder="e.g., AVG-1A"
-                                  value={row.block_name}
-                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'block_name', e.target.value)}
-                                  className="text-xs h-7"
-                                />
-                              </td>
-                              <td className="px-2 py-1">
-                                <select
-                                  value={row.activity}
-                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'activity', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                                >
-                                  <optgroup label="S/G (Steel Grey)">
-                                    <option value="S/G Polishing">S/G Polishing</option>
-                                    <option value="S/G Laputra">S/G Laputra</option>
-                                    <option value="S/G Grinding">S/G Grinding</option>
-                                    <option value="S/G Polish Grinding">S/G Polish Grinding</option>
-                                    <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
-                                  </optgroup>
-                                  <optgroup label="B/P (Black Pearl)">
-                                    <option value="B/P Polishing">B/P Polishing</option>
-                                    <option value="B/P Laputra">B/P Laputra</option>
-                                    <option value="B/P Grinding">B/P Grinding</option>
-                                    <option value="B/P Polish Grinding">B/P Polish Grinding</option>
-                                    <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
-                                  </optgroup>
-                                  <optgroup label="Burgandy">
-                                    <option value="Burgandy Polishing">Burgandy Polishing</option>
-                                    <option value="Burgandy Grinding">Burgandy Grinding</option>
-                                    <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
-                                  </optgroup>
-                                </select>
-                              </td>
-                              <td className="px-2 py-1">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  placeholder="14"
-                                  value={row.number_of_slabs}
-                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'number_of_slabs', e.target.value)}
-                                  className="text-xs h-7"
-                                />
-                              </td>
-                              <td className="px-2 py-1">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="1234.50"
-                                  value={row.total_sqft}
-                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'total_sqft', e.target.value)}
-                                  className="text-xs h-7"
-                                />
-                              </td>
-                              <td className="px-2 py-1">
-                                <select
-                                  value={row.grade || ''}
-                                  onChange={(e) => handleActivityRowChange('evening', row.id, 'grade', e.target.value)}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                                >
-                                  <option value="">-- Select Grade --</option>
-                                  <option value="Blackline">Blackline</option>
-                                  <option value="White line">White line</option>
-                                  <option value="Fresh">Fresh</option>
-                                  <option value="Patch">Patch</option>
-                                  <option value="Variation">Variation</option>
-                                </select>
-                              </td>
-                              <td className="px-2 py-1 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => removeActivityRow('evening', row.id)}
-                                  disabled={formData.evening.activityRows.length === 1}
-                                  className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                  title="Remove activity"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </td>
-                            </tr>
+                          {/* Tools installed at start of shift (before any activity row) */}
+                          {renderInlineToolRows('evening', -1)}
+                          {formData.evening.activityRows.map((row, idx) => (
+                            <Fragment key={row.id}>
+                              <tr className="hover:bg-indigo-50">
+                                <td className="px-2 py-1">
+                                  <Input
+                                    type="text"
+                                    placeholder="e.g., AVG-1A"
+                                    value={row.block_name}
+                                    onChange={(e) => handleActivityRowChange('evening', row.id, 'block_name', e.target.value)}
+                                    className="text-xs h-7"
+                                  />
+                                </td>
+                                <td className="px-2 py-1">
+                                  <select
+                                    value={row.activity}
+                                    onChange={(e) => handleActivityRowChange('evening', row.id, 'activity', e.target.value)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                  >
+                                    <optgroup label="S/G (Steel Grey)">
+                                      <option value="S/G Polishing">S/G Polishing</option>
+                                      <option value="S/G Laputra">S/G Laputra</option>
+                                      <option value="S/G Grinding">S/G Grinding</option>
+                                      <option value="S/G Polish Grinding">S/G Polish Grinding</option>
+                                      <option value="S/G Laputra Grinding">S/G Laputra Grinding</option>
+                                    </optgroup>
+                                    <optgroup label="B/P (Black Pearl)">
+                                      <option value="B/P Polishing">B/P Polishing</option>
+                                      <option value="B/P Laputra">B/P Laputra</option>
+                                      <option value="B/P Grinding">B/P Grinding</option>
+                                      <option value="B/P Polish Grinding">B/P Polish Grinding</option>
+                                      <option value="B/P Laputra Grinding">B/P Laputra Grinding</option>
+                                    </optgroup>
+                                    <optgroup label="Burgandy">
+                                      <option value="Burgandy Polishing">Burgandy Polishing</option>
+                                      <option value="Burgandy Grinding">Burgandy Grinding</option>
+                                      <option value="Burgandy Polish Grinding">Burgandy Polish Grinding</option>
+                                    </optgroup>
+                                  </select>
+                                </td>
+                                <td className="px-2 py-1">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="14"
+                                    value={row.number_of_slabs}
+                                    onChange={(e) => handleActivityRowChange('evening', row.id, 'number_of_slabs', e.target.value)}
+                                    className="text-xs h-7"
+                                  />
+                                </td>
+                                <td className="px-2 py-1">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="1234.50"
+                                    value={row.total_sqft}
+                                    onChange={(e) => handleActivityRowChange('evening', row.id, 'total_sqft', e.target.value)}
+                                    className="text-xs h-7"
+                                  />
+                                </td>
+                                <td className="px-2 py-1">
+                                  <select
+                                    value={row.grade || ''}
+                                    onChange={(e) => handleActivityRowChange('evening', row.id, 'grade', e.target.value)}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                  >
+                                    <option value="">-- Select Grade --</option>
+                                    <option value="Blackline">Blackline</option>
+                                    <option value="White line">White line</option>
+                                    <option value="Fresh">Fresh</option>
+                                    <option value="Patch">Patch</option>
+                                    <option value="Variation">Variation</option>
+                                  </select>
+                                </td>
+                                <td className="px-2 py-1 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeActivityRow('evening', row.id)}
+                                      disabled={formData.evening.activityRows.length === 1}
+                                      className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                      title="Remove activity"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => addToolUsageRow('evening', idx)}
+                                      className="text-orange-500 hover:text-orange-700"
+                                      title="Add tool change after this row"
+                                    >🔧</button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {/* Inline tool change rows after this activity row */}
+                              {renderInlineToolRows('evening', idx)}
+                            </Fragment>
                           ))}
                         </tbody>
                       </table>
@@ -2268,114 +2292,6 @@ export default function LinePolishPage() {
                         </div>
                       </div>
                     </div>
-
-                    {/* Evening Tool Changes */}
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-semibold text-orange-900">🔧 Tool Changes (Evening)</h4>
-                        <button
-                          type="button"
-                          onClick={() => addToolUsageRow('evening')}
-                          className="text-xs px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
-                        >
-                          + Add Tool
-                        </button>
-                      </div>
-                      {formData.evening.toolUsageRows.length === 0 ? (
-                        <p className="text-xs text-orange-400 italic">No tool changes recorded — click "+ Add Tool" to track.</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {formData.evening.toolUsageRows.map((row, idx) => (
-                            <div key={row.id} className="grid grid-cols-12 gap-1 items-center bg-white border border-orange-100 rounded p-1">
-                              <div className="col-span-1 text-xs text-orange-500 font-bold text-center">#{idx + 1}</div>
-                              <div className="col-span-3">
-                                <select
-                                  value={row.tool_type}
-                                  onChange={(e) => handleToolUsageRowChange('evening', row.id, 'tool_type', e.target.value)}
-                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
-                                >
-                                  <option value="resin_bond">Resin Bond (R/B)</option>
-                                  <option value="lapotra">Lapotra</option>
-                                  <option value="iron">Iron</option>
-                                </select>
-                              </div>
-                              <div className="col-span-3">
-                                <select
-                                  value={row.grade}
-                                  onChange={(e) => handleToolUsageRowChange('evening', row.id, 'grade', e.target.value)}
-                                  className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
-                                >
-                                  <option value="">Grade</option>
-                                  {(TOOL_GRADES[row.tool_type] || []).map(g => (
-                                    <option key={g} value={g}>{g}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="col-span-4">
-                                {addingBrandFor === row.id ? (
-                                  <div className="flex gap-1 items-center">
-                                    <input
-                                      type="text"
-                                      autoFocus
-                                      placeholder="New brand name"
-                                      value={newBrandText}
-                                      onChange={(e) => setNewBrandText(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && newBrandText.trim()) {
-                                          const b = newBrandText.trim();
-                                          setAvailableBrands(prev => [...new Set([...prev, b])]);
-                                          handleToolUsageRowChange('evening', row.id, 'brand', b);
-                                          setAddingBrandFor(null); setNewBrandText('');
-                                        } else if (e.key === 'Escape') {
-                                          setAddingBrandFor(null); setNewBrandText('');
-                                        }
-                                      }}
-                                      className="flex-1 min-w-0 px-1 py-1 border border-orange-400 rounded text-xs focus:outline-none"
-                                    />
-                                    <button type="button" onClick={() => {
-                                      const b = newBrandText.trim();
-                                      if (b) {
-                                        setAvailableBrands(prev => [...new Set([...prev, b])]);
-                                        handleToolUsageRowChange('evening', row.id, 'brand', b);
-                                      }
-                                      setAddingBrandFor(null); setNewBrandText('');
-                                    }} className="text-green-600 hover:text-green-800 font-bold text-xs">✓</button>
-                                    <button type="button" onClick={() => { setAddingBrandFor(null); setNewBrandText(''); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
-                                  </div>
-                                ) : (
-                                  <div className="flex gap-1 items-center">
-                                    <select
-                                      value={row.brand}
-                                      onChange={(e) => handleToolUsageRowChange('evening', row.id, 'brand', e.target.value)}
-                                      className="flex-1 min-w-0 px-1 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
-                                    >
-                                      <option value="">Brand</option>
-                                      {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                                    </select>
-                                    <button type="button" onClick={() => { setAddingBrandFor(row.id); setNewBrandText(''); }}
-                                      className="text-orange-600 hover:text-orange-800 font-bold text-xs border border-orange-300 rounded px-1 py-0.5 bg-white"
-                                      title="Add new brand">+</button>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="col-span-1 flex justify-center">
-                                <button
-                                  type="button"
-                                  onClick={() => removeToolUsageRow('evening', row.id)}
-                                  className="text-red-500 hover:text-red-700"
-                                  title="Remove"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
                 {/* COMBINED TOTAL (Morning + Evening) */}
                 <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
@@ -3344,7 +3260,7 @@ export default function LinePolishPage() {
               ))}
 
               <button
-                onClick={() => setToolModalRows(prev => [...prev, { id: crypto.randomUUID(), tool_type: 'resin_bond', grade: '', brand: '', notes: '' }])}
+                onClick={() => setToolModalRows(prev => [...prev, { id: crypto.randomUUID(), tool_type: 'resin_bond', grade: '', brand: '', notes: '', after_row_index: -1 }])}
                 className="w-full mt-2 py-2 text-sm text-orange-700 border border-dashed border-orange-300 rounded-lg hover:bg-orange-50"
               >
                 + Add Tool Change

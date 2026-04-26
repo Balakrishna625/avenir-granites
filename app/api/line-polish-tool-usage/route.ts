@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }
 
     const rows = usages
-      .filter((u: any) => u.tool_type && u.grade && parseFloat(u.sqft_produced) > 0)
+      .filter((u: any) => u.tool_type && u.grade)
       .map((u: any) => ({
         report_id,
         shift,
@@ -67,6 +67,7 @@ export async function POST(req: Request) {
         brand: u.brand?.trim() || null,
         sqft_produced: parseFloat(u.sqft_produced) || 0,
         notes: u.notes?.trim() || null,
+        after_row_index: u.after_row_index !== undefined ? Number(u.after_row_index) : -1,
       }));
 
     if (rows.length === 0) {
