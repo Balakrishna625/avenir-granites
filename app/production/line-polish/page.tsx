@@ -771,8 +771,33 @@ export default function LinePolishPage() {
               continue;
             }
 
-            // Collect notes for this shift (if not empty and not already added)
-            if (notes && notes.trim() && !notes.match(/^[-—]+$/) && !shiftNotes[currentShift].includes(notes.trim())) {
+            // Detect tool change from the remarks column (e.g. "800 - Cherukuru R/B")
+            // Must contain a tool-type keyword AND a 2-4 digit grade number
+            let toolChangeFromRemark: { tool_type: 'resin_bond'|'lapotra'|'iron'; grade: string; brand: string } | null = null;
+            if (notes && notes.trim()) {
+              const s = notes.trim();
+              if (/R\/B|Resin\s*Bond|Resin|\bLapotra\b|\bLaputra\b|\bIron\b/i.test(s) && /\d{2,4}/.test(s)) {
+                // Reuse parseToolBullet by prepending a bullet marker
+                const parsed = parseToolBullet('* ' + s);
+                if (parsed && parsed.grade) toolChangeFromRemark = parsed;
+              }
+            }
+
+            // If a tool change was found, insert it BEFORE the current row
+            if (toolChangeFromRemark) {
+              const afterIdx = newFormData[currentShift].activityRows.length - 1; // -1 before row 0, N before row N+1
+              newFormData[currentShift].toolUsageRows.push({
+                id: crypto.randomUUID(),
+                tool_type: toolChangeFromRemark.tool_type,
+                grade: toolChangeFromRemark.grade,
+                brand: toolChangeFromRemark.brand,
+                notes: '',
+                after_row_index: afterIdx
+              });
+            }
+
+            // Collect notes for this shift — but skip tool-change remarks (already captured above)
+            if (notes && notes.trim() && !notes.match(/^[-—]+$/) && !toolChangeFromRemark && !shiftNotes[currentShift].includes(notes.trim())) {
               shiftNotes[currentShift].push(notes.trim());
             }
 
