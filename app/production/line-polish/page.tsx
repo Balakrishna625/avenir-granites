@@ -2292,6 +2292,9 @@ export default function LinePolishPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+
                 {/* COMBINED TOTAL (Morning + Evening) */}
                 <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-300 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
