@@ -2977,37 +2977,130 @@ export default function LinePolishPage() {
             if (toolUsages.length === 0) return null;
 
             // ── Compute lifetime SFT for each tool_usage record ──────────────
-            // For each tool_type, sort usages by report date (ascending).
-            // Tool[i]'s lifetime SFT = sum of report.total_sqft for all reports
-            // where report.date >= tool[i]'s date AND report.date < tool[i+1]'s date.
-            // (Last tool: no upper bound.)
+            // Logic:
+            // 1. Build a sequential list of all activity rows across all reports
+            // 2. For each tool_usage, use after_row_index to find which activities
+            //    happen AFTER that tool was installed
+            // 3. Sum only activities matching the tool's production category
+            // 4. Continue summing until the next tool of same type is installed
 
-            // Build a map: report_id → date
-            const reportDateMap: Record<string, string> = {};
-            reports.forEach(r => { reportDateMap[r.id] = r.date; });
+            // Helper: Categorize activity by production type
+            const getActivityCategory = (activity: ActivityType): 'polishing' | 'laputra' | 'iron' | null => {
+              const lower = activity.toLowerCase();
+              if (lower.includes('polishing')) return 'polishing';
+              if (lower.includes('laputra')) return 'laputra';
+              // Everything else (grinding) is considered iron production
+              if (lower.includes('grinding') || activity === 'GRINDING') return 'iron';
+              return null;
+            };
 
-            // Attach a computed date to each tool_usage for sorting
-            type TuWithDate = LinePolishToolUsage & { _date: string; _lifetimeSqft: number };
+            // Helper: Check if an activity matches a tool's production category
+            const activityMatchesTool = (activity: ActivityType, toolType: string): boolean => {
+              const cat = getActivityCategory(activity);
+              if (toolType === 'resin_bond') return cat === 'polishing';
+              if (toolType === 'lapotra') return cat === 'laputra';
+              // Iron can produce both iron (grinding) and laputra activities
+              if (toolType === 'iron') return cat === 'iron' || cat === 'laputra';
+              return false;
+            };
 
-            const withDates: TuWithDate[] = toolUsages
-              .map(tu => ({ ...tu, _date: reportDateMap[tu.report_id] || '', _lifetimeSqft: 0 }))
-              .filter(tu => tu._date !== '');
+            // Build a sequential list of all activity rows with their position
+            interface ActivityRowWithPos {
+              reportId: string;
+              reportDate: string;
+              shift: 'MORNING' | 'NIGHT';
+              rowIndex: number; // Sequential position across all reports
+              activity: ActivityType;
+              sqft: number;
+            }
+
+            const allActivityRows: ActivityRowWithPos[] = [];
+            let globalRowIndex = 0;
+
+            // Sort reports by date and shift
+            const sortedReports = [...reports].sort((a, b) => {
+              const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+              if (dateCompare !== 0) return dateCompare;
+              return a.shift === 'MORNING' ? -1 : 1;
+            });
+
+            sortedReports.forEach(report => {
+              const activities = report.activities || [];
+              activities.forEach((actItem: any, idx: number) => {
+                allActivityRows.push({
+                  reportId: report.id,
+                  reportDate: report.date,
+                  shift: report.shift,
+                  rowIndex: globalRowIndex,
+                  activity: actItem.activity,
+                  sqft: Number(actItem.sqft) || 0
+                });
+                globalRowIndex++;
+              });
+            });
+
+            // Build a map: (report_id, shift) → { report: ..., toolUsages: [...], afterRowIndexMap: {...} }
+            type TuWithDate = LinePolishToolUsage & { _date: string; _lifetimeSqft: number; _rowIndex: number };
+
+            const withDates: TuWithDate[] = toolUsages.map(tu => {
+              const report = reports.find(r => r.id === tu.report_id);
+              const _date = report?.date || '';
+              
+              // Calculate the global row index for this tool installation
+              // after_row_index = -1 means start of shift (before all activities)
+              // after_row_index = 0 means after activity 0 (so from activity 1 onwards)
+              let _rowIndex = 0;
+              if (report && tu.after_row_index !== undefined) {
+                // Count rows from previous reports and this report
+                const reportsUpToThis = sortedReports.filter(r => 
+                  new Date(r.date).getTime() < new Date(_date).getTime() ||
+                  (r.date === _date && (
+                    (r.shift === 'MORNING' && tu.shift === 'MORNING') ||
+                    (r.shift === 'NIGHT' && (tu.shift === 'NIGHT' || tu.shift === 'MORNING'))
+                  ))
+                );
+                
+                let rowsBeforeThisReport = 0;
+                reportsUpToThis.forEach(r => {
+                  const activities = r.activities || [];
+                  rowsBeforeThisReport += activities.length;
+                });
+                
+                // If same report, add the after_row_index offset
+                if (reportsUpToThis[reportsUpToThis.length - 1]?.id === report.id) {
+                  _rowIndex = rowsBeforeThisReport + tu.after_row_index + 1; // +1 because after means from next row
+                } else {
+                  _rowIndex = rowsBeforeThisReport;
+                }
+              }
+              
+              return { ...tu, _date, _lifetimeSqft: 0, _rowIndex };
+            })
+            .filter(tu => tu._date !== '');
 
             // For each tool_type, sort and compute lifetime sqft
             const toolTypes: Array<'resin_bond' | 'lapotra' | 'iron'> = ['resin_bond', 'lapotra', 'iron'];
             toolTypes.forEach(tt => {
               const group = withDates
                 .filter(tu => tu.tool_type === tt)
-                .sort((a, b) => a._date.localeCompare(b._date));
+                .sort((a, b) => {
+                  const dateCompare = a._date.localeCompare(b._date);
+                  if (dateCompare !== 0) return dateCompare;
+                  return a._rowIndex - b._rowIndex;
+                });
 
               group.forEach((tu, i) => {
-                const fromDate = tu._date;
-                const toDate = i + 1 < group.length ? group[i + 1]._date : null;
+                const fromRowIndex = tu._rowIndex;
+                const toRowIndex = i + 1 < group.length ? group[i + 1]._rowIndex : Infinity;
 
-                tu._lifetimeSqft = reports.reduce((sum, r) => {
-                  if (r.date < fromDate) return sum;
-                  if (toDate && r.date >= toDate) return sum;
-                  return sum + (Number(r.total_sqft) || 0);
+                tu._lifetimeSqft = allActivityRows.reduce((sum, row) => {
+                  // Include this row if it's at or after fromRowIndex and before toRowIndex,
+                  // AND the activity matches this tool's production category
+                  if (row.rowIndex >= fromRowIndex && row.rowIndex < toRowIndex && 
+                      activityMatchesTool(row.activity, tu.tool_type)) {
+                    return sum + row.sqft;
+                  }
+                  return sum;
                 }, 0);
               });
             });

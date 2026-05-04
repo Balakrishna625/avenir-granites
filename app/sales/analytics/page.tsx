@@ -838,10 +838,9 @@ export default function SalesAnalyticsPage() {
                         <>
                           <th className="px-3 py-2 text-right font-medium">Slabs</th>
                           <th className="px-3 py-2 text-right font-medium">Sq. Ft.</th>
-                          <th className="px-3 py-2 text-right font-medium">Tons</th>
-                          <th className="px-3 py-2 text-right font-medium">Subtotal</th>
-                          <th className="px-3 py-2 text-right font-medium">Charges</th>
-                          <th className="px-3 py-2 text-right font-medium">Gross Total</th>
+                          <th className="px-3 py-2 text-right font-medium">Total</th>
+                          <th className="px-3 py-2 text-right font-medium">RTGS</th>
+                          <th className="px-3 py-2 text-right font-medium">Cash</th>
                         </>
                       ) : (
                         <>
@@ -894,19 +893,14 @@ export default function SalesAnalyticsPage() {
                           <>
                             <td className="px-3 py-2 text-right">{sale.total_slabs}</td>
                             <td className="px-3 py-2 text-right">{sale.total_sqft.toFixed(2)}</td>
-                            <td className="px-3 py-2 text-right">
-                              {saleTons > 0 ? (
-                                <span className="text-orange-600 font-medium">{saleTons.toFixed(2)}</span>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-right">₹{formatIndianNumber(sale.subtotal_amount)}</td>
-                            <td className="px-3 py-2 text-right">
-                              ₹{formatIndianNumber(sale.tax_amount + sale.mining_amount + sale.loading_amount)}
-                            </td>
                             <td className="px-3 py-2 text-right font-bold text-green-700">
                               ₹{formatIndianNumber(sale.gross_total)}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              ₹{formatIndianNumber(sale.rtgs_expected)}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              ₹{formatIndianNumber(sale.cash_expected)}
                             </td>
                           </>
                         ) : (
@@ -933,7 +927,7 @@ export default function SalesAnalyticsPage() {
                       {/* Expanded Details Row */}
                       {isExpanded && (
                         <tr className="border-t bg-blue-50">
-                          <td colSpan={viewMode === 'actual' ? 11 : 8} className="px-3 py-4">
+                          <td colSpan={viewMode === 'actual' ? 10 : 8} className="px-3 py-4">
                             <div className="space-y-4">
                               {/* Sale Items */}
                               {sale.sale_items && sale.sale_items.length > 0 && (
@@ -1042,15 +1036,14 @@ export default function SalesAnalyticsPage() {
                         <>
                           <td className="px-3 py-2 text-right">{totalSlabs}</td>
                           <td className="px-3 py-2 text-right">{totalSqft.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right text-orange-600">{totalTons.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right">
-                            ₹{formatIndianNumber(filteredSales.reduce((sum, s) => sum + s.subtotal_amount, 0))}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            ₹{formatIndianNumber(filteredSales.reduce((sum, s) => sum + s.tax_amount + s.mining_amount + s.loading_amount, 0))}
-                          </td>
                           <td className="px-3 py-2 text-right text-green-700">
                             ₹{formatIndianNumber(totalRevenue)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-blue-700">
+                            ₹{formatIndianNumber(totalRTGS)}
+                          </td>
+                          <td className="px-3 py-2 text-right text-amber-700">
+                            ₹{formatIndianNumber(totalCash)}
                           </td>
                         </>
                       ) : (
