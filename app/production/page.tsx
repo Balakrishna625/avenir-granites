@@ -681,6 +681,125 @@ export default function ProductionPage() {
           </div>
         </Card>
 
+        {/* ========== ACTIVITY SUMMARY ========== */}
+        <Card className="p-6">
+          <div className="flex items-center mb-1">
+            <BarChart3 className="w-5 h-5 text-indigo-600 mr-2" />
+            <h3 className="text-lg font-semibold text-indigo-900">
+              Activity Summary
+              {selectedMonth && selectedYear
+                ? ` for ${new Date(`${selectedYear}-${selectedMonth.padStart(2, '0')}-01`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}`
+                : ''}
+            </h3>
+          </div>
+          <p className="text-sm text-indigo-600 mb-4">Material-wise breakdown of polished/ground slabs</p>
+
+          {(() => {
+            const activitySummary: Record<string, { slabs: number; sqft: number }> = {};
+
+            linePolishReports.forEach(report => {
+              if (report.activities && Array.isArray(report.activities)) {
+                report.activities.forEach((act: any) => {
+                  const name = act.activity;
+                  if (!activitySummary[name]) activitySummary[name] = { slabs: 0, sqft: 0 };
+                  activitySummary[name].slabs += act.slabs || 0;
+                  activitySummary[name].sqft += act.sqft || 0;
+                });
+              } else if (report.activity) {
+                const name = report.activity;
+                if (!activitySummary[name]) activitySummary[name] = { slabs: 0, sqft: 0 };
+                activitySummary[name].slabs += report.number_of_slabs || 0;
+                activitySummary[name].sqft += report.total_sqft || 0;
+              }
+            });
+
+            const sortedActivities = Object.entries(activitySummary).sort(([, a], [, b]) => b.slabs - a.slabs);
+
+            const graniteTypeSummary: Record<string, { slabs: number; sqft: number }> = {
+              'S/G (Sadarahalli)': { slabs: 0, sqft: 0 },
+              'B/P (Black Pearl)': { slabs: 0, sqft: 0 },
+              'Burgandy': { slabs: 0, sqft: 0 },
+            };
+            sortedActivities.forEach(([activity, stats]) => {
+              if (activity.startsWith('S/G')) {
+                graniteTypeSummary['S/G (Sadarahalli)'].slabs += stats.slabs;
+                graniteTypeSummary['S/G (Sadarahalli)'].sqft += stats.sqft;
+              } else if (activity.startsWith('B/P')) {
+                graniteTypeSummary['B/P (Black Pearl)'].slabs += stats.slabs;
+                graniteTypeSummary['B/P (Black Pearl)'].sqft += stats.sqft;
+              } else if (activity.startsWith('Burgandy') || activity.startsWith('Burgandy')) {
+                graniteTypeSummary['Burgandy'].slabs += stats.slabs;
+                graniteTypeSummary['Burgandy'].sqft += stats.sqft;
+              }
+            });
+
+            if (sortedActivities.length === 0) {
+              return (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <BarChart3 className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No activity data for the selected period</p>
+                </div>
+              );
+            }
+
+            return (
+              <>
+                {/* Granite Type Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-indigo-50 rounded-lg border mb-4">
+                  {Object.entries(graniteTypeSummary).map(([type, stats]) =>
+                    stats.slabs > 0 ? (
+                      <Card key={type} className="p-3">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">{type}</h4>
+                        <p className="text-xs text-gray-600">
+                          Slabs: <span className="font-bold text-indigo-600">{stats.slabs.toLocaleString('en-IN')}</span>
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          Sqft: <span className="font-bold text-indigo-600">{stats.sqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                        </p>
+                      </Card>
+                    ) : null
+                  )}
+                </div>
+
+                {/* Detailed Activity Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Activity Type</th>
+                        <th className="text-right py-3 px-4 font-medium text-gray-700">Total Slabs</th>
+                        <th className="text-right py-3 px-4 font-medium text-gray-700">Total Sqft</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedActivities.map(([activity, stats]) => (
+                        <tr key={activity} className="border-b hover:bg-indigo-50">
+                          <td className="py-3 px-4 font-medium text-gray-900">{activity}</td>
+                          <td className="py-3 px-4 text-right font-semibold text-indigo-600 text-lg">
+                            {stats.slabs.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 px-4 text-right font-semibold text-indigo-600 text-lg">
+                            {stats.sqft.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 bg-indigo-50 font-bold">
+                        <td className="py-3 px-4 text-gray-900 text-lg">TOTAL</td>
+                        <td className="py-3 px-4 text-right text-indigo-700 text-lg">
+                          {sortedActivities.reduce((s, [, v]) => s + v.slabs, 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-4 text-right text-indigo-700 text-lg">
+                          {sortedActivities.reduce((s, [, v]) => s + v.sqft, 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
+        </Card>
+
         {/* ========== GRADE-WISE BREAKDOWN ========== */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">

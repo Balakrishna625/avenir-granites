@@ -100,6 +100,8 @@ const TOOL_TYPE_LABELS: Record<string, string> = {
   iron: 'Iron',
 };
 
+const DEFAULT_GRADES = ['Blackline', 'White line', 'Fresh', 'Patch', 'Variation'];
+
 // Activity detail row for grouped entries
 interface ActivityRow {
   id: string; // Temporary ID for React keys
@@ -162,6 +164,10 @@ export default function LinePolishPage() {
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   const [addingBrandFor, setAddingBrandFor] = useState<string | null>(null);
   const [newBrandText, setNewBrandText] = useState('');
+
+  const [availableGrades, setAvailableGrades] = useState<string[]>(DEFAULT_GRADES);
+  const [showAddGrade, setShowAddGrade] = useState(false);
+  const [newGradeName, setNewGradeName] = useState('');
 
   // ── Retroactive tool-change modal state ──
   const [toolModalReport, setToolModalReport] = useState<LinePolishReport | null>(null);
@@ -253,6 +259,7 @@ export default function LinePolishPage() {
     fetchReports();
     fetchPayments();
     fetchToolUsages();
+    fetchGrades();
   }, []);
 
   useEffect(() => {
@@ -262,6 +269,40 @@ export default function LinePolishPage() {
   }, [selectedMonth]);
 
   // Auto-calculation is now handled in calculateShiftTotals function
+
+  const fetchGrades = async () => {
+    try {
+      const res = await fetch('/api/slab-grades');
+      if (res.ok) {
+        const custom: string[] = await res.json();
+        setAvailableGrades(prev => {
+          const merged = [...prev];
+          custom.forEach(g => { if (!merged.includes(g)) merged.push(g); });
+          return merged;
+        });
+      }
+    } catch { /* keep defaults */ }
+  };
+
+  const handleAddGrade = async () => {
+    const name = newGradeName.trim();
+    if (!name) return;
+    if (availableGrades.includes(name)) {
+      setNewGradeName('');
+      setShowAddGrade(false);
+      return;
+    }
+    const res = await fetch('/api/slab-grades', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (res.ok || res.status === 409) {
+      setAvailableGrades(prev => prev.includes(name) ? prev : [...prev, name]);
+    }
+    setNewGradeName('');
+    setShowAddGrade(false);
+  };
 
   const fetchReports = async () => {
     try {
@@ -2053,18 +2094,26 @@ export default function LinePolishPage() {
                                   />
                                 </td>
                                 <td className="px-2 py-1">
-                                  <select
-                                    value={row.grade || ''}
-                                    onChange={(e) => handleActivityRowChange('morning', row.id, 'grade', e.target.value)}
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                                  >
-                                    <option value="">-- Select Grade --</option>
-                                    <option value="Blackline">Blackline</option>
-                                    <option value="White line">White line</option>
-                                    <option value="Fresh">Fresh</option>
-                                    <option value="Patch">Patch</option>
-                                    <option value="Variation">Variation</option>
-                                  </select>
+                                  <div className="flex items-center gap-1">
+                                    <select
+                                      value={row.grade || ''}
+                                      onChange={(e) => handleActivityRowChange('morning', row.id, 'grade', e.target.value)}
+                                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                                    >
+                                      <option value="">-- Select Grade --</option>
+                                      {availableGrades.map(g => (
+                                        <option key={g} value={g}>{g}</option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowAddGrade(true)}
+                                      className="text-green-600 hover:text-green-800 flex-shrink-0"
+                                      title="Add new grade"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </td>
                                 <td className="px-2 py-1 text-center">
                                   <div className="flex items-center justify-center gap-1">
@@ -2259,18 +2308,26 @@ export default function LinePolishPage() {
                                   />
                                 </td>
                                 <td className="px-2 py-1">
-                                  <select
-                                    value={row.grade || ''}
-                                    onChange={(e) => handleActivityRowChange('evening', row.id, 'grade', e.target.value)}
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                                  >
-                                    <option value="">-- Select Grade --</option>
-                                    <option value="Blackline">Blackline</option>
-                                    <option value="White line">White line</option>
-                                    <option value="Fresh">Fresh</option>
-                                    <option value="Patch">Patch</option>
-                                    <option value="Variation">Variation</option>
-                                  </select>
+                                  <div className="flex items-center gap-1">
+                                    <select
+                                      value={row.grade || ''}
+                                      onChange={(e) => handleActivityRowChange('evening', row.id, 'grade', e.target.value)}
+                                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs h-7 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    >
+                                      <option value="">-- Select Grade --</option>
+                                      {availableGrades.map(g => (
+                                        <option key={g} value={g}>{g}</option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowAddGrade(true)}
+                                      className="text-green-600 hover:text-green-800 flex-shrink-0"
+                                      title="Add new grade"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </td>
                                 <td className="px-2 py-1 text-center">
                                   <div className="flex items-center justify-center gap-1">
@@ -3397,6 +3454,44 @@ export default function LinePolishPage() {
                 className="px-5 py-2 text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white rounded-lg disabled:opacity-50"
               >
                 {toolModalSaving ? 'Saving…' : 'Save Tool Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Grade Modal */}
+      {showAddGrade && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-80">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Add New Grade</h3>
+            <input
+              autoFocus
+              type="text"
+              value={newGradeName}
+              onChange={e => setNewGradeName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleAddGrade();
+                if (e.key === 'Escape') { setShowAddGrade(false); setNewGradeName(''); }
+              }}
+              placeholder="e.g. Premium, Export..."
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 mb-4"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => { setShowAddGrade(false); setNewGradeName(''); }}
+                className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddGrade}
+                disabled={!newGradeName.trim()}
+                className="px-3 py-1.5 text-sm text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Grade
               </button>
             </div>
           </div>

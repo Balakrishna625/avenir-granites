@@ -91,6 +91,7 @@ export default function Page() {
   const [excludeOnlyBill, setExcludeOnlyBill] = useState(false);
   const [consignmentDateFrom, setConsignmentDateFrom] = useState("");
   const [consignmentDateTo, setConsignmentDateTo] = useState("");
+  const [allCustomersTotalReceivables, setAllCustomersTotalReceivables] = useState<number | null>(null);
   const { showToast } = useToast();
 
   const handleUnlockToggle = () => {
@@ -175,6 +176,27 @@ export default function Page() {
       setWaivedTransactions([]);
     }
   }, [customerId, dateFrom, dateTo, showAllHistory, selectedYear, selectedMonth]);
+
+  // For "All Customers" view, fetch per-customer summaries to get accurate receivables
+  // (each customer floored at 0 so overpayments don't cancel out other receivables)
+  useEffect(() => {
+    if (customerId !== "all") {
+      setAllCustomersTotalReceivables(null);
+      return;
+    }
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    fetch(`/api/customers/summary?${params.toString()}`)
+      .then(r => r.json())
+      .then((summaries: any[]) => {
+        if (Array.isArray(summaries)) {
+          const total = summaries.reduce((sum, c) => sum + Math.max(0, c.totalReceivables || 0), 0);
+          setAllCustomersTotalReceivables(total);
+        }
+      })
+      .catch(() => setAllCustomersTotalReceivables(null));
+  }, [customerId, dateFrom, dateTo, selectedYear, selectedMonth]);
 
   // Check if current customer has any Galaxy-related consignments
   const hasGalaxyConsignments = useMemo(() => {
@@ -379,7 +401,7 @@ export default function Page() {
         { Metric: "Pending RTGS", Value: Math.max(0, kpi.expectedRTGS - kpi.receivedRTGS) },
         { Metric: "Pending Cash", Value: Math.max(0, kpi.expectedCASH - kpi.receivedCASH) },
         { Metric: "Total Pending", Value: kpi.expectedTotal - kpi.receivedTotal },
-        { Metric: "Total Receivables", Value: kpi.totalReceivables },
+        { Metric: "Total Receivables", Value: displayedTotalReceivables },
       ];
 
       // Customer-wise Summary
@@ -853,6 +875,11 @@ export default function Page() {
     }
   }
 
+  // For "All Customers": use per-customer summed receivables (overpayments don't reduce others' dues)
+  const displayedTotalReceivables = customerId === "all" && allCustomersTotalReceivables !== null
+    ? allCustomersTotalReceivables
+    : kpi.totalReceivables;
+
   return (
     <DashboardLayout>
       <div className="min-h-screen w-full bg-gray-50 p-4 sm:p-6 space-y-6">
@@ -1043,22 +1070,22 @@ export default function Page() {
           )}
         </div>
         {/* Show Total Receivables/Advance based on value */}
-        {(kpi.oldDueAmount > 0 || kpi.totalReceivables < 0) && (
+        {(kpi.oldDueAmount > 0 || displayedTotalReceivables < 0 || (customerId === "all" && allCustomersTotalReceivables !== null && allCustomersTotalReceivables > 0)) && (
           <div className="bg-white rounded-xl p-3 md:p-4 border shadow-sm min-w-0 overflow-hidden">
             <div className={`text-[10px] md:text-xs uppercase tracking-wide truncate ${
-              kpi.totalReceivables >= 0 ? 'text-red-600' : 'text-green-600'
+              displayedTotalReceivables >= 0 ? 'text-red-600' : 'text-green-600'
             }`}>
-              {kpi.totalReceivables >= 0 ? 'Total Receivables' : 'Total Advance'}
+              {displayedTotalReceivables >= 0 ? 'Total Receivables' : 'Total Advance'}
             </div>
             <div className={`text-sm md:text-base lg:text-lg xl:text-xl font-bold whitespace-nowrap overflow-hidden text-ellipsis ${
-              kpi.totalReceivables >= 0 ? 'text-red-600' : 'text-green-600'
+              displayedTotalReceivables >= 0 ? 'text-red-600' : 'text-green-600'
             }`}>
-              {fmt(Math.abs(kpi.totalReceivables))}
+              {fmt(Math.abs(displayedTotalReceivables))}
             </div>
             <div className={`text-[10px] md:text-xs mt-1 truncate ${
-              kpi.totalReceivables >= 0 ? 'text-red-500' : 'text-green-500'
+              displayedTotalReceivables >= 0 ? 'text-red-500' : 'text-green-500'
             }`}>
-              {kpi.totalReceivables >= 0 ? 'Including Previous Due' : 'Overpayment Credit'}
+              {displayedTotalReceivables >= 0 ? 'Including Previous Due' : 'Overpayment Credit'}
             </div>
           </div>
         )}
