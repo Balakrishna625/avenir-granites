@@ -237,51 +237,90 @@ export function CustomerAnalytics({ dateFrom, dateTo }: CustomerAnalyticsProps) 
           Total Receivables by Customer
         </h3>
         <div className="space-y-4">
-          {filteredCustomers
-            .filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) >= 1)
-            .sort((a, b) => {
-              const aReceivables = a.totalReceivables !== undefined ? a.totalReceivables : a.totalPending;
-              const bReceivables = b.totalReceivables !== undefined ? b.totalReceivables : b.totalPending;
-              return bReceivables - aReceivables;
-            })
-            .map((customer) => {
+          {(() => {
+            const SAI_KRUPA_NAMES = ["SAI KRUPA MARBLES", "Yelhanka- Sai Krupa"];
+
+            const filtered = filteredCustomers
+              .filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) >= 1)
+              .sort((a, b) => {
+                const aReceivables = a.totalReceivables !== undefined ? a.totalReceivables : a.totalPending;
+                const bReceivables = b.totalReceivables !== undefined ? b.totalReceivables : b.totalPending;
+                return bReceivables - aReceivables;
+              });
+
+            const maxReceivables = Math.max(...filteredCustomers.map(c =>
+              c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending
+            ));
+
+            const saiKrupaCustomers = filteredCustomers.filter(c => SAI_KRUPA_NAMES.includes(c.name));
+            const saiKrupaCombined = saiKrupaCustomers.reduce((sum, c) =>
+              sum + (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending), 0
+            );
+
+            let lastSaiKrupaIdx = -1;
+            filtered.forEach((c, i) => {
+              if (SAI_KRUPA_NAMES.includes(c.name)) lastSaiKrupaIdx = i;
+            });
+
+            if (filtered.length === 0) {
+              return <p className="text-center text-gray-500 py-8">No outstanding receivables</p>;
+            }
+
+            return filtered.map((customer, idx) => {
               const receivablesAmount = customer.totalReceivables !== undefined ? customer.totalReceivables : customer.totalPending;
-              const maxReceivables = Math.max(...filteredCustomers.map(c => 
-                c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending
-              ));
               const barWidth = maxReceivables > 0 ? (receivablesAmount / maxReceivables) * 100 : 0;
-              
-              // Determine color based on amount ranges
-              let barColor = 'bg-gradient-to-r from-green-400 to-green-500'; // Low
+
+              let barColor = 'bg-gradient-to-r from-green-400 to-green-500';
               if (receivablesAmount > maxReceivables * 0.6) {
-                barColor = 'bg-gradient-to-r from-red-400 to-red-500'; // High
+                barColor = 'bg-gradient-to-r from-red-400 to-red-500';
               } else if (receivablesAmount > maxReceivables * 0.3) {
-                barColor = 'bg-gradient-to-r from-orange-400 to-orange-500'; // Medium
+                barColor = 'bg-gradient-to-r from-orange-400 to-orange-500';
               }
-              
-              return (
-                <div key={customer.id} className="space-y-2">
+
+              const consolidatedRow = idx === lastSaiKrupaIdx && saiKrupaCustomers.length === 2 && saiKrupaCombined > 0 ? (
+                <div key="sai-krupa-consolidated" className="space-y-1.5 ml-3 pl-3 border-l-2 border-blue-300 bg-blue-50/60 rounded-r-lg py-2 pr-2 mt-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900 truncate flex-1 mr-4">{maskName(customer.name)}</span>
-                    <span className="text-gray-700 font-semibold text-sm whitespace-nowrap">
-                      {fmt(receivablesAmount)}
+                    <div className="flex items-center gap-2 flex-1 mr-4">
+                      <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full whitespace-nowrap">Combined</span>
+                      <span className="font-medium text-blue-800 truncate text-sm">Sai Krupa (All Outlets)</span>
+                    </div>
+                    <span className="text-blue-700 font-semibold text-sm whitespace-nowrap">
+                      {fmt(saiKrupaCombined)}
                     </span>
                   </div>
-                  <div className="relative">
-                    <div className="w-full bg-gray-100 rounded-lg h-3 shadow-inner">
-                      <div 
-                        className={`${barColor} h-3 rounded-lg transition-all duration-500 ease-out shadow-sm`}
-                        style={{ width: `${barWidth}%` }}
-                      ></div>
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-lg"></div>
+                  <div className="w-full bg-blue-100 rounded-lg h-2 shadow-inner">
+                    <div
+                      className="bg-gradient-to-r from-blue-400 to-blue-500 h-2 rounded-lg transition-all duration-500 ease-out shadow-sm"
+                      style={{ width: `${maxReceivables > 0 ? (saiKrupaCombined / maxReceivables) * 100 : 0}%` }}
+                    ></div>
                   </div>
                 </div>
+              ) : null;
+
+              return (
+                <React.Fragment key={customer.id}>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-gray-900 truncate flex-1 mr-4">{maskName(customer.name)}</span>
+                      <span className="text-gray-700 font-semibold text-sm whitespace-nowrap">
+                        {fmt(receivablesAmount)}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <div className="w-full bg-gray-100 rounded-lg h-3 shadow-inner">
+                        <div
+                          className={`${barColor} h-3 rounded-lg transition-all duration-500 ease-out shadow-sm`}
+                          style={{ width: `${barWidth}%` }}
+                        ></div>
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-lg"></div>
+                    </div>
+                  </div>
+                  {consolidatedRow}
+                </React.Fragment>
               );
-            })}
-          {filteredCustomers.filter(c => (c.totalReceivables !== undefined ? c.totalReceivables : c.totalPending) >= 1).length === 0 && (
-            <p className="text-center text-gray-500 py-8">No outstanding receivables</p>
-          )}
+            });
+          })()}
         </div>
       </Card>
 
