@@ -28,19 +28,38 @@ interface TransactionsTableProps {
   onEditTransaction: (id: string, data: Partial<Transaction>) => void;
   onDeleteTransaction: (id: string) => void;
   showSubmissionSuccess?: boolean;
+  rtgsFromDate?: string;
+  rtgsToDate?: string;
+  cashFromDate?: string;
+  cashToDate?: string;
+  onRtgsFromDateChange?: (v: string) => void;
+  onRtgsToDateChange?: (v: string) => void;
+  onCashFromDateChange?: (v: string) => void;
+  onCashToDateChange?: (v: string) => void;
 }
 
-export function TransactionsTable({ transactions, accounts, customers, onAddTransaction, onEditTransaction, onDeleteTransaction, showSubmissionSuccess }: TransactionsTableProps) {
+export function TransactionsTable({ transactions, accounts, customers, onAddTransaction, onEditTransaction, onDeleteTransaction, showSubmissionSuccess, rtgsFromDate: rtgsFromDateProp, rtgsToDate: rtgsToDateProp, cashFromDate: cashFromDateProp, cashToDate: cashToDateProp, onRtgsFromDateChange, onRtgsToDateChange, onCashFromDateChange, onCashToDateChange }: TransactionsTableProps) {
   const { maskName } = useMasking();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<Transaction>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rtgsSortOrder, setRtgsSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
   const [cashSortOrder, setCashSortOrder] = useState<'asc' | 'desc'>('asc'); // Default: ascending (oldest first)
-  const [rtgsFromDate, setRtgsFromDate] = useState<string>('');
-  const [rtgsToDate, setRtgsToDate] = useState<string>('');
-  const [cashFromDate, setCashFromDate] = useState<string>('');
-  const [cashToDate, setCashToDate] = useState<string>('');
+  const [rtgsFromDateLocal, setRtgsFromDateLocal] = useState<string>('');
+  const [rtgsToDateLocal, setRtgsToDateLocal] = useState<string>('');
+  const [cashFromDateLocal, setCashFromDateLocal] = useState<string>('');
+  const [cashToDateLocal, setCashToDateLocal] = useState<string>('');
+
+  const controlled = onRtgsFromDateChange !== undefined;
+  const rtgsFromDate = controlled ? (rtgsFromDateProp ?? '') : rtgsFromDateLocal;
+  const rtgsToDate = controlled ? (rtgsToDateProp ?? '') : rtgsToDateLocal;
+  const cashFromDate = controlled ? (cashFromDateProp ?? '') : cashFromDateLocal;
+  const cashToDate = controlled ? (cashToDateProp ?? '') : cashToDateLocal;
+
+  const setRtgsFromDate = (v: string) => controlled ? onRtgsFromDateChange!(v) : setRtgsFromDateLocal(v);
+  const setRtgsToDate = (v: string) => controlled ? onRtgsToDateChange!(v) : setRtgsToDateLocal(v);
+  const setCashFromDate = (v: string) => controlled ? onCashFromDateChange!(v) : setCashFromDateLocal(v);
+  const setCashToDate = (v: string) => controlled ? onCashToDateChange!(v) : setCashToDateLocal(v);
   const formRef = useRef<HTMLFormElement>(null);
   const [amountInput, setAmountInput] = useState<string>(''); // For formatted display
   const amountInputRef = useRef<HTMLInputElement>(null); // Hidden input for form submission

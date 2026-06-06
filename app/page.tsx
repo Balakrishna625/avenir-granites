@@ -91,6 +91,10 @@ export default function Page() {
   const [excludeOnlyBill, setExcludeOnlyBill] = useState(false);
   const [consignmentDateFrom, setConsignmentDateFrom] = useState("");
   const [consignmentDateTo, setConsignmentDateTo] = useState("");
+  const [rtgsFromDate, setRtgsFromDate] = useState("");
+  const [rtgsToDate, setRtgsToDate] = useState("");
+  const [cashFromDate, setCashFromDate] = useState("");
+  const [cashToDate, setCashToDate] = useState("");
   const [allCustomersTotalReceivables, setAllCustomersTotalReceivables] = useState<number | null>(null);
   const { showToast } = useToast();
 
@@ -298,35 +302,45 @@ export default function Page() {
     };
   }, [filteredConsignments, filteredTransactions, customers, customerId, waivedTransactions, excludeGalaxy]);
 
-  // Calculate account-wise totals
+  // Calculate account-wise totals — respects both consignment date filters and the
+  // per-mode date filters set inside TransactionsTable.
   const accountSummary = useMemo(() => {
     const accountTotals = new Map();
-    
+
     filteredTransactions.forEach(txn => {
+      // Apply the same per-mode date filters the table uses
+      if (txn.mode === 'RTGS') {
+        if (rtgsFromDate && txn.date < rtgsFromDate) return;
+        if (rtgsToDate && txn.date > rtgsToDate) return;
+      } else if (txn.mode === 'CASH') {
+        if (cashFromDate && txn.date < cashFromDate) return;
+        if (cashToDate && txn.date > cashToDate) return;
+      }
+
       const account = accounts.find(a => a.id === txn.account_id);
       const accountName = account?.name || 'Unknown Account';
-      
+
       if (!accountTotals.has(accountName)) {
         accountTotals.set(accountName, { total: 0, rtgs: 0, cash: 0 });
       }
-      
+
       const current = accountTotals.get(accountName);
       current.total += txn.amount || 0;
-      
+
       if (txn.mode === 'RTGS') {
         current.rtgs += txn.amount || 0;
       } else if (txn.mode === 'CASH') {
         current.cash += txn.amount || 0;
       }
     });
-    
+
     return Array.from(accountTotals.entries()).map(([name, data]) => ({
       name,
       total: data.total,
       rtgs: data.rtgs,
       cash: data.cash
-    })).sort((a, b) => b.total - a.total); // Sort by total amount descending
-  }, [filteredTransactions, accounts]);
+    })).sort((a, b) => b.total - a.total);
+  }, [filteredTransactions, accounts, rtgsFromDate, rtgsToDate, cashFromDate, cashToDate]);
 
   const currentCustomerName =
     customerId === "all" ? "All Customers" : (customers.find((c) => c.id === customerId)?.name || "");
@@ -1393,7 +1407,7 @@ export default function Page() {
           />
 
           {/* Transactions Table */}
-          <TransactionsTable 
+          <TransactionsTable
             transactions={filteredTransactions}
             accounts={accounts}
             customers={customers}
@@ -1401,6 +1415,14 @@ export default function Page() {
             onEditTransaction={editTransaction}
             onDeleteTransaction={deleteTransaction}
             showSubmissionSuccess={transactionSubmitted}
+            rtgsFromDate={rtgsFromDate}
+            rtgsToDate={rtgsToDate}
+            cashFromDate={cashFromDate}
+            cashToDate={cashToDate}
+            onRtgsFromDateChange={setRtgsFromDate}
+            onRtgsToDateChange={setRtgsToDate}
+            onCashFromDateChange={setCashFromDate}
+            onCashToDateChange={setCashToDate}
           />
 
           {/* Account-wise Summary */}
